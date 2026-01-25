@@ -1,0 +1,36 @@
+{
+  "name": "@repo/orquestrator",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "node dist/index.js",
+    "dev": "sst shell --stage dev -- tsx watch src/index.ts",
+    "dev:local": "tsx watch src/index.ts",
+    "build": "tsc",
+    "test": "sst shell --stage dev -- vitest",
+    "lint": "eslint . --fix",
+    "docker:build": "sst shell --stage dev --print-logs -- $(which docker-compose) build",
+    "docker:up": "$(which docker-compose) up",
+    "docker:down": "$(which docker-compose) down",
+    "docker:logs": "$(which docker-compose) logs -f orchestrator"
+  },
+  "dependencies": {
+    "@repo/bot-config": "workspace:*",
+    "@repo/events": "workspace:*",
+    "@repo/kucoin": "workspace:*",
+    "kucoin-universal-sdk": "^1.3.0",
+    "dotenv": "^16.4.5",
+    "zod": "latest",
+    "express": "^4.18.2",
+    "@aws-sdk/client-eventbridge": "^3.918.0",
+    "@aws-sdk/client-dynamodb": "^3.918.0",
+    "@aws-sdk/lib-dynamodb": "^3.918.0"
+  },
+  "devDependencies": {
+    "@repo/eslint-config": "workspace:*",
+    "@repo/typescript-config": "workspace:*",
+    "tsx": "^4.20.6",
+    "@types/node": "latest"
+  }
+}

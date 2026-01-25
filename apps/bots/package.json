@@ -1,0 +1,31 @@
+{
+  "name": "@repo/bots",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "types": "./api/index.ts",
+  "exports": {
+    "./api": "./api/index.ts"
+  },
+  "scripts": {
+    "dev": "echo 'Add dev script here'",
+    "build": "echo 'Add build script here'",
+    "test": "vitest dev",
+    "lint": "eslint ."
+  },
+  "dependencies": {
+    "@repo/events": "workspace:*",
+    "@repo/kucoin": "workspace:*",
+    "@repo/bot-config": "workspace:*",
+    "zod": "latest",
+    "bignumber.js": "^9.3.1",
+    "@aws-sdk/client-eventbridge": "^3.918.0",
+    "@aws-sdk/client-dynamodb": "^3.918.0",
+    "@aws-sdk/lib-dynamodb": "^3.918.0",
+    "hono": "^4.10.3"
+  },
+  "devDependencies": {
+    "@repo/eslint-config": "workspace:*",
+    "@repo/typescript-config": "workspace:*"
+  }
+}

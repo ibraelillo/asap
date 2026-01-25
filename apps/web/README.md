@@ -1,36 +1,40 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/create-next-app).
+# Vite + RSC
 
-## Getting Started
+This example shows how to setup a React application with [Server Component](https://react.dev/reference/rsc/server-components) features on Vite using [`@vitejs/plugin-rsc`](https://github.com/vitejs/vite-plugin-react/tree/main/packages/plugin-rsc).
 
-First, run the development server:
+[![Open in StackBlitz](https://developer.stackblitz.com/img/open_in_stackblitz.svg)](https://stackblitz.com/github/vitejs/vite-plugin-react/tree/main/packages/plugin-rsc/examples/starter)
 
-```bash
+```sh
+# run dev server
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+
+# build for production and preview
+npm run build
+npm run preview
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## API usages
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+See [`@vitejs/plugin-rsc`](https://github.com/vitejs/vite-plugin-react/tree/main/packages/plugin-rsc) for the documentation.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load Inter, a custom Google Font.
+- [`vite.config.ts`](./vite.config.ts)
+  - `@higoawa/vite-rsc/plugin`
+- [`./src/framework/entry.rsc.tsx`](./src/framework/entry.rsc.tsx)
+  - `@vitejs/plugin-rsc/rsc`
+  - `import.meta.viteRsc.loadModule`
+- [`./src/framework/entry.ssr.tsx`](./src/framework/entry.ssr.tsx)
+  - `@vitejs/plugin-rsc/ssr`
+  - `import.meta.viteRsc.loadBootstrapScriptContent`
+  - `rsc-html-stream/server`
+- [`./src/framework/entry.browser.tsx`](./src/framework/entry.browser.tsx)
+  - `@vitejs/plugin-rsc/browser`
+  - `rsc-html-stream/client`
 
-## Learn More
+## Notes
 
-To learn more about Next.js, take a look at the following resources:
+- [`./src/framework/entry.{browser,rsc,ssr}.tsx`](./src/framework) (with inline comments) provides an overview of how low level RSC (React flight) API can be used to build RSC framework.
+- You can use [`vite-plugin-inspect`](https://github.com/antfu-collective/vite-plugin-inspect) to understand how `"use client"` and `"use server"` directives are transformed internally.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Deployment
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+See [vite-plugin-rsc-deploy-example](https://github.com/hi-ogawa/vite-plugin-rsc-deploy-example)

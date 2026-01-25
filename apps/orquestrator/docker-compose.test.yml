@@ -1,0 +1,17 @@
+version: '3.8'
+
+services:
+  orchestrator:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    environment:
+      - KUCOIN_API_KEY=${KUCOIN_API_KEY}
+      - KUCOIN_API_SECRET=${KUCOIN_API_SECRET}
+      - KUCOIN_PASSPHRASE=${KUCOIN_PASSPHRASE}
+      - DYNAMODB_TABLE_NAME=${DYNAMODB_TABLE_NAME}
+      - EVENTBRIDGE_BUS_NAME=${EVENTBRIDGE_BUS_NAME}
+      - AWS_REGION=${AWS_REGION}
+      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
+      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
+    restart: unless-stopped

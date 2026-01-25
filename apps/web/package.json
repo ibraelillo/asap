@@ -1,28 +1,36 @@
 {
-  "name": "web",
-  "version": "0.1.0",
-  "type": "module",
+  "name": "@repo/front",
+  "version": "0.0.0",
   "private": true,
+  "license": "MIT",
+  "type": "module",
   "scripts": {
-    "dev": "next dev --port 3000",
-    "build": "next build",
-    "start": "next start",
-    "lint": "eslint --max-warnings 0",
-    "check-types": "next typegen && tsc --noEmit"
+    "dev": "sst dev --  vite",
+    "build": "vite build",
+    "preview": "vite preview"
   },
   "dependencies": {
-    "@repo/ui": "workspace:*",
-    "next": "^16.0.0",
+    "swr": "^2.3.6",
+    "hono": "^4.10.3",
     "react": "^19.2.0",
-    "react-dom": "^19.1.0"
+    "react-dom": "^19.2.0",
+    "@repo/bot-config": "workspace:*",
+    "lucide-react": "^0.468.0",
+    "clsx": "^2.1.1",
+    "tailwind-merge": "^2.5.4",
+    "react-hook-form": "^7.65.0",
+    "@hookform/resolvers": "^5.2.2",
+    "zod": "^4.1.12"
   },
   "devDependencies": {
-    "@repo/eslint-config": "workspace:*",
-    "@repo/typescript-config": "workspace:*",
-    "@types/node": "^22.15.3",
-    "@types/react": "19.1.0",
-    "@types/react-dom": "19.1.1",
-    "eslint": "^9.38.0",
-    "typescript": "5.9.2"
+    "@repo/bots": "workspace:*",
+    "@repo/bot-config": "workspace:*",
+    "@types/react": "^19.2.2",
+    "@types/react-dom": "^19.2.2",
+    "@vitejs/plugin-react": "latest",
+    "vite": "^7.1.10",
+    "tailwindcss": "^3.4.17",
+    "autoprefixer": "^10.4.20",
+    "postcss": "^8.5.1"
   }
 }
