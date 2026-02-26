@@ -1,0 +1,20 @@
+{
+  "version": 1,
+  "skills": {
+    "trading-plan-generator": {
+      "source": "jamesrochabrun/skills",
+      "sourceType": "github",
+      "computedHash": "dce77a97402fb1db49ee38abe8e355a2c1705eba81854dde85c9f893c9819278"
+    },
+    "trading-strategies": {
+      "source": "agentmc15/polymarket-trader",
+      "sourceType": "github",
+      "computedHash": "229cd6130f41b9e6fe8085870cd1512cb3dc968893735ef1cfbdd01864659381"
+    },
+    "trading-wisdom": {
+      "source": "0xhubed/agent-trading-arena",
+      "sourceType": "github",
+      "computedHash": "53000a6ecfc121c3139aedcad776fbcc0c4a392fe27b18d6e3de6196bb1176df"
+    }
+  }
+}

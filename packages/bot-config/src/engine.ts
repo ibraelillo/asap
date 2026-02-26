@@ -7,6 +7,32 @@ export class BotEngine {
     private repo: Repo;
 
     private bots = new Map<string, Bot>();
+    private readonly enginePrefix = "[ENGINE]";
+    private readonly now = () => new Date().toISOString();
+    private log(event: string, details?: Record<string, unknown>) {
+        if (details) {
+            console.log(`${this.now()} ${this.enginePrefix} ${event}`, details);
+            return;
+        }
+
+        console.log(`${this.now()} ${this.enginePrefix} ${event}`);
+    }
+    private warn(event: string, details?: Record<string, unknown>) {
+        if (details) {
+            console.warn(`${this.now()} ${this.enginePrefix} ${event}`, details);
+            return;
+        }
+
+        console.warn(`${this.now()} ${this.enginePrefix} ${event}`);
+    }
+    private err(event: string, error: unknown, details?: Record<string, unknown>) {
+        if (details) {
+            console.error(`${this.now()} ${this.enginePrefix} ${event}`, details, error);
+            return;
+        }
+
+        console.error(`${this.now()} ${this.enginePrefix} ${event}`, error);
+    }
 
     /**
      * Creates an instance of the class with the specified parameters.
@@ -34,20 +60,22 @@ export class BotEngine {
         const bot = createBot(symbol, side, this.service)
 
         this.bots.set(botId, bot);
+        this.log("Bot registered", { botId, totalBots: this.bots.size });
     }
 
     async start() {
-        const bots = this.bots.entries()
+        this.log("Starting engine", { bots: this.bots.size });
 
         for await (const key of this.bots.keys()) {
             try {
                 await this.bots.get(key).start()
-
-                console.info('key', 'ok')
+                this.log("Bot started", { botId: key });
             }catch(e) {
-
+                this.err("Bot failed to start", e, { botId: key });
             }
         }
+
+        this.log("Engine start completed");
     }
 
     /**
@@ -75,7 +103,19 @@ export class BotEngine {
         const bot = this.getBot(position.symbol, position.positionSide);
 
         if (bot) {
+            this.log("Routing position change", {
+                symbol: position.symbol,
+                side: position.positionSide,
+                qty: Number(position.currentQty ?? 0),
+                avgEntry: Number(position.avgEntryPrice ?? 0),
+                isOpen: Boolean(position.isOpen),
+            });
             await bot.positionChanged(position);
+        } else {
+            this.warn("Position change dropped because bot was not found", {
+                symbol: position.symbol,
+                side: position.positionSide,
+            });
         }
     }
 
@@ -91,7 +131,17 @@ export class BotEngine {
         const bot = this.getBot(position.symbol, position.positionSide);
 
         if (bot) {
+            this.log("Routing position close", {
+                symbol: position.symbol,
+                side: position.positionSide,
+                realisedPnl: Number(position.realisedPnl ?? 0),
+            });
             await bot?.positionClosed(position);
+        } else {
+            this.warn("Position close dropped because bot was not found", {
+                symbol: position.symbol,
+                side: position.positionSide,
+            });
         }
     }
 }

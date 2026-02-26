@@ -15,7 +15,7 @@ const cfgMgr = new DcaConfigManager();
  */
 export const createBot = (
     symbol: string,
-    side: Position["positionSide"],
+    side: "LONG" | "SHORT",
     service: KucoinService
 ) => {
 
@@ -28,6 +28,73 @@ export const createBot = (
     let lastAvgEntry = 0;
     let lastSize = 0;
     let activeDcaOrderId: string | null = null;
+
+    const botPrefix = `[BOT ${symbol} ${side}]`;
+    const now = () => new Date().toISOString();
+    const state = () => ({
+        dcaCount,
+        queueLeft: dcaQueue.length,
+        activeDcaOrderId,
+        tpOrderId: orders.get("tp") ?? null,
+        lastSize,
+        lastAvgEntry,
+    });
+    const log = (event: string, details?: Record<string, unknown>) => {
+        if (details) {
+            console.log(`${now()} ${botPrefix} ${event}`, { ...details, ...state() });
+            return;
+        }
+
+        console.log(`${now()} ${botPrefix} ${event}`, state());
+    };
+    const warn = (event: string, details?: Record<string, unknown>) => {
+        if (details) {
+            console.warn(`${now()} ${botPrefix} ${event}`, { ...details, ...state() });
+            return;
+        }
+
+        console.warn(`${now()} ${botPrefix} ${event}`, state());
+    };
+    const err = (event: string, error: unknown, details?: Record<string, unknown>) => {
+        if (details) {
+            console.error(`${now()} ${botPrefix} ${event}`, { ...details, ...state() }, error);
+            return;
+        }
+
+        console.error(`${now()} ${botPrefix} ${event}`, state(), error);
+    };
+
+    const sideLower: "long" | "short" = side === "LONG" ? "long" : "short";
+
+    const isPositionOpen = (pos?: Position | null): pos is Position => {
+        if (!pos || !pos.isOpen) return false;
+
+        const qty = Math.abs(Number(pos.currentQty));
+        const avg = Number(pos.avgEntryPrice);
+
+        return qty > 0 && isFinite(qty) && avg > 0 && isFinite(avg);
+    };
+
+    const awaitOpenPosition = async (pos?: Position): Promise<Position | undefined> => {
+        if (isPositionOpen(pos)) return pos;
+
+        log("Waiting for confirmed open position", {
+            incomingIsOpen: Boolean(pos?.isOpen),
+            incomingQty: Number(pos?.currentQty ?? 0),
+            incomingAvg: Number(pos?.avgEntryPrice ?? 0),
+        });
+
+        const refreshed = await service.positions.waitUntilPositionOpen(
+            symbol,
+            sideLower,
+            5000,
+            6
+        );
+
+        if (isPositionOpen(refreshed)) return refreshed;
+        warn("Position did not confirm as open after retries");
+        return undefined;
+    };
 
 
     const sym = service.market.normalize(symbol)
@@ -53,11 +120,18 @@ export const createBot = (
         const {available: availableBalance } = await service.accounts.balance();
         
         if (availableBalance < marginRequired) {
-            console.log(`${symbol}: Insufficient margin. Need ${marginRequired.toFixed(2)} USDT, have ${availableBalance.toFixed(2)} USDT`);
+            warn("Insufficient margin", {
+                marginRequired: Number(marginRequired.toFixed(2)),
+                availableBalance: Number(availableBalance.toFixed(2)),
+            });
             return false;
         }
         
-        console.log(`${symbol}: Margin OK. Need ${marginRequired.toFixed(2)} USDT, have ${availableBalance.toFixed(2)} USDT`);
+        log("Margin check passed", {
+            marginRequired: Number(marginRequired.toFixed(2)),
+            availableBalance: Number(availableBalance.toFixed(2)),
+            leverage,
+        });
         return true;
     }
 
@@ -84,18 +158,23 @@ export const createBot = (
                 index: i,
             });
         }
-        console.log(`${symbol}: Queue filled with ${dcaQueue.length} orders`);
+        log("DCA queue prepared", {
+            sourceAvg: avg,
+            maxSteps,
+            firstPrice: dcaQueue[0]?.price ?? null,
+            lastPrice: dcaQueue[dcaQueue.length - 1]?.price ?? null,
+        });
     }
 
     const addNextSecurityOrder = async () => {
         if (dcaQueue.length === 0) {
-            console.log(`${symbol}: No more DCA steps left.`);
+            log("No DCA steps left");
             return;
           }
         
           // Don't place a new SO if one is already working
           if (activeDcaOrderId) {
-            console.log(`${symbol}: Security order already active (${activeDcaOrderId}), skipping.`);
+            log("Security order already active, skipping");
             return;
           }
         
@@ -104,9 +183,12 @@ export const createBot = (
             const order = dcaQueue.shift()!;
         
             if (order) {
-              console.log(
-                `${symbol}: SO #${order.index + 1} at ${order.price} for ${order.size} USDT. (${dcaQueue.length} orders left)`
-              );
+              log("Placing security order", {
+                step: order.index + 1,
+                price: Number(order.price),
+                valueQty: Number(order.size),
+                leverage,
+              });
         
               const { orderId } = await service.orders.addOrder({
                 symbol,
@@ -123,9 +205,10 @@ export const createBot = (
               dcaCount++;
               activeDcaOrderId = orderId;
               orders.set(`so_${order.index}`, orderId);
+              log("Security order placed", { orderId, step: order.index + 1 });
             }
           } catch (error) {
-            console.error(`${symbol}: Failed to place SO:`, error);
+            err("Failed to place security order", error);
           } 
         };
 
@@ -149,9 +232,9 @@ export const createBot = (
 
             const {base} = cfgMgr.get(symbol);
 
-            console.log(`${symbol}:  Initial order. ${base} USDT`)
+            log("Placing initial market order", { base, leverage });
 
-            return await service.orders.addOrder({
+            const result = await service.orders.addOrder({
                 symbol: symbol,
                 positionSide: side,
                 valueQty: base.toString(),
@@ -161,8 +244,10 @@ export const createBot = (
                 clientOid: crypto.randomUUID(),
                 marginMode: "CROSS",
             });
+            log("Initial market order placed", { orderId: result.orderId, base });
+            return result;
         } catch (error) {
-            console.error(`${symbol}: Failed to add initial order for ${side} position:`, error, " \n\n");
+            err("Failed to place initial order", error);
             throw error;
         }
     }
@@ -185,17 +270,25 @@ export const createBot = (
             const ordersList = await service.orders.getActiveOrders(symbol);
             const filtered = ordersList.filter((o) => o.positionSide === side);
         
-            console.log(`${symbol}: Clearing pending orders. ${filtered.length} remaining.`);
+            log("Clearing pending orders", { pendingCount: filtered.length });
         
-            filtered.forEach((o) => console.log(o.symbol, o.positionSide));
+            filtered.forEach((o) =>
+                log("Cancel pending order", {
+                    orderId: o.id,
+                    type: o.type,
+                    side: o.side,
+                    price: o.price,
+                    size: o.size,
+                })
+            );
         
             await Promise.allSettled(
               filtered.map(async ({ id }) => {
                 try {
-                  console.log(`${symbol}: Removing order with id: ${id}\n\n`);
                   await service.orders.cancelOrder(id);
+                  log("Pending order cancelled", { orderId: id });
                 } catch (e) {
-                  console.error(`${symbol}: Failed to cancel order ${id}:`, e);
+                  err("Failed to cancel pending order", e, { orderId: id });
                 }
               })
             );
@@ -205,8 +298,9 @@ export const createBot = (
             dcaQueue = [];
             dcaCount = 0;
             orders.clear();
+            log("Pending-order cleanup completed");
         } catch (error) {
-            console.error(`${symbol}: Failed to clear pending orders for ${side} position:`, error);
+            err("Failed to clear pending orders", error);
         }
     }
 
@@ -229,12 +323,16 @@ export const createBot = (
      * Throws errors if any issues occur during the retrieval of symbol configuration, normalization process, or order placement.
      */
     const addTakeProfit = async (pos: Position) => {
-        if (!pos || !pos.isOpen) return undefined;
+        const livePos = await awaitOpenPosition(pos);
+        if (!livePos) {
+            warn("Skipping TP placement because position is not confirmed open");
+            return undefined;
+        }
 
-        const avg = Number(pos.avgEntryPrice);
-        const size = Math.abs(Number(pos.currentQty));
+        const avg = Number(livePos.avgEntryPrice);
+        const size = Math.abs(Number(livePos.currentQty));
 
-        if(lastAvgEntry !== avg) {
+        if(lastAvgEntry !== avg || lastSize !== size) {
 
             try {
                 if (orders.get("tp")) {
@@ -243,9 +341,13 @@ export const createBot = (
                       const { cancelledOrderIds } = await service.orders.cancelOrder(existingId);
                       if (cancelledOrderIds.includes(existingId)) {
                         orders.delete("tp");
+                        log("Previous TP order cancelled", { orderId: existingId });
                       }
                     } catch (e) {
                       // ignore TP cancel errors
+                      warn("Failed to cancel previous TP; continuing with replacement", {
+                        orderId: orders.get("tp") ?? null,
+                      });
                     }
                 }
 
@@ -253,11 +355,11 @@ export const createBot = (
                 const { tickSize, maxLeverage } = await sym;
 
                 if (!size || !isFinite(size)) {
-                    throw new Error(`Invalid position size: ${pos.currentQty}`);
+                    throw new Error(`Invalid position size: ${livePos.currentQty}`);
                 }
 
-                const comm = Number(pos.currentComm ?? 0.15);
-                const funding = Number(pos.posFunding ?? 0.15);
+                const comm = Number(livePos.currentComm ?? 0.15);
+                const funding = Number(livePos.posFunding ?? 0.15);
 
                 const totalFees = comm + funding; // signed (negative = cost, positive = rebate)
                 const dir = side === "LONG" ? 1 : -1;
@@ -278,7 +380,13 @@ export const createBot = (
 
                 const tpPrice = normalizePrice(rawTp, tickSize);
 
-                console.log(`${symbol}: TP at ${tpPrice} \n\n`);
+                log("Placing take-profit order", {
+                    tpPrice,
+                    breakEven,
+                    qty: size,
+                    avgEntry: avg,
+                    tpPct: cfg.takeProfitPct,
+                });
 
                 const {orderId} = await service.orders.addOrder({
                     symbol: symbol,
@@ -296,9 +404,12 @@ export const createBot = (
                 orders.set('tp', orderId);
                 lastAvgEntry = avg;
                 lastSize = size
+                log("Take-profit order placed", { orderId, tpPrice });
             } catch (error) {
-                console.error(`${symbol}: Failed to add take profit order for ${side} position at entry ${pos.avgEntryPrice}:`, error);
+                err("Failed to place take-profit order", error, { avgEntry: livePos.avgEntryPrice });
             }
+        } else {
+            log("Skipping TP update because avg/size unchanged", { avg, size });
         }
     }
 
@@ -316,14 +427,19 @@ export const createBot = (
      */
     const start = async () => {
         try {
-            console.log(`${symbol}: Starting...`);
+            log("Bot start requested");
             await sym;
         
             const positions = await service.positions.getPosition(symbol);
-            const pos = positions.find((p) => p.positionSide === side);
+            const pos = positions.find(
+                (p) => p.positionSide === side && isPositionOpen(p)
+            );
         
             if (pos) {
-              console.log(`${symbol}: Position found. Open price at: ${pos.avgEntryPrice}`);
+              log("Existing open position found at startup", {
+                  avgEntry: Number(pos.avgEntryPrice),
+                  size: Math.abs(Number(pos.currentQty)),
+              });
         
               lastSize = Math.abs(Number(pos.currentQty));
               //lastAvgEntry = Number(pos.avgEntryPrice);
@@ -334,18 +450,20 @@ export const createBot = (
               await addTakeProfit(pos);
               await addNextSecurityOrder(); // no arg
             } else {
+              log("No open position found at startup");
               if (!(await hasEnoughMargin())) return;
         
               await clearPendingOrders();
               await addInitialOrder();
             }
         } catch (error) {
-            console.error(`${symbol}: Failed to start bot for ${side} position:`, error);
+            err("Bot start failed", error);
             throw error;
         }
     };
 
     const stop = async () => {
+        log("Bot stop requested");
     };
 
     /**
@@ -363,15 +481,22 @@ export const createBot = (
         try {
           const size = Math.abs(Number(pos.currentQty));
           const avg = Number(pos.avgEntryPrice);
+
+          log("Position update received", {
+            incomingQty: size,
+            incomingAvg: avg,
+            isOpen: Boolean(pos.isOpen),
+            reason: pos.changeReason ?? null,
+          });
       
           if (!size || !isFinite(size)) {
-            console.log(`${symbol}: positionChanged with invalid size, skipping`);
+            warn("Position update skipped due to invalid size", { incomingQty: pos.currentQty });
             return;
           }
       
           // First time we see this position
           if (lastSize === 0) {
-            console.log(`${symbol}: positionChanged init: size=${size}, avg=${avg}`);
+            log("Initializing position tracking", { size, avg });
       
             if (dcaQueue.length === 0 && dcaCount === 0) {
               await fillQueue(pos);
@@ -391,9 +516,9 @@ export const createBot = (
             const stillOpen = await isActiveDcaOrderStillOpen();
       
             if (!stillOpen) {
-              console.log(
-                `${symbol}: DCA order ${activeDcaOrderId} no longer active. Assuming filled, placing next.`
-              );
+              log("Active DCA order disappeared from active orders, assuming filled", {
+                orderId: activeDcaOrderId,
+              });
       
               // That SO is now considered consumed
               activeDcaOrderId = null;
@@ -402,16 +527,19 @@ export const createBot = (
               await addNextSecurityOrder(); // place next DCA, if any
             } else {
               // Order still active: this may be just a partial fill or price move.
-              console.log(
-                `${symbol}: DCA order ${activeDcaOrderId} still active. No new SO placed. size=${size}, lastSize=${lastSize}`
-              );
+              log("Active DCA order still open, no new SO", {
+                orderId: activeDcaOrderId,
+                size,
+                lastSize,
+              });
             }
           } else {
             // No active DCA order, but position changed (manual intervention, or restart)
             if (size > lastSize) {
-              console.log(
-                `${symbol}: Position size increased ${lastSize} -> ${size} with no active DCA order. Placing next one.`
-              );
+              log("Position size increased with no active DCA order", {
+                from: lastSize,
+                to: size,
+              });
               await addTakeProfit(pos);
               await addNextSecurityOrder();
             }
@@ -420,11 +548,9 @@ export const createBot = (
           // Always update these at the end
           lastSize = size;
           lastAvgEntry = avg;
+          log("Position tracking updated", { size, avg });
         } catch (error) {
-          console.error(
-            `${symbol}: Failed to handle position change for ${side} at ${pos.avgEntryPrice}:`,
-            error
-          );
+          err("Failed to handle position update", error, { avgEntry: pos.avgEntryPrice });
         }
       };
       
@@ -444,9 +570,13 @@ export const createBot = (
     const positionClosed = async (pos: Position) => {
         
         try {
+            log("Position closed event received", {
+                realisedPnl: Number(pos.realisedPnl ?? 0),
+                closePrice: Number(pos.markPrice ?? 0),
+            });
             // Reset local state
             dcaCount = 0;
-            lastAvgEntry = null;
+            lastAvgEntry = 0;
             lastSize = 0;
             dcaQueue = [];
             activeDcaOrderId = null;
@@ -460,10 +590,7 @@ export const createBot = (
         
             await start();
           } catch (error) {
-            console.error(
-              `${symbol}: Failed to handle position closed for ${side} with PnL ${pos.realisedPnl}:`,
-              error
-            );
+            err("Failed to handle closed position", error, { realisedPnl: pos.realisedPnl });
           }
     };
 
@@ -474,6 +601,3 @@ export const createBot = (
         positionClosed,
     };
 };
-
-
-export type Bot = ReturnType<typeof createBot>

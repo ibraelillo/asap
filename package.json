@@ -1,7 +1,7 @@
 {
   "name": "asap",
   "private": true,
-  "type":  "module",
+  "type": "module",
   "scripts": {
     "build": "turbo run build",
     "check-types": "turbo run check-types",
@@ -12,19 +12,23 @@
   },
   "devDependencies": {
     "@types/aws-lambda": "8.10.156",
+    "@vitest/coverage-v8": "latest",
     "eslint": "^9.0.0",
     "prettier": "^3.6.2",
-    "turbo": "^2.5.8",
+    "turbo": "^2.8.11",
     "typescript": "5.9.2",
-    "vitest": "latest",
-    "@vitest/coverage-v8": "latest"
+    "vitest": "latest"
   },
   "packageManager": "pnpm@9.0.0",
   "engines": {
     "node": ">=18"
   },
   "dependencies": {
-    "sst": "3.17.21",
-    "@repo/events": "workspace:*"
-  }
+    "@repo/events": "workspace:*",
+    "sst": "3.17.21"
+  },
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ]
 }

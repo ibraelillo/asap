@@ -3,7 +3,11 @@
 /* eslint-disable */
 /// <reference types="vite/client" />
 interface ImportMetaEnv {
-  readonly VITE_API_URL: string
+  readonly VITE_RANGING_API_URL: string
+  readonly VITE_RANGING_REALTIME_ENDPOINT: string
+  readonly VITE_RANGING_REALTIME_AUTHORIZER: string
+  readonly VITE_RANGING_REALTIME_TOKEN: string
+  readonly VITE_RANGING_REALTIME_TOPIC_PREFIX: string
 }
 interface ImportMeta {
   readonly env: ImportMetaEnv

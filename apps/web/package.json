@@ -10,16 +10,18 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "swr": "^2.3.6",
+    "@hookform/resolvers": "^5.2.2",
+    "@repo/bot-config": "workspace:*",
+    "clsx": "^2.1.1",
     "hono": "^4.10.3",
+    "lightweight-charts": "^5.1.0",
+    "lucide-react": "^0.468.0",
+    "mqtt": "^5.14.1",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
-    "@repo/bot-config": "workspace:*",
-    "lucide-react": "^0.468.0",
-    "clsx": "^2.1.1",
-    "tailwind-merge": "^2.5.4",
     "react-hook-form": "^7.65.0",
-    "@hookform/resolvers": "^5.2.2",
+    "swr": "^2.3.6",
+    "tailwind-merge": "^2.5.4",
     "zod": "^4.1.12"
   },
   "devDependencies": {

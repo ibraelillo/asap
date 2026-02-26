@@ -1,0 +1,32 @@
+import type { TradePayload } from "../types/trade-results";
+
+const hour = 60 * 60 * 1000;
+const start = Date.UTC(2026, 0, 15, 0, 0, 0, 0);
+
+export const mockTradeResults: TradePayload = {
+  source: "simulation",
+  generatedAt: new Date().toISOString(),
+  initialEquity: 10_000,
+  trades: [
+    { id: "t1", symbol: "BTCUSDTM", side: "long", entryTime: start + hour * 0, exitTime: start + hour * 6, entryPrice: 102_200, exitPrice: 103_050, quantity: 0.12, netPnl: 92, fees: 5.8, exitReason: "tp1" },
+    { id: "t2", symbol: "SOLUSDTM", side: "short", entryTime: start + hour * 7, exitTime: start + hour * 10, entryPrice: 196.2, exitPrice: 192.6, quantity: 26, netPnl: 80, fees: 4.6, exitReason: "tp1" },
+    { id: "t3", symbol: "ETHUSDTM", side: "long", entryTime: start + hour * 10, exitTime: start + hour * 13, entryPrice: 3230, exitPrice: 3198, quantity: 1.3, netPnl: -46, fees: 4.9, exitReason: "stop" },
+    { id: "t4", symbol: "XRPUSDTM", side: "long", entryTime: start + hour * 14, exitTime: start + hour * 19, entryPrice: 0.567, exitPrice: 0.589, quantity: 5300, netPnl: 101, fees: 3.2, exitReason: "tp2" },
+    { id: "t5", symbol: "AVAXUSDTM", side: "short", entryTime: start + hour * 20, exitTime: start + hour * 25, entryPrice: 43.4, exitPrice: 42.2, quantity: 180, netPnl: 73, fees: 4.1, exitReason: "tp1" },
+    { id: "t6", symbol: "ADAUSDTM", side: "long", entryTime: start + hour * 26, exitTime: start + hour * 30, entryPrice: 0.842, exitPrice: 0.831, quantity: 7400, netPnl: -33, fees: 3.4, exitReason: "signal" },
+    { id: "t7", symbol: "LTCUSDTM", side: "long", entryTime: start + hour * 31, exitTime: start + hour * 36, entryPrice: 112.3, exitPrice: 115.7, quantity: 38, netPnl: 94, fees: 4.8, exitReason: "tp2" },
+    { id: "t8", symbol: "FILUSDTM", side: "short", entryTime: start + hour * 37, exitTime: start + hour * 40, entryPrice: 6.51, exitPrice: 6.74, quantity: 980, netPnl: -42, fees: 2.1, exitReason: "stop" },
+    { id: "t9", symbol: "FETUSDTM", side: "long", entryTime: start + hour * 41, exitTime: start + hour * 46, entryPrice: 1.74, exitPrice: 1.88, quantity: 2500, netPnl: 123, fees: 3.9, exitReason: "tp2" },
+    { id: "t10", symbol: "DOTUSDTM", side: "short", entryTime: start + hour * 47, exitTime: start + hour * 53, entryPrice: 7.84, exitPrice: 7.71, quantity: 920, netPnl: 68, fees: 2.7, exitReason: "tp1" },
+    { id: "t11", symbol: "HYPEUSDTM", side: "long", entryTime: start + hour * 54, exitTime: start + hour * 60, entryPrice: 14.9, exitPrice: 14.1, quantity: 510, netPnl: -59, fees: 3.3, exitReason: "stop" },
+    { id: "t12", symbol: "TRUMPUSDTM", side: "short", entryTime: start + hour * 61, exitTime: start + hour * 66, entryPrice: 8.26, exitPrice: 7.79, quantity: 1400, netPnl: 140, fees: 5.2, exitReason: "tp2" },
+    { id: "t13", symbol: "LINKUSDTM", side: "long", entryTime: start + hour * 67, exitTime: start + hour * 72, entryPrice: 22.6, exitPrice: 23.3, quantity: 210, netPnl: 89, fees: 3.8, exitReason: "tp1" },
+    { id: "t14", symbol: "BTCUSDTM", side: "short", entryTime: start + hour * 73, exitTime: start + hour * 77, entryPrice: 104_000, exitPrice: 104_760, quantity: 0.11, netPnl: -71, fees: 5.5, exitReason: "stop" },
+    { id: "t15", symbol: "ETHUSDTM", side: "long", entryTime: start + hour * 78, exitTime: start + hour * 83, entryPrice: 3310, exitPrice: 3368, quantity: 1.1, netPnl: 96, fees: 4.4, exitReason: "tp1" },
+    { id: "t16", symbol: "SOLUSDTM", side: "short", entryTime: start + hour * 84, exitTime: start + hour * 89, entryPrice: 201.4, exitPrice: 197.2, quantity: 23, netPnl: 88, fees: 4.1, exitReason: "tp2" },
+    { id: "t17", symbol: "XRPUSDTM", side: "long", entryTime: start + hour * 90, exitTime: start + hour * 95, entryPrice: 0.592, exitPrice: 0.608, quantity: 5000, netPnl: 75, fees: 3.1, exitReason: "tp1" },
+    { id: "t18", symbol: "AVAXUSDTM", side: "long", entryTime: start + hour * 96, exitTime: start + hour * 102, entryPrice: 44.1, exitPrice: 43.5, quantity: 170, netPnl: -37, fees: 3.7, exitReason: "signal" },
+    { id: "t19", symbol: "BCHUSDTM", side: "short", entryTime: start + hour * 103, exitTime: start + hour * 108, entryPrice: 532, exitPrice: 518, quantity: 8.5, netPnl: 102, fees: 4.0, exitReason: "tp2" },
+    { id: "t20", symbol: "DOTUSDTM", side: "long", entryTime: start + hour * 109, exitTime: start + hour * 114, entryPrice: 7.78, exitPrice: 7.93, quantity: 890, netPnl: 84, fees: 2.9, exitReason: "tp1" },
+  ],
+};

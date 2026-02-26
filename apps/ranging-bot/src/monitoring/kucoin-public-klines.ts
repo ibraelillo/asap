@@ -1,0 +1,134 @@
+import type { Candle } from "@repo/ranging-core";
+import type { OrchestratorTimeframe } from "../contracts";
+
+type KucoinKlineRow = Array<string | number>;
+
+interface KucoinKlineResponse {
+  code: string;
+  data?: KucoinKlineRow[];
+  msg?: string;
+}
+
+const granularityByTimeframe: Record<OrchestratorTimeframe, number> = {
+  "1m": 1,
+  "3m": 3,
+  "5m": 5,
+  "15m": 15,
+  "30m": 30,
+  "1h": 60,
+  "2h": 120,
+  "4h": 240,
+  "6h": 360,
+  "8h": 480,
+  "12h": 720,
+  "1d": 1440,
+  "1w": 10080,
+};
+
+const baseUrl = process.env.KUCOIN_PUBLIC_BASE_URL ?? "https://api-futures.kucoin.com";
+
+function parseTimestamp(value: string | number): number {
+  const raw = Number(value);
+  if (!Number.isFinite(raw)) {
+    throw new Error(`Invalid kline timestamp: ${value}`);
+  }
+
+  return raw < 1_000_000_000_000 ? raw * 1000 : raw;
+}
+
+function parseOHLC(row: KucoinKlineRow): { open: number; high: number; low: number; close: number } {
+  if (row.length < 5) {
+    throw new Error(`Invalid kline row length: ${row.length}`);
+  }
+
+  const a = Number(row[1]);
+  const b = Number(row[2]);
+  const c = Number(row[3]);
+  const d = Number(row[4]);
+
+  const formatA = { open: a, close: b, high: c, low: d };
+  const formatB = { open: a, high: b, low: c, close: d };
+
+  const formatAValid =
+    formatA.high >= Math.max(formatA.open, formatA.close) &&
+    formatA.low <= Math.min(formatA.open, formatA.close);
+
+  const formatBValid =
+    formatB.high >= Math.max(formatB.open, formatB.close) &&
+    formatB.low <= Math.min(formatB.open, formatB.close);
+
+  if (formatAValid && !formatBValid) return formatA;
+  if (formatBValid && !formatAValid) return formatB;
+  if (formatBValid) return formatB;
+
+  return formatA;
+}
+
+function parseRows(rows: KucoinKlineRow[]): Candle[] {
+  const parsed: Candle[] = [];
+
+  for (const row of rows) {
+    try {
+      const timestamp = row[0];
+      if (timestamp === undefined) {
+        continue;
+      }
+
+      const time = parseTimestamp(timestamp);
+      const { open, high, low, close } = parseOHLC(row);
+      const volume = Number(row[5] ?? 0);
+
+      if (![open, high, low, close, volume].every((value) => Number.isFinite(value))) {
+        continue;
+      }
+
+      parsed.push({ time, open, high, low, close, volume });
+    } catch {
+      // ignore malformed row
+    }
+  }
+
+  const byTime = new Map<number, Candle>();
+  for (const candle of parsed) {
+    byTime.set(candle.time, candle);
+  }
+
+  return [...byTime.values()].sort((a, b) => a.time - b.time);
+}
+
+export interface FetchTradeContextKlinesInput {
+  symbol: string;
+  timeframe: OrchestratorTimeframe;
+  fromMs: number;
+  toMs: number;
+}
+
+export async function fetchTradeContextKlines(input: FetchTradeContextKlinesInput): Promise<Candle[]> {
+  const granularity = granularityByTimeframe[input.timeframe];
+  if (!granularity) {
+    throw new Error(`Unsupported timeframe: ${input.timeframe}`);
+  }
+
+  const params = new URLSearchParams({
+    symbol: input.symbol,
+    granularity: String(granularity),
+    from: String(Math.floor(input.fromMs)),
+    to: String(Math.floor(input.toMs)),
+  });
+
+  const response = await fetch(`${baseUrl}/api/v1/kline/query?${params.toString()}`);
+  if (!response.ok) {
+    throw new Error(`KuCoin public kline request failed (${response.status})`);
+  }
+
+  const payload = (await response.json()) as KucoinKlineResponse;
+  if (payload.code !== "200000") {
+    throw new Error(`KuCoin getKlines error: ${payload.msg ?? payload.code}`);
+  }
+
+  return parseRows(payload.data ?? []);
+}
+
+export const kucoinPublicKlineInternals = {
+  parseRows,
+};

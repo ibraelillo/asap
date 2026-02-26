@@ -1,6 +1,6 @@
-import { Dashboard } from "./components/Dashboard";
+import { RangingControlCenter } from "./components/RangingControlCenter";
 import "./index.css";
 
 export default function Root() {
-  return <Dashboard />;
+  return <RangingControlCenter />;
 }

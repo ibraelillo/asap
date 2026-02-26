@@ -8,6 +8,21 @@ import {
 } from "./adapters";
 import { signRequest } from "./signer";
 
+export type KucoinKlineRow = Array<string | number>;
+
+export interface KucoinKlineQuery {
+  symbol: string;
+  granularity: number;
+  from: number;
+  to: number;
+}
+
+interface KucoinKlineResponse {
+  code: string;
+  data: KucoinKlineRow[];
+  msg?: string;
+}
+
 /**
  *
  * @param deps
@@ -58,7 +73,25 @@ export const createKucoinClient = (deps: {
     return httpClient(method, url, body, headers);
   };
 
-  return { request };
+  const getKlines = async (query: KucoinKlineQuery): Promise<KucoinKlineRow[]> => {
+    const params = new URLSearchParams({
+      symbol: query.symbol,
+      granularity: String(query.granularity),
+      from: String(query.from),
+      to: String(query.to),
+    });
+
+    const path = `/api/v1/kline/query?${params.toString()}`;
+    const resp = await request<KucoinKlineResponse>("GET", path);
+
+    if (resp.code !== "200000") {
+      throw new Error(`KuCoin getKlines error: ${resp.msg ?? resp.code}`);
+    }
+
+    return resp.data ?? [];
+  };
+
+  return { request, getKlines };
 };
 
 export type KucoinClient = ReturnType<typeof createKucoinClient>;

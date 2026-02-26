@@ -5,6 +5,23 @@
 
 declare module "sst" {
   export interface Resource {
+    "RangingBotApi": {
+      "type": "sst.aws.ApiGatewayV2"
+      "url": string
+    }
+    "RangingBotRuns": {
+      "name": string
+      "type": "sst.aws.Dynamo"
+    }
+    "RangingRealtime": {
+      "authorizer": string
+      "endpoint": string
+      "type": "sst.aws.Realtime"
+    }
+    "Web": {
+      "type": "sst.aws.StaticSite"
+      "url": string
+    }
   }
 }
 /// <reference path="sst-env.d.ts" />

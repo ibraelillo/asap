@@ -24,7 +24,7 @@ export class DcaConfigManager {
 
         // If beyond ladder, null: ladder exhausted
         if (dcaCount >= (cfg.maxDcas ?? cfg.steps.length)) {
-            return { cost: null };
+            return { cost: null, base: cfg.base };
         }
 
         return { cost: cfg.steps[dcaCount] ?? null, base: cfg.base };

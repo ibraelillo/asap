@@ -1,9 +1,45 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
 
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 :root {
-  font-family: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
+  --bg-night: #06080f;
+  --bg-deep: #0b1324;
+  --text-main: #e2e8f0;
+  --text-subtle: #94a3b8;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  min-height: 100%;
+}
+
+body {
+  margin: 0;
+  font-family: "Space Grotesk", system-ui, sans-serif;
+  color: var(--text-main);
+  background:
+    radial-gradient(80rem 60rem at -10% -20%, rgba(34, 211, 238, 0.18), transparent 60%),
+    radial-gradient(60rem 50rem at 110% -10%, rgba(251, 191, 36, 0.16), transparent 55%),
+    linear-gradient(180deg, var(--bg-night), var(--bg-deep));
+  background-attachment: fixed;
+}
+
+code,
+pre,
+.mono {
+  font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+}
+
+@layer components {
+  .panel {
+    @apply rounded-2xl border border-white/10 bg-slate-900/45 shadow-[0_24px_80px_-30px_rgba(0,0,0,0.75)] backdrop-blur-md;
+  }
 }

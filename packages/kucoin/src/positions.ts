@@ -58,18 +58,21 @@ export const createPositionHandler = (
     timeout = 2000,
     retry = 4,
   ) {
-    while (--retry) {
+    const checks = Math.max(1, retry);
+    const waitMs = Math.max(100, Math.ceil(timeout / checks));
+
+    for (let attempt = 0; attempt < checks; attempt++) {
       const pos = (await getPosition(symbol)).find(
         (pos) => pos?.positionSide === side.toUpperCase(),
       );
-      if (!pos?.isOpen) {
-        await new Promise((resolve) =>
-          setTimeout(resolve, Math.ceil(timeout / retry)),
-        );
+
+      const qty = Math.abs(Number(pos?.currentQty ?? 0));
+      if (pos?.isOpen && Number.isFinite(qty) && qty > 0) {
+        return pos;
       }
 
-      if (pos?.isOpen) {
-        return pos;
+      if (attempt < checks - 1) {
+        await new Promise((resolve) => setTimeout(resolve, waitMs));
       }
     }
 
