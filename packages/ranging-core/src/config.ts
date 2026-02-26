@@ -30,8 +30,8 @@ export const defaultRangeReversalConfig: RangeReversalConfig = {
   },
   exits: {
     tp1Level: "POC",
-    tp2LongLevel: "VAL",
-    tp2ShortLevel: "VAH",
+    tp2LongLevel: "VAH",
+    tp2ShortLevel: "VAL",
     tp1SizePct: 0.5,
     tp2SizePct: 0.5,
     moveStopToBreakevenOnTp1: true,

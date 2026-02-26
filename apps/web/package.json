@@ -19,6 +19,7 @@
     "mqtt": "^5.14.1",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
+    "react-router-dom": "^7.9.5",
     "react-hook-form": "^7.65.0",
     "swr": "^2.3.6",
     "tailwind-merge": "^2.5.4",

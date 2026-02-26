@@ -8,6 +8,7 @@ interface ImportMetaEnv {
   readonly VITE_RANGING_REALTIME_AUTHORIZER: string
   readonly VITE_RANGING_REALTIME_TOKEN: string
   readonly VITE_RANGING_REALTIME_TOPIC_PREFIX: string
+  readonly VITE_RANGING_KLINES_BASE_URL: string
 }
 interface ImportMeta {
   readonly env: ImportMetaEnv

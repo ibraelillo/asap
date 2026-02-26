@@ -19,6 +19,7 @@ interface ResultsPageProps {
   realtimeState: RealtimeState;
   realtimeDetails?: string;
   apiUrl: string;
+  onOpenBot?: (symbol: string) => void;
 }
 
 function realtimeTone(state: RealtimeState): string {
@@ -46,6 +47,7 @@ export function ResultsPage({
   realtimeState,
   realtimeDetails,
   apiUrl,
+  onOpenBot,
 }: ResultsPageProps) {
   if (!data && isLoading) {
     return (
@@ -164,7 +166,14 @@ export function ResultsPage({
                 return (
                   <tr key={trade.id} className="border-t border-white/5 text-slate-200">
                     <td className="py-3 pr-4 text-xs text-slate-300">{formatDateTime(trade.generatedAtMs)}</td>
-                    <td className="py-3 pr-4 font-medium">{trade.symbol}</td>
+                    <td className="py-3 pr-4 font-medium">
+                      <button
+                        onClick={() => onOpenBot?.(trade.symbol)}
+                        className="text-left text-cyan-200 transition hover:text-cyan-100"
+                      >
+                        {trade.symbol}
+                      </button>
+                    </td>
                     <td className={`py-3 pr-4 font-medium ${sideTone}`}>{trade.side}</td>
                     <td className="py-3 pr-4">{trade.price?.toLocaleString() ?? "-"}</td>
                     <td className={`py-3 pr-4 text-xs font-medium ${statusTone}`}>{trade.processingStatus}</td>

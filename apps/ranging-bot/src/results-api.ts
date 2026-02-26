@@ -2,17 +2,26 @@ import type {
   APIGatewayProxyEventV2,
   APIGatewayProxyResultV2,
 } from "aws-lambda";
-import type { Candle } from "@repo/ranging-core";
+import type { Candle, EquityPoint } from "@repo/ranging-core";
 import { buildBotSummaries, computeDashboardMetrics, mapRunsToTrades } from "./monitoring/analytics";
+import { replayBacktestRecord, runBacktestJob } from "./monitoring/backtests";
 import {
+  getBacktestById,
   getRunBySymbolAndTime,
+  listRecentBacktests,
+  listRecentBacktestsBySymbol,
   listLatestRunsBySymbols,
   listRecentRuns,
   listRecentRunsBySymbol,
+  putBacktestRecord,
 } from "./monitoring/store";
 import type {
+  BacktestRecord,
+  BacktestTradeView,
+  BotStatsSummary,
   BotRunRecord,
   DashboardPayload,
+  KlineCacheReference,
   TradeSignalRecord,
 } from "./monitoring/types";
 import { fetchTradeContextKlines } from "./monitoring/kucoin-public-klines";
@@ -25,6 +34,11 @@ const MAX_LIMIT = 500;
 const DEFAULT_BARS_BEFORE = 80;
 const DEFAULT_BARS_AFTER = 80;
 const MAX_BARS_CONTEXT = 300;
+const DEFAULT_BACKTEST_PERIOD_DAYS = 30;
+const MAX_BACKTEST_PERIOD_DAYS = 365;
+const DEFAULT_STATS_WINDOW_HOURS = 24;
+const MAX_STATS_WINDOW_HOURS = 24 * 30;
+const DEFAULT_BACKTEST_CHART_TIMEFRAME: OrchestratorTimeframe = "4h";
 const DEMO_TRADE_ID = "demo";
 
 const DEMO_RUN: BotRunRecord = {
@@ -122,8 +136,78 @@ function parsePositiveInt(raw: string | undefined, fallback: number, max: number
   return Math.min(Math.floor(parsed), max);
 }
 
+function normalizePositiveNumber(raw: unknown, fallback: number, max: number): number {
+  if (raw === undefined || raw === null) return fallback;
+  const parsed = Number(raw);
+  if (!Number.isFinite(parsed) || parsed <= 0) return fallback;
+  return Math.min(parsed, max);
+}
+
 function isTimeframe(value: string | undefined): value is OrchestratorTimeframe {
   return Boolean(value && value in timeframeMs);
+}
+
+function isBacktestChartTimeframe(
+  value: string | undefined,
+): value is "15m" | "1h" | "2h" | "4h" | "1d" {
+  return (
+    value === "15m" ||
+    value === "1h" ||
+    value === "2h" ||
+    value === "4h" ||
+    value === "1d"
+  );
+}
+
+function parseJsonBody<T>(event: APIGatewayProxyEventV2): T | null {
+  if (!event.body) return null;
+  if (event.isBase64Encoded) return null;
+
+  try {
+    return JSON.parse(event.body) as T;
+  } catch {
+    return null;
+  }
+}
+
+function haveRefsChanged(
+  previous: KlineCacheReference[] | undefined,
+  next: KlineCacheReference[] | undefined,
+): boolean {
+  const prevKeys = new Set((previous ?? []).map((ref) => ref.key));
+  const nextKeys = new Set((next ?? []).map((ref) => ref.key));
+  if (prevKeys.size !== nextKeys.size) return true;
+
+  for (const key of nextKeys) {
+    if (!prevKeys.has(key)) return true;
+  }
+
+  return false;
+}
+
+async function persistBacktestRefsIfNeeded(
+  backtest: BacktestRecord,
+  refs: KlineCacheReference[] | undefined,
+): Promise<BacktestRecord> {
+  if (!refs || refs.length === 0) return backtest;
+  if (!haveRefsChanged(backtest.klineRefs, refs)) return backtest;
+
+  const updated: BacktestRecord = {
+    ...backtest,
+    klineRefs: refs,
+  };
+
+  try {
+    await putBacktestRecord(updated);
+    return updated;
+  } catch (error) {
+    console.error("[ranging-api] failed to persist backtest kline refs", {
+      backtestId: backtest.id,
+      symbol: backtest.symbol,
+      error,
+    });
+    return backtest;
+  }
 }
 
 function getConfiguredSymbols(): string[] {
@@ -132,6 +216,28 @@ function getConfiguredSymbols(): string[] {
     .filter((symbol): symbol is string => symbol.length > 0);
 
   return [...new Set(fromConfig)];
+}
+
+function getBotDefaults(symbol: string): {
+  executionTimeframe: OrchestratorTimeframe;
+  primaryRangeTimeframe: OrchestratorTimeframe;
+  secondaryRangeTimeframe: OrchestratorTimeframe;
+} {
+  const all = parseBotConfigs(process.env.RANGING_BOTS_JSON);
+  const match = all.find((config) => config.symbol === symbol);
+  if (match) {
+    return {
+      executionTimeframe: match.executionTimeframe,
+      primaryRangeTimeframe: match.primaryRangeTimeframe,
+      secondaryRangeTimeframe: match.secondaryRangeTimeframe,
+    };
+  }
+
+  return {
+    executionTimeframe: "15m",
+    primaryRangeTimeframe: "1d",
+    secondaryRangeTimeframe: "4h",
+  };
 }
 
 function buildDemoKlines(
@@ -270,6 +376,273 @@ export async function botsHandler(
       error: "failed_to_load_bots",
     });
   }
+}
+
+export async function botStatsHandler(
+  event: APIGatewayProxyEventV2,
+): Promise<APIGatewayProxyResultV2> {
+  try {
+    const windowHours = parsePositiveInt(
+      event.queryStringParameters?.windowHours,
+      DEFAULT_STATS_WINDOW_HOURS,
+      MAX_STATS_WINDOW_HOURS,
+    );
+    const runsLimit = parsePositiveInt(
+      event.queryStringParameters?.runsLimit,
+      MAX_LIMIT,
+      MAX_LIMIT,
+    );
+    const backtestLimit = parsePositiveInt(
+      event.queryStringParameters?.backtestLimit,
+      200,
+      MAX_LIMIT,
+    );
+
+    const [runs, backtests] = await Promise.all([
+      listRecentRuns(runsLimit),
+      listRecentBacktests(backtestLimit),
+    ]);
+
+    const windowStartMs = Date.now() - windowHours * 60 * 60_000;
+    const runsInWindow = runs.filter((run) => run.generatedAtMs >= windowStartMs);
+    const signalsInWindow = runsInWindow.filter((run) => run.signal !== null).length;
+    const failuresInWindow = runsInWindow.filter(
+      (run) => run.runStatus === "failed" || run.processing.status === "error",
+    ).length;
+    const profitableBacktests = backtests.filter(
+      (backtest) => backtest.status === "completed" && backtest.netPnl > 0,
+    ).length;
+    const latestCompleted = backtests.find((backtest) => backtest.status === "completed");
+
+    const summary: BotStatsSummary = {
+      generatedAt: new Date().toISOString(),
+      configuredBots: getConfiguredSymbols().length,
+      runsInWindow: runsInWindow.length,
+      signalsInWindow,
+      failuresInWindow,
+      signalRate: runsInWindow.length > 0 ? signalsInWindow / runsInWindow.length : 0,
+      failureRate: runsInWindow.length > 0 ? failuresInWindow / runsInWindow.length : 0,
+      backtests: {
+        total: backtests.length,
+        profitable: profitableBacktests,
+        latestNetPnl: latestCompleted?.netPnl,
+      },
+    };
+
+    return json(200, summary);
+  } catch (error) {
+    console.error("[ranging-api] bot stats failed", { error });
+    return json(500, {
+      error: "failed_to_load_bot_stats",
+    });
+  }
+}
+
+interface CreateBacktestBody {
+  symbol?: string;
+  periodDays?: number;
+  fromMs?: number;
+  toMs?: number;
+  initialEquity?: number;
+  executionTimeframe?: string;
+  primaryRangeTimeframe?: string;
+  secondaryRangeTimeframe?: string;
+}
+
+export async function createBacktestHandler(
+  event: APIGatewayProxyEventV2,
+): Promise<APIGatewayProxyResultV2> {
+  try {
+    const body = parseJsonBody<CreateBacktestBody>(event);
+    if (!body) {
+      return json(400, { error: "invalid_json_body" });
+    }
+
+    const symbol = typeof body.symbol === "string" ? body.symbol.trim() : "";
+    if (!symbol) {
+      return json(400, { error: "missing_symbol" });
+    }
+
+    const defaults = getBotDefaults(symbol);
+    const nowMs = Date.now();
+    const toMs =
+      typeof body.toMs === "number" && Number.isFinite(body.toMs) && body.toMs > 0
+        ? Math.floor(body.toMs)
+        : nowMs;
+    const periodDays =
+      typeof body.periodDays === "number" && Number.isFinite(body.periodDays)
+        ? Math.max(1, Math.min(Math.floor(body.periodDays), MAX_BACKTEST_PERIOD_DAYS))
+        : DEFAULT_BACKTEST_PERIOD_DAYS;
+    const fromMs =
+      typeof body.fromMs === "number" && Number.isFinite(body.fromMs) && body.fromMs > 0
+        ? Math.floor(body.fromMs)
+        : toMs - periodDays * 24 * 60 * 60_000;
+
+    if (fromMs >= toMs) {
+      return json(400, { error: "invalid_time_window" });
+    }
+
+    const executionTimeframe = isTimeframe(body.executionTimeframe)
+      ? body.executionTimeframe
+      : defaults.executionTimeframe;
+    const primaryRangeTimeframe = isTimeframe(body.primaryRangeTimeframe)
+      ? body.primaryRangeTimeframe
+      : defaults.primaryRangeTimeframe;
+    const secondaryRangeTimeframe = isTimeframe(body.secondaryRangeTimeframe)
+      ? body.secondaryRangeTimeframe
+      : defaults.secondaryRangeTimeframe;
+    const initialEquity = normalizePositiveNumber(
+      body.initialEquity,
+      1_000,
+      100_000_000,
+    );
+
+    const backtest = await runBacktestJob({
+      symbol,
+      fromMs,
+      toMs,
+      executionTimeframe,
+      primaryRangeTimeframe,
+      secondaryRangeTimeframe,
+      initialEquity,
+    });
+
+    let storageWarning: string | undefined;
+    try {
+      await putBacktestRecord(backtest);
+    } catch (storeError) {
+      storageWarning =
+        storeError instanceof Error
+          ? storeError.message
+          : String(storeError);
+      console.error("[ranging-api] backtest persistence failed", {
+        symbol,
+        backtestId: backtest.id,
+        error: storeError,
+      });
+    }
+
+    return json(201, {
+      generatedAt: new Date().toISOString(),
+      backtest,
+      storageWarning,
+    });
+  } catch (error) {
+    console.error("[ranging-api] create backtest failed", { error });
+    const details = error instanceof Error ? error.message : String(error);
+    return json(500, {
+      error: "failed_to_create_backtest",
+      details,
+    });
+  }
+}
+
+export async function backtestsHandler(
+  event: APIGatewayProxyEventV2,
+): Promise<APIGatewayProxyResultV2> {
+  try {
+    const limit = parseLimit(event.queryStringParameters?.limit);
+    const symbol = event.queryStringParameters?.symbol?.trim();
+
+    const backtests = symbol
+      ? await listRecentBacktestsBySymbol(symbol, limit)
+      : await listRecentBacktests(limit);
+
+    return json(200, {
+      generatedAt: new Date().toISOString(),
+      count: backtests.length,
+      backtests,
+    });
+  } catch (error) {
+    console.error("[ranging-api] backtests failed", { error });
+    return json(500, {
+      error: "failed_to_load_backtests",
+    });
+  }
+}
+
+async function loadBacktestDetails(
+  backtestId: string,
+  timeframeInput: string | undefined,
+): Promise<APIGatewayProxyResultV2> {
+  try {
+    let backtest = await getBacktestById(backtestId);
+    if (!backtest) {
+      return json(404, { error: "backtest_not_found" });
+    }
+
+    const chartTimeframe = isBacktestChartTimeframe(timeframeInput)
+      ? timeframeInput
+      : DEFAULT_BACKTEST_CHART_TIMEFRAME;
+
+    if (backtest.status === "failed") {
+      return json(200, {
+        generatedAt: new Date().toISOString(),
+        backtest,
+        chartTimeframe,
+        candles: [],
+        trades: [],
+        equityCurve: [],
+      });
+    }
+
+    let candles: Candle[] = [];
+    let candlesRef: KlineCacheReference | undefined;
+    let trades: BacktestTradeView[] = [];
+    let equityCurve: EquityPoint[] = [];
+    let replayError: string | undefined;
+
+    try {
+      const replay = await replayBacktestRecord(backtest, chartTimeframe);
+      candles = replay.chartCandlesRef ? [] : replay.chartCandles;
+      candlesRef = replay.chartCandlesRef;
+      trades = replay.trades;
+      equityCurve = replay.result.equityCurve;
+      backtest = await persistBacktestRefsIfNeeded(backtest, replay.klineRefs);
+    } catch (error) {
+      replayError =
+        error instanceof Error ? error.message : String(error);
+      console.error("[ranging-api] backtest replay failed", {
+        backtestId: backtest.id,
+        symbol: backtest.symbol,
+        chartTimeframe,
+        error,
+      });
+    }
+
+    return json(200, {
+      generatedAt: new Date().toISOString(),
+      backtest,
+      chartTimeframe,
+      candles,
+      candlesRef,
+      trades,
+      equityCurve,
+      replayError,
+    });
+  } catch (error) {
+    console.error("[ranging-api] backtest details failed", { error });
+    const details = error instanceof Error ? error.message : String(error);
+    return json(500, {
+      error: "failed_to_load_backtest_details",
+      details,
+    });
+  }
+}
+
+export async function backtestDetailsHandler(
+  event: APIGatewayProxyEventV2,
+): Promise<APIGatewayProxyResultV2> {
+  const rawBacktestId = event.pathParameters?.id?.trim();
+  if (!rawBacktestId) {
+    return json(400, { error: "missing_backtest_id" });
+  }
+
+  const backtestId = decodeURIComponent(rawBacktestId);
+  return loadBacktestDetails(
+    backtestId,
+    event.queryStringParameters?.chartTimeframe?.trim(),
+  );
 }
 
 export async function tradeDetailsHandler(

@@ -196,11 +196,19 @@ export function resolveTakeProfitLevels(
   side: Side,
   config: RangeReversalConfig,
 ): { tp1: number; tp2: number } {
-  const tp1 = resolveLevel(range, config.exits.tp1Level);
-  const tp2 =
+  const tp1Raw = resolveLevel(range, config.exits.tp1Level);
+  const tp2Raw =
     side === "long"
       ? resolveLevel(range, config.exits.tp2LongLevel)
       : resolveLevel(range, config.exits.tp2ShortLevel);
 
-  return { tp1, tp2 };
+  if (side === "long") {
+    return tp2Raw >= tp1Raw
+      ? { tp1: tp1Raw, tp2: tp2Raw }
+      : { tp1: tp2Raw, tp2: tp1Raw };
+  }
+
+  return tp2Raw <= tp1Raw
+    ? { tp1: tp1Raw, tp2: tp2Raw }
+    : { tp1: tp2Raw, tp2: tp1Raw };
 }

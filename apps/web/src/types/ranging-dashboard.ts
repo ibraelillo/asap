@@ -116,3 +116,101 @@ export interface TradeAnalysisPayload {
   barsAfter: number;
   klines: KlineCandle[];
 }
+
+export type BacktestStatus = "completed" | "failed";
+
+export interface KlineCacheReference {
+  key: string;
+  symbol: string;
+  timeframe: string;
+  fromMs: number;
+  toMs: number;
+  candleCount: number;
+  url?: string;
+}
+
+export interface BacktestRecord {
+  id: string;
+  createdAtMs: number;
+  status: BacktestStatus;
+  symbol: string;
+  fromMs: number;
+  toMs: number;
+  executionTimeframe: string;
+  primaryRangeTimeframe: string;
+  secondaryRangeTimeframe: string;
+  initialEquity: number;
+  totalTrades: number;
+  wins: number;
+  losses: number;
+  winRate: number;
+  netPnl: number;
+  grossProfit: number;
+  grossLoss: number;
+  maxDrawdownPct: number;
+  endingEquity: number;
+  klineRefs?: KlineCacheReference[];
+  errorMessage?: string;
+}
+
+export interface BotStatsSummary {
+  generatedAt: string;
+  configuredBots: number;
+  runsInWindow: number;
+  signalsInWindow: number;
+  failuresInWindow: number;
+  signalRate: number;
+  failureRate: number;
+  backtests: {
+    total: number;
+    profitable: number;
+    latestNetPnl?: number;
+  };
+}
+
+export interface BacktestExit {
+  reason: "tp1" | "tp2" | "stop" | "signal" | "end";
+  time: number;
+  price: number;
+  quantity: number;
+  grossPnl: number;
+  fee: number;
+  netPnl: number;
+}
+
+export interface BacktestTrade {
+  id: number;
+  side: Side;
+  entryTime: number;
+  entryPrice: number;
+  stopPriceAtEntry: number;
+  quantity: number;
+  entryFee: number;
+  exits: BacktestExit[];
+  closeTime: number;
+  closePrice: number;
+  grossPnl: number;
+  fees: number;
+  netPnl: number;
+  rangeLevels?: {
+    val: number;
+    vah: number;
+    poc: number;
+  };
+}
+
+export interface EquityPoint {
+  time: number;
+  equity: number;
+}
+
+export interface BacktestDetailsPayload {
+  generatedAt: string;
+  backtest: BacktestRecord;
+  chartTimeframe: string;
+  candles: KlineCandle[];
+  candlesRef?: KlineCacheReference;
+  trades: BacktestTrade[];
+  equityCurve: EquityPoint[];
+  replayError?: string;
+}

@@ -90,6 +90,27 @@ export default $config({
       },
     });
 
+    const klineCacheBucket = new sst.aws.Bucket("RangingKlineCache", {
+      access: "cloudfront",
+      cors: {
+        allowOrigins: ["*"],
+        allowMethods: ["GET", "HEAD"],
+        allowHeaders: ["*"],
+      },
+    });
+
+    const router = new sst.aws.Router("RangingRouter");
+    router.routeBucket("/klines", klineCacheBucket, {
+      rewrite: {
+        regex: "^/klines/(.*)$",
+        to: "/$1",
+      },
+    });
+
+    const klinesBaseUrl = router.url.apply(
+      (url) => `${url.replace(/\/+$/, "")}/klines`,
+    );
+
     const realtime = new sst.aws.Realtime("RangingRealtime", {
       authorizer: {
         handler: "apps/ranging-bot/src/realtime-authorizer.handler",
@@ -101,9 +122,9 @@ export default $config({
     });
 
     const api = new sst.aws.ApiGatewayV2("RangingBotApi", {
-      link: [runsTable],
+      link: [runsTable, klineCacheBucket],
       cors: {
-        allowMethods: ["GET", "OPTIONS"],
+        allowMethods: ["GET", "POST", "OPTIONS"],
         allowOrigins: ["*"],
         allowHeaders: ["*"],
       },
@@ -112,6 +133,8 @@ export default $config({
     const apiRouteEnv = {
       RANGING_BOT_RUNS_TABLE: runsTable.name,
       RANGING_BOTS_JSON: botsJson,
+      RANGING_KLINES_BUCKET: klineCacheBucket.name,
+      RANGING_KLINES_PUBLIC_BASE_URL: klinesBaseUrl,
     };
 
     api.route("GET /v1/ranging/health", {
@@ -130,6 +153,22 @@ export default $config({
       handler: "apps/ranging-bot/src/results-api.botsHandler",
       environment: apiRouteEnv,
     });
+    api.route("GET /v1/ranging/bots/stats", {
+      handler: "apps/ranging-bot/src/results-api.botStatsHandler",
+      environment: apiRouteEnv,
+    });
+    api.route("GET /v1/ranging/backtests", {
+      handler: "apps/ranging-bot/src/results-api.backtestsHandler",
+      environment: apiRouteEnv,
+    });
+    api.route("GET /v1/ranging/backtests/{id}", {
+      handler: "apps/ranging-bot/src/results-api.backtestDetailsHandler",
+      environment: apiRouteEnv,
+    });
+    api.route("POST /v1/ranging/backtests", {
+      handler: "apps/ranging-bot/src/results-api.createBacktestHandler",
+      environment: apiRouteEnv,
+    });
     api.route("GET /v1/ranging/trades/{id}", {
       handler: "apps/ranging-bot/src/results-api.tradeDetailsHandler",
       environment: apiRouteEnv,
@@ -137,12 +176,16 @@ export default $config({
 
     const web = new sst.aws.StaticSite("Web", {
       path: "apps/web",
+      router: {
+        instance: router,
+      },
       environment: {
         VITE_RANGING_API_URL: api.url,
         VITE_RANGING_REALTIME_ENDPOINT: realtime.endpoint,
         VITE_RANGING_REALTIME_AUTHORIZER: realtime.authorizer,
         VITE_RANGING_REALTIME_TOKEN: realtimeToken,
         VITE_RANGING_REALTIME_TOPIC_PREFIX: realtimeTopicPrefix,
+        VITE_RANGING_KLINES_BASE_URL: klinesBaseUrl,
       },
       build: {
         command: "bun run build",
@@ -197,8 +240,11 @@ export default $config({
       dryRun: process.env.RANGING_DRY_RUN ?? "true",
       webUrl: web.url,
       apiUrl: api.url,
+      routerUrl: router.url,
       realtimeEndpoint: realtime.endpoint,
       realtimeTopicPrefix,
+      klineCacheBucket: klineCacheBucket.name,
+      klinesBaseUrl,
     };
   },
 });

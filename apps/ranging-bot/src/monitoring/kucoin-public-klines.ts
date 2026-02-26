@@ -26,6 +26,7 @@ const granularityByTimeframe: Record<OrchestratorTimeframe, number> = {
 };
 
 const baseUrl = process.env.KUCOIN_PUBLIC_BASE_URL ?? "https://api-futures.kucoin.com";
+const REQUEST_WINDOW_ROWS = 500;
 
 function parseTimestamp(value: string | number): number {
   const raw = Number(value);
@@ -96,24 +97,26 @@ function parseRows(rows: KucoinKlineRow[]): Candle[] {
   return [...byTime.values()].sort((a, b) => a.time - b.time);
 }
 
-export interface FetchTradeContextKlinesInput {
-  symbol: string;
-  timeframe: OrchestratorTimeframe;
-  fromMs: number;
-  toMs: number;
-}
-
-export async function fetchTradeContextKlines(input: FetchTradeContextKlinesInput): Promise<Candle[]> {
-  const granularity = granularityByTimeframe[input.timeframe];
+function granularityFor(timeframe: OrchestratorTimeframe): number {
+  const granularity = granularityByTimeframe[timeframe];
   if (!granularity) {
-    throw new Error(`Unsupported timeframe: ${input.timeframe}`);
+    throw new Error(`Unsupported timeframe: ${timeframe}`);
   }
 
+  return granularity;
+}
+
+async function fetchKucoinKlineWindow(
+  symbol: string,
+  granularity: number,
+  fromMs: number,
+  toMs: number,
+): Promise<Candle[]> {
   const params = new URLSearchParams({
-    symbol: input.symbol,
+    symbol,
     granularity: String(granularity),
-    from: String(Math.floor(input.fromMs)),
-    to: String(Math.floor(input.toMs)),
+    from: String(Math.floor(fromMs)),
+    to: String(Math.floor(toMs)),
   });
 
   const response = await fetch(`${baseUrl}/api/v1/kline/query?${params.toString()}`);
@@ -129,6 +132,64 @@ export async function fetchTradeContextKlines(input: FetchTradeContextKlinesInpu
   return parseRows(payload.data ?? []);
 }
 
+export interface FetchTradeContextKlinesInput {
+  symbol: string;
+  timeframe: OrchestratorTimeframe;
+  fromMs: number;
+  toMs: number;
+}
+
+export async function fetchTradeContextKlines(input: FetchTradeContextKlinesInput): Promise<Candle[]> {
+  return fetchHistoricalKlines(input);
+}
+
+export interface FetchHistoricalKlinesInput {
+  symbol: string;
+  timeframe: OrchestratorTimeframe;
+  fromMs: number;
+  toMs: number;
+}
+
+export async function fetchHistoricalKlines(input: FetchHistoricalKlinesInput): Promise<Candle[]> {
+  const granularity = granularityFor(input.timeframe);
+  const granularityMs = granularity * 60 * 1000;
+  const byTime = new Map<number, Candle>();
+
+  const fromMs = Math.floor(input.fromMs);
+  const toMs = Math.floor(input.toMs);
+  if (!Number.isFinite(fromMs) || !Number.isFinite(toMs) || toMs <= fromMs) {
+    return [];
+  }
+
+  const windowMs = REQUEST_WINDOW_ROWS * granularityMs;
+  let cursor = fromMs;
+
+  while (cursor < toMs) {
+    const windowTo = Math.min(cursor + windowMs, toMs);
+    const rows = await fetchKucoinKlineWindow(input.symbol, granularity, cursor, windowTo);
+
+    for (const candle of rows) {
+      byTime.set(candle.time, candle);
+    }
+
+    const lastSeen = rows.at(-1)?.time;
+    const nextCursor = lastSeen
+      ? lastSeen + granularityMs
+      : windowTo + granularityMs;
+
+    if (nextCursor <= cursor) {
+      throw new Error(`KuCoin public kline pagination stalled at ${cursor}`);
+    }
+
+    cursor = nextCursor;
+  }
+
+  return [...byTime.values()]
+    .filter((candle) => candle.time >= fromMs && candle.time <= toMs)
+    .sort((a, b) => a.time - b.time);
+}
+
 export const kucoinPublicKlineInternals = {
   parseRows,
+  granularityFor,
 };

@@ -13,10 +13,18 @@ declare module "sst" {
       "name": string
       "type": "sst.aws.Dynamo"
     }
+    "RangingKlineCache": {
+      "name": string
+      "type": "sst.aws.Bucket"
+    }
     "RangingRealtime": {
       "authorizer": string
       "endpoint": string
       "type": "sst.aws.Realtime"
+    }
+    "RangingRouter": {
+      "type": "sst.aws.Router"
+      "url": string
     }
     "Web": {
       "type": "sst.aws.StaticSite"

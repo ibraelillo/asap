@@ -1,17 +1,23 @@
 import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
 import {
   DynamoDBDocumentClient,
+  GetCommand,
   PutCommand,
   QueryCommand,
   type QueryCommandInput,
 } from "@aws-sdk/lib-dynamodb";
 import { Resource } from "sst";
-import type { BotRunRecord } from "./types";
+import type {
+  BacktestRecord,
+  BotRunRecord,
+  KlineCacheReference,
+} from "./types";
 
 const MAX_LIMIT = 500;
 const DEFAULT_LIMIT = 120;
 const TABLE_ENV_KEY = "RANGING_BOT_RUNS_TABLE";
 const PK_RUN = "RUN";
+const PK_BACKTEST = "BACKTEST";
 const GSI_BY_SYMBOL = "BySymbol";
 
 let cachedDocClient: DynamoDBDocumentClient | null = null;
@@ -65,6 +71,16 @@ function toItem(record: BotRunRecord): Record<string, unknown> {
     SK: sortKey(record.generatedAtMs, record.symbol),
     GSI1PK: `BOT#${record.symbol}`,
     GSI1SK: gsiKey(record.generatedAtMs),
+    ...record,
+  };
+}
+
+function toBacktestItem(record: BacktestRecord): Record<string, unknown> {
+  return {
+    PK: PK_BACKTEST,
+    SK: sortKey(record.createdAtMs, record.id),
+    GSI1PK: `BACKTEST#${record.symbol}`,
+    GSI1SK: gsiKey(record.createdAtMs),
     ...record,
   };
 }
@@ -132,14 +148,91 @@ function fromItem(item: Record<string, unknown>): BotRunRecord {
   };
 }
 
-async function queryRuns(input: QueryCommandInput): Promise<BotRunRecord[]> {
+function fromBacktestItem(item: Record<string, unknown>): BacktestRecord {
+  const rawRefs = Array.isArray(item.klineRefs) ? item.klineRefs : [];
+  const klineRefs = rawRefs
+    .map((entry): KlineCacheReference | undefined => {
+      if (!entry || typeof entry !== "object") return undefined;
+      const row = entry as Record<string, unknown>;
+
+      const key = typeof row.key === "string" ? row.key : undefined;
+      const symbol = typeof row.symbol === "string" ? row.symbol : undefined;
+      const timeframe =
+        typeof row.timeframe === "string"
+          ? (row.timeframe as KlineCacheReference["timeframe"])
+          : undefined;
+      const fromMs = Number(row.fromMs);
+      const toMs = Number(row.toMs);
+      const candleCount = Number(row.candleCount);
+
+      if (
+        !key ||
+        !symbol ||
+        !timeframe ||
+        !Number.isFinite(fromMs) ||
+        !Number.isFinite(toMs) ||
+        !Number.isFinite(candleCount)
+      ) {
+        return undefined;
+      }
+
+      return {
+        key,
+        symbol,
+        timeframe,
+        fromMs,
+        toMs,
+        candleCount,
+        url: typeof row.url === "string" ? row.url : undefined,
+      };
+    })
+    .filter((entry): entry is KlineCacheReference => Boolean(entry));
+
+  return {
+    id: String(item.id),
+    createdAtMs: Number(item.createdAtMs),
+    status: item.status === "failed" ? "failed" : "completed",
+    symbol: String(item.symbol),
+    fromMs: Number(item.fromMs),
+    toMs: Number(item.toMs),
+    executionTimeframe: String(item.executionTimeframe) as BacktestRecord["executionTimeframe"],
+    primaryRangeTimeframe: String(item.primaryRangeTimeframe) as BacktestRecord["primaryRangeTimeframe"],
+    secondaryRangeTimeframe: String(item.secondaryRangeTimeframe) as BacktestRecord["secondaryRangeTimeframe"],
+    initialEquity: Number(item.initialEquity),
+    totalTrades: Number(item.totalTrades),
+    wins: Number(item.wins),
+    losses: Number(item.losses),
+    winRate: Number(item.winRate),
+    netPnl: Number(item.netPnl),
+    grossProfit: Number(item.grossProfit),
+    grossLoss: Number(item.grossLoss),
+    maxDrawdownPct: Number(item.maxDrawdownPct),
+    endingEquity: Number(item.endingEquity),
+    klineRefs,
+    errorMessage: typeof item.errorMessage === "string" ? item.errorMessage : undefined,
+  };
+}
+
+async function queryItems(input: QueryCommandInput): Promise<Record<string, unknown>[]> {
   const client = getDocClient();
   const result = await client.send(new QueryCommand(input));
-  const items = (result.Items ?? []) as Record<string, unknown>[];
+  return (result.Items ?? []) as Record<string, unknown>[];
+}
+
+async function queryRuns(input: QueryCommandInput): Promise<BotRunRecord[]> {
+  const items = await queryItems(input);
 
   return items
     .map((item) => fromItem(item))
     .sort((a, b) => b.generatedAtMs - a.generatedAtMs);
+}
+
+async function queryBacktests(input: QueryCommandInput): Promise<BacktestRecord[]> {
+  const items = await queryItems(input);
+
+  return items
+    .map((item) => fromBacktestItem(item))
+    .sort((a, b) => b.createdAtMs - a.createdAtMs);
 }
 
 export async function putRunRecord(record: BotRunRecord): Promise<void> {
@@ -150,6 +243,18 @@ export async function putRunRecord(record: BotRunRecord): Promise<void> {
     new PutCommand({
       TableName: tableName,
       Item: toItem(record),
+    }),
+  );
+}
+
+export async function putBacktestRecord(record: BacktestRecord): Promise<void> {
+  const client = getDocClient();
+  const tableName = getTableName();
+
+  await client.send(
+    new PutCommand({
+      TableName: tableName,
+      Item: toBacktestItem(record),
     }),
   );
 }
@@ -165,6 +270,65 @@ export async function listRecentRuns(limit?: number): Promise<BotRunRecord[]> {
     ScanIndexForward: false,
     Limit: normalizeLimit(limit),
   });
+}
+
+export async function listRecentBacktests(limit?: number): Promise<BacktestRecord[]> {
+  const tableName = getTableName();
+  return queryBacktests({
+    TableName: tableName,
+    KeyConditionExpression: "PK = :pk",
+    ExpressionAttributeValues: {
+      ":pk": PK_BACKTEST,
+    },
+    ScanIndexForward: false,
+    Limit: normalizeLimit(limit),
+  });
+}
+
+export async function listRecentBacktestsBySymbol(
+  symbol: string,
+  limit?: number,
+): Promise<BacktestRecord[]> {
+  const tableName = getTableName();
+
+  return queryBacktests({
+    TableName: tableName,
+    IndexName: GSI_BY_SYMBOL,
+    KeyConditionExpression: "GSI1PK = :pk",
+    ExpressionAttributeValues: {
+      ":pk": `BACKTEST#${symbol}`,
+    },
+    ScanIndexForward: false,
+    Limit: normalizeLimit(limit),
+  });
+}
+
+function parseCreatedAtMsFromBacktestId(id: string): number | undefined {
+  const match = /-(\d{13})-[^-]+$/.exec(id);
+  if (!match?.[1]) return undefined;
+
+  const createdAtMs = Number(match[1]);
+  if (!Number.isFinite(createdAtMs) || createdAtMs <= 0) return undefined;
+  return createdAtMs;
+}
+
+export async function getBacktestById(id: string): Promise<BacktestRecord | undefined> {
+  const createdAtMs = parseCreatedAtMsFromBacktestId(id);
+  if (!createdAtMs) return undefined;
+
+  const tableName = getTableName();
+  const client = getDocClient();
+
+  const result = await client.send(new GetCommand({
+    TableName: tableName,
+    Key: {
+      PK: PK_BACKTEST,
+      SK: sortKey(createdAtMs, id),
+    },
+  }));
+
+  if (!result.Item) return undefined;
+  return fromBacktestItem(result.Item as Record<string, unknown>);
 }
 
 export async function listRecentRunsBySymbol(symbol: string, limit?: number): Promise<BotRunRecord[]> {

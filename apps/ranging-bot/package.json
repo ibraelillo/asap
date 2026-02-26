@@ -16,11 +16,12 @@
     "lint": "eslint ."
   },
   "dependencies": {
-    "@repo/ranging-core": "workspace:*",
-    "@repo/kucoin": "workspace:*",
     "@aws-sdk/client-dynamodb": "^3.918.0",
     "@aws-sdk/client-iot-data-plane": "^3.918.0",
-    "@aws-sdk/lib-dynamodb": "^3.918.0"
+    "@aws-sdk/client-s3": "^3.998.0",
+    "@aws-sdk/lib-dynamodb": "^3.918.0",
+    "@repo/kucoin": "workspace:*",
+    "@repo/ranging-core": "workspace:*"
   },
   "devDependencies": {
     "@repo/eslint-config": "workspace:*",
