@@ -17,14 +17,14 @@ interface SignalChartProps {
 
 const chartHeight = 300;
 
-function toTimestamp(ms: number): UTCTimestamp {
-  return Math.floor(ms / 1000) as UTCTimestamp;
-}
-
-function markerForRun(run: BotRunRecord, value: number): SeriesMarker<UTCTimestamp> | null {
+function markerForRun(
+  run: BotRunRecord,
+  value: number,
+  time: UTCTimestamp,
+): SeriesMarker<UTCTimestamp> | null {
   if (run.runStatus === "failed") {
     return {
-      time: toTimestamp(run.generatedAtMs),
+      time,
       position: "aboveBar",
       shape: "circle",
       color: "#fb7185",
@@ -35,7 +35,7 @@ function markerForRun(run: BotRunRecord, value: number): SeriesMarker<UTCTimesta
 
   if (run.signal === "long") {
     return {
-      time: toTimestamp(run.generatedAtMs),
+      time,
       position: "belowBar",
       shape: "arrowUp",
       color: "#34d399",
@@ -46,7 +46,7 @@ function markerForRun(run: BotRunRecord, value: number): SeriesMarker<UTCTimesta
 
   if (run.signal === "short") {
     return {
-      time: toTimestamp(run.generatedAtMs),
+      time,
       position: "aboveBar",
       shape: "arrowDown",
       color: "#f59e0b",
@@ -61,33 +61,39 @@ function markerForRun(run: BotRunRecord, value: number): SeriesMarker<UTCTimesta
 export function SignalChart({ runs }: SignalChartProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
 
-  if (runs.length === 0) {
-    return (
-      <div className="panel flex h-[360px] items-center justify-center">
-        <p className="text-sm text-slate-400">No analysis runs yet</p>
-      </div>
-    );
-  }
-
   const sorted = useMemo(
     () => [...runs].sort((a, b) => a.generatedAtMs - b.generatedAtMs),
     [runs],
   );
 
-  const values = useMemo(() => {
-    let previous = sorted[0]?.price ?? 0;
+  const prepared = useMemo(() => {
+    let previousValue = sorted[0]?.price ?? 0;
+    let previousTimeSec = Number.NEGATIVE_INFINITY;
+
     return sorted.map((run) => {
       if (typeof run.price === "number" && Number.isFinite(run.price)) {
-        previous = run.price;
+        previousValue = run.price;
       }
-      return previous;
+
+      let currentTimeSec = run.generatedAtMs / 1000;
+      if (currentTimeSec <= previousTimeSec) {
+        // lightweight-charts requires strictly ascending timestamps.
+        currentTimeSec = previousTimeSec + 0.001;
+      }
+      previousTimeSec = currentTimeSec;
+
+      return {
+        run,
+        value: previousValue,
+        time: currentTimeSec as UTCTimestamp,
+      };
     });
   }, [sorted]);
 
   useEffect(() => {
     const container = containerRef.current;
     if (!container) return;
-    if (sorted.length === 0) return;
+    if (prepared.length === 0) return;
 
     const chart = createChart(container, {
       width: Math.max(280, Math.floor(container.clientWidth)),
@@ -122,14 +128,14 @@ export function SignalChart({ runs }: SignalChartProps) {
       lastValueVisible: true,
     });
 
-    const lineData: LineData[] = sorted.map((run, index) => ({
-      time: toTimestamp(run.generatedAtMs),
-      value: values[index] ?? 0,
+    const lineData: LineData[] = prepared.map((point) => ({
+      time: point.time,
+      value: point.value,
     }));
     lineSeries.setData(lineData);
 
-    const markers: SeriesMarker<UTCTimestamp>[] = sorted
-      .map((run, index) => markerForRun(run, values[index] ?? 0))
+    const markers: SeriesMarker<UTCTimestamp>[] = prepared
+      .map((point) => markerForRun(point.run, point.value, point.time))
       .filter((marker): marker is SeriesMarker<UTCTimestamp> => marker !== null);
     createSeriesMarkers(lineSeries, markers);
 
@@ -146,7 +152,15 @@ export function SignalChart({ runs }: SignalChartProps) {
       observer.disconnect();
       chart.remove();
     };
-  }, [sorted, values]);
+  }, [prepared]);
+
+  if (sorted.length === 0) {
+    return (
+      <div className="panel flex h-[360px] items-center justify-center">
+        <p className="text-sm text-slate-400">No analysis runs yet</p>
+      </div>
+    );
+  }
 
   return (
     <div className="panel p-5">
