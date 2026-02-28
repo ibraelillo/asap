@@ -50,6 +50,7 @@ const MARGIN_MODE_OPTIONS = [
 ] as const;
 
 type AccountMode = "existing" | "create";
+type StrategyNumberDrafts = Record<string, string>;
 
 function asRecord(value: unknown): Record<string, unknown> {
   return value && typeof value === "object"
@@ -134,6 +135,94 @@ function labelFromPath(path: string): string {
     .replace(/^\w/, (char) => char.toUpperCase());
 }
 
+function toStoredNumber(
+  displayValue: number,
+  field: StrategyConfigUiField,
+): number {
+  switch (field.valueFormat) {
+    case "fraction-percent":
+      return displayValue / 100;
+    case "percent":
+    case "raw":
+    default:
+      return displayValue;
+  }
+}
+
+function toDisplayNumber(
+  storedValue: number,
+  field: StrategyConfigUiField,
+): number {
+  switch (field.valueFormat) {
+    case "fraction-percent":
+      return storedValue * 100;
+    case "percent":
+    case "raw":
+    default:
+      return storedValue;
+  }
+}
+
+function formatNumberForInput(
+  value: number,
+  decimals: number | undefined,
+): string {
+  const fixed =
+    typeof decimals === "number" ? value.toFixed(decimals) : String(value);
+  return fixed.replace(/\.0+$/, "").replace(/(\.\d*?)0+$/, "$1");
+}
+
+function getDisplayConstraint(
+  schemaNode: Record<string, unknown> | undefined,
+  key: "minimum" | "maximum" | "multipleOf" | "default",
+  field: StrategyConfigUiField,
+): number | undefined {
+  const rawValue = schemaNode?.[key];
+  if (typeof rawValue !== "number" || !Number.isFinite(rawValue)) {
+    return undefined;
+  }
+
+  return toDisplayNumber(rawValue, field);
+}
+
+function formatDisplayValue(
+  value: number | undefined,
+  field: StrategyConfigUiField,
+): string | undefined {
+  if (typeof value !== "number" || !Number.isFinite(value)) return undefined;
+
+  return `${formatNumberForInput(value, field.decimals)}${field.suffix ?? ""}`;
+}
+
+function buildNumberHint(
+  field: StrategyConfigUiField,
+  schemaNode: Record<string, unknown> | undefined,
+): string | undefined {
+  const min = getDisplayConstraint(schemaNode, "minimum", field);
+  const max = getDisplayConstraint(schemaNode, "maximum", field);
+  const step = getDisplayConstraint(schemaNode, "multipleOf", field);
+  const defaultValue = getDisplayConstraint(schemaNode, "default", field);
+
+  const parts = [
+    min !== undefined || max !== undefined
+      ? `Range ${formatDisplayValue(min, field) ?? "?"} to ${formatDisplayValue(max, field) ?? "?"}`
+      : undefined,
+    defaultValue !== undefined
+      ? `Default ${formatDisplayValue(defaultValue, field)}`
+      : undefined,
+    step !== undefined ? `Step ${formatDisplayValue(step, field)}` : undefined,
+  ].filter(Boolean);
+
+  return parts.length > 0 ? parts.join(" · ") : undefined;
+}
+
+function parseStrategyNumberInput(rawValue: string): number | undefined {
+  const normalized = rawValue.trim().replace(",", ".");
+  if (normalized.length === 0) return undefined;
+  const parsed = Number(normalized);
+  return Number.isFinite(parsed) ? parsed : undefined;
+}
+
 function groupStrategyFields(
   strategy: StrategySummary | undefined,
 ): Array<[string, StrategyConfigUiField[]]> {
@@ -165,6 +254,11 @@ export function BotCreatePage() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | undefined>();
   const [accountMode, setAccountMode] = useState<AccountMode>("existing");
+  const [strategyNumberDrafts, setStrategyNumberDrafts] =
+    useState<StrategyNumberDrafts>({});
+  const [strategyFieldErrors, setStrategyFieldErrors] = useState<
+    Record<string, string | undefined>
+  >({});
   const [form, setForm] = useState({
     name: "",
     symbol: "",
@@ -231,6 +325,11 @@ export function BotCreatePage() {
     () => groupStrategyFields(selectedStrategy),
     [selectedStrategy],
   );
+
+  useEffect(() => {
+    setStrategyNumberDrafts({});
+    setStrategyFieldErrors({});
+  }, [form.strategyId]);
 
   const exchangeOptions = useMemo(
     () =>
@@ -358,12 +457,159 @@ export function BotCreatePage() {
     }
   }, [accountMode, accountSymbols, form.symbol]);
 
+  function updateStrategyNumberDraft(path: string, value: string) {
+    setStrategyNumberDrafts((current) => ({
+      ...current,
+      [path]: value,
+    }));
+    setStrategyFieldErrors((current) => ({
+      ...current,
+      [path]: undefined,
+    }));
+  }
+
+  function commitStrategyNumberField(
+    field: StrategyConfigUiField,
+    schemaNode: Record<string, unknown> | undefined,
+  ): boolean {
+    const rawValue = strategyNumberDrafts[field.path];
+    if (rawValue === undefined) return true;
+
+    const parsedDisplay = parseStrategyNumberInput(rawValue);
+    if (parsedDisplay === undefined) {
+      setStrategyFieldErrors((current) => ({
+        ...current,
+        [field.path]: "Enter a valid number.",
+      }));
+      return false;
+    }
+
+    const storedValue = toStoredNumber(parsedDisplay, field);
+    const minimum = schemaNode?.minimum;
+    const maximum = schemaNode?.maximum;
+
+    if (typeof minimum === "number" && storedValue < minimum) {
+      setStrategyFieldErrors((current) => ({
+        ...current,
+        [field.path]: `Minimum ${formatDisplayValue(toDisplayNumber(minimum, field), field)}`,
+      }));
+      return false;
+    }
+
+    if (typeof maximum === "number" && storedValue > maximum) {
+      setStrategyFieldErrors((current) => ({
+        ...current,
+        [field.path]: `Maximum ${formatDisplayValue(toDisplayNumber(maximum, field), field)}`,
+      }));
+      return false;
+    }
+
+    setForm((current) => ({
+      ...current,
+      strategyConfig: setValueAtPath(
+        asRecord(current.strategyConfig),
+        field.path,
+        storedValue,
+      ),
+    }));
+    setStrategyNumberDrafts((current) => {
+      const next = { ...current };
+      delete next[field.path];
+      return next;
+    });
+    setStrategyFieldErrors((current) => ({
+      ...current,
+      [field.path]: undefined,
+    }));
+    return true;
+  }
+
+  function resolveStrategyConfigForSubmit(): {
+    valid: boolean;
+    config: Record<string, unknown>;
+  } {
+    if (!selectedStrategy) {
+      return {
+        valid: true,
+        config: asRecord(form.strategyConfig),
+      };
+    }
+
+    let nextStrategyConfig = cloneRecord(asRecord(form.strategyConfig));
+    const nextErrors: Record<string, string | undefined> = {};
+    let valid = true;
+
+    for (const field of selectedStrategy.configUi) {
+      if (field.widget !== "number") continue;
+      const draft = strategyNumberDrafts[field.path];
+      if (draft === undefined) continue;
+
+      const schemaNode = getSchemaNode(
+        selectedStrategy.configJsonSchema,
+        field.path,
+      );
+      const parsedDisplay = parseStrategyNumberInput(draft);
+      if (parsedDisplay === undefined) {
+        nextErrors[field.path] = "Enter a valid number.";
+        valid = false;
+        continue;
+      }
+
+      const storedValue = toStoredNumber(parsedDisplay, field);
+      const minimum = schemaNode?.minimum;
+      const maximum = schemaNode?.maximum;
+      if (typeof minimum === "number" && storedValue < minimum) {
+        nextErrors[field.path] =
+          `Minimum ${formatDisplayValue(toDisplayNumber(minimum, field), field)}`;
+        valid = false;
+        continue;
+      }
+      if (typeof maximum === "number" && storedValue > maximum) {
+        nextErrors[field.path] =
+          `Maximum ${formatDisplayValue(toDisplayNumber(maximum, field), field)}`;
+        valid = false;
+        continue;
+      }
+
+      nextStrategyConfig = setValueAtPath(
+        nextStrategyConfig,
+        field.path,
+        storedValue,
+      );
+    }
+
+    setStrategyFieldErrors((current) => ({
+      ...current,
+      ...nextErrors,
+    }));
+
+    if (valid) {
+      setForm((current) => ({
+        ...current,
+        strategyConfig: nextStrategyConfig,
+      }));
+      setStrategyNumberDrafts({});
+    }
+
+    return {
+      valid,
+      config: nextStrategyConfig,
+    };
+  }
+
   async function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setSubmitting(true);
     setError(undefined);
 
     try {
+      const resolvedStrategyConfig = resolveStrategyConfigForSubmit();
+      if (!resolvedStrategyConfig.valid) {
+        throw new Error(
+          "Fix the highlighted strategy parameters before creating the bot",
+        );
+      }
+
       let accountId = form.accountId.trim();
 
       if (accountMode === "create") {
@@ -417,7 +663,7 @@ export function BotCreatePage() {
         dryRun: form.dryRun,
         marginMode: form.marginMode,
         valueQty: form.valueQty.trim(),
-        strategyConfig: form.strategyConfig,
+        strategyConfig: resolvedStrategyConfig.config,
       });
 
       const botId = typeof bot.id === "string" ? bot.id : undefined;
@@ -766,6 +1012,10 @@ export function BotCreatePage() {
                         (typeof schemaNode?.description === "string"
                           ? schemaNode.description
                           : undefined);
+                      const numberHint =
+                        field.widget === "number"
+                          ? buildNumberHint(field, schemaNode)
+                          : undefined;
 
                       if (field.widget === "boolean") {
                         return (
@@ -856,50 +1106,70 @@ export function BotCreatePage() {
                         <Field
                           key={field.path}
                           label={label}
-                          description={description}
+                          description={[description, numberHint]
+                            .filter(Boolean)
+                            .join(" · ")}
+                          error={strategyFieldErrors[field.path]}
                         >
-                          <Input
-                            type={inputType}
-                            value={
-                              field.widget === "number"
-                                ? typeof value === "number"
-                                  ? String(value)
-                                  : ""
-                                : typeof value === "string"
-                                  ? value
-                                  : ""
-                            }
-                            min={
-                              typeof schemaNode?.minimum === "number"
-                                ? schemaNode.minimum
-                                : undefined
-                            }
-                            max={
-                              typeof schemaNode?.maximum === "number"
-                                ? schemaNode.maximum
-                                : undefined
-                            }
-                            step={
-                              typeof schemaNode?.multipleOf === "number"
-                                ? schemaNode.multipleOf
-                                : undefined
-                            }
-                            placeholder={field.placeholder}
-                            onChange={(event) =>
-                              setForm((current) => ({
-                                ...current,
-                                strategyConfig: setValueAtPath(
-                                  asRecord(current.strategyConfig),
-                                  field.path,
-                                  field.widget === "number"
-                                    ? event.target.value === ""
-                                      ? undefined
-                                      : Number(event.target.value)
-                                    : event.target.value,
-                                ),
-                              }))
-                            }
-                          />
+                          {field.widget === "number" ? (
+                            <div className="relative">
+                              <Input
+                                type="text"
+                                inputMode="decimal"
+                                value={
+                                  strategyNumberDrafts[field.path] ??
+                                  (typeof value === "number"
+                                    ? formatNumberForInput(
+                                        toDisplayNumber(value, field),
+                                        field.decimals,
+                                      )
+                                    : "")
+                                }
+                                placeholder={
+                                  field.placeholder ??
+                                  formatDisplayValue(
+                                    getDisplayConstraint(
+                                      schemaNode,
+                                      "default",
+                                      field,
+                                    ),
+                                    field,
+                                  )?.replace(field.suffix ?? "", "")
+                                }
+                                className={field.suffix ? "pr-12" : undefined}
+                                onChange={(event) =>
+                                  updateStrategyNumberDraft(
+                                    field.path,
+                                    event.target.value,
+                                  )
+                                }
+                                onBlur={() =>
+                                  commitStrategyNumberField(field, schemaNode)
+                                }
+                              />
+                              {field.suffix ? (
+                                <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-xs text-slate-400">
+                                  {field.suffix}
+                                </span>
+                              ) : null}
+                            </div>
+                          ) : (
+                            <Input
+                              type={inputType}
+                              value={typeof value === "string" ? value : ""}
+                              placeholder={field.placeholder}
+                              onChange={(event) =>
+                                setForm((current) => ({
+                                  ...current,
+                                  strategyConfig: setValueAtPath(
+                                    asRecord(current.strategyConfig),
+                                    field.path,
+                                    event.target.value,
+                                  ),
+                                }))
+                              }
+                            />
+                          )}
                         </Field>
                       );
                     })}

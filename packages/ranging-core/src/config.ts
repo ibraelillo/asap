@@ -111,6 +111,7 @@ export const rangeReversalConfigUi: StrategyConfigUiField[] = [
     label: "Primary lookback bars",
     description: "Bars used to build the higher-timeframe range context.",
     section: "Range",
+    suffix: "bars",
     order: 10,
   },
   {
@@ -119,6 +120,7 @@ export const rangeReversalConfigUi: StrategyConfigUiField[] = [
     label: "Secondary lookback bars",
     description: "Bars used to build the lower supporting range context.",
     section: "Range",
+    suffix: "bars",
     order: 20,
   },
   {
@@ -135,6 +137,9 @@ export const rangeReversalConfigUi: StrategyConfigUiField[] = [
     label: "Value area %",
     description: "Share of volume used to define VAL and VAH.",
     section: "Range",
+    valueFormat: "fraction-percent",
+    suffix: "%",
+    decimals: 0,
     order: 40,
   },
   {
@@ -143,6 +148,9 @@ export const rangeReversalConfigUi: StrategyConfigUiField[] = [
     label: "Minimum overlap %",
     description: "Required overlap between higher-timeframe ranges.",
     section: "Range",
+    valueFormat: "fraction-percent",
+    suffix: "%",
+    decimals: 0,
     order: 50,
   },
   {
@@ -167,6 +175,7 @@ export const rangeReversalConfigUi: StrategyConfigUiField[] = [
     label: "Max bars after divergence",
     description: "Maximum delay between divergence and confirmation.",
     section: "Signals",
+    suffix: "bars",
     order: 80,
   },
   {
@@ -175,6 +184,7 @@ export const rangeReversalConfigUi: StrategyConfigUiField[] = [
     label: "Excursion lookback bars",
     description: "Bars used to detect recent sweep outside the range.",
     section: "Signals",
+    suffix: "bars",
     order: 90,
   },
   {
@@ -192,6 +202,9 @@ export const rangeReversalConfigUi: StrategyConfigUiField[] = [
     description:
       "How far price may re-enter before the sweep is considered stale.",
     section: "Signals",
+    valueFormat: "percent",
+    suffix: "%",
+    decimals: 2,
     order: 110,
   },
   {
@@ -200,14 +213,21 @@ export const rangeReversalConfigUi: StrategyConfigUiField[] = [
     label: "Risk % per trade",
     description: "Fraction of equity risked between entry and stop.",
     section: "Risk",
+    valueFormat: "fraction-percent",
+    suffix: "%",
+    decimals: 2,
     order: 120,
   },
   {
     path: "risk.maxNotionalPctEquity",
     widget: "number",
-    label: "Max notional % equity",
-    description: "Upper bound for deployed notional relative to equity.",
+    label: "Max notional allocation",
+    description:
+      "Upper bound for deployed notional relative to account equity.",
     section: "Risk",
+    valueFormat: "fraction-percent",
+    suffix: "%",
+    decimals: 0,
     order: 130,
   },
   {
@@ -216,6 +236,7 @@ export const rangeReversalConfigUi: StrategyConfigUiField[] = [
     label: "Leverage",
     description: "Execution leverage used in sizing and exchange submission.",
     section: "Risk",
+    suffix: "x",
     order: 140,
   },
   {
@@ -237,6 +258,9 @@ export const rangeReversalConfigUi: StrategyConfigUiField[] = [
     widget: "number",
     label: "Fee rate",
     section: "Risk",
+    valueFormat: "fraction-percent",
+    suffix: "%",
+    decimals: 3,
     order: 170,
   },
   {
@@ -245,6 +269,9 @@ export const rangeReversalConfigUi: StrategyConfigUiField[] = [
     label: "Stop buffer %",
     description: "Extra stop distance below or above the SFP wick.",
     section: "Risk",
+    valueFormat: "fraction-percent",
+    suffix: "%",
+    decimals: 2,
     order: 180,
   },
   {
@@ -275,6 +302,9 @@ export const rangeReversalConfigUi: StrategyConfigUiField[] = [
     description:
       "Fraction of the position reduced at TP1. Set to 0 to disable.",
     section: "Exits",
+    valueFormat: "fraction-percent",
+    suffix: "%",
+    decimals: 0,
     order: 220,
   },
   {
@@ -284,6 +314,9 @@ export const rangeReversalConfigUi: StrategyConfigUiField[] = [
     description:
       "Fraction of the position reduced at TP2. Set to 0 to disable.",
     section: "Exits",
+    valueFormat: "fraction-percent",
+    suffix: "%",
+    decimals: 0,
     order: 230,
   },
   {
@@ -305,6 +338,7 @@ export const rangeReversalConfigUi: StrategyConfigUiField[] = [
     widget: "number",
     label: "Cooldown bars",
     section: "Exits",
+    suffix: "bars",
     order: 260,
   },
   {

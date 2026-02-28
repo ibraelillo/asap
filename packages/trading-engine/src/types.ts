@@ -45,6 +45,9 @@ export interface StrategyConfigUiField {
   section?: string;
   placeholder?: string;
   order?: number;
+  valueFormat?: "raw" | "fraction-percent" | "percent";
+  suffix?: string;
+  decimals?: number;
 }
 
 export type StrategyConfigJsonSchema = Record<string, unknown>;
