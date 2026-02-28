@@ -56,7 +56,7 @@ export function AccountsPage() {
   const [authForm, setAuthForm] = useState<AccountAuthForm>(emptyAuthForm);
   const { data: accounts, isLoading } = useSWR(
     "accounts-page",
-    () => fetchAccounts(),
+    () => fetchAccounts(undefined, { includeBalance: true }),
     { revalidateOnFocus: false },
   );
   const { data: bots } = useSWR("bots-page-accounts", () => fetchBots(), {
@@ -421,10 +421,30 @@ export function AccountsPage() {
               </div>
             </div>
 
-            <div className="mt-4 grid grid-cols-1 gap-4 text-sm text-slate-200 md:grid-cols-4">
+            <div className="mt-4 grid grid-cols-1 gap-4 text-sm text-slate-200 md:grid-cols-3 xl:grid-cols-6">
               <div>
                 <p className="text-xs text-slate-400">Bound bots</p>
                 <p className="mt-1">{botCountByAccount.get(account.id) ?? 0}</p>
+              </div>
+              <div>
+                <p className="text-xs text-slate-400">Total balance</p>
+                <p className="mt-1">
+                  {account.balance?.error
+                    ? "unavailable"
+                    : account.balance
+                      ? `${account.balance.total.toFixed(2)} ${account.balance.currency}`
+                      : "-"}
+                </p>
+              </div>
+              <div>
+                <p className="text-xs text-slate-400">Available</p>
+                <p className="mt-1">
+                  {account.balance?.error
+                    ? "unavailable"
+                    : account.balance
+                      ? `${account.balance.available.toFixed(2)} ${account.balance.currency}`
+                      : "-"}
+                </p>
               </div>
               <div>
                 <p className="text-xs text-slate-400">API Key</p>
@@ -443,6 +463,12 @@ export function AccountsPage() {
                 <p className="mt-1">{formatDateTime(account.updatedAtMs)}</p>
               </div>
             </div>
+
+            {account.balance?.error ? (
+              <p className="mt-3 text-xs text-amber-300/90">
+                Balance unavailable: {account.balance.error}
+              </p>
+            ) : null}
 
             {editingAccountId === account.id ? (
               <Panel className="mt-4 space-y-4 p-4" tone="muted">

@@ -271,6 +271,12 @@ const initialAccount = {
     apiSecret: true,
     apiPassphrase: true,
   },
+  balance: {
+    currency: "USDT",
+    available: 812.4,
+    total: 1043.75,
+    fetchedAtMs: NOW,
+  },
 };
 
 const position = {
@@ -629,6 +635,12 @@ export async function mockRangingApi(page: Page) {
           apiKey: true,
           apiSecret: true,
           apiPassphrase: body.exchangeId === "kucoin",
+        },
+        balance: {
+          currency: "USDT",
+          available: 0,
+          total: 0,
+          fetchedAtMs: NOW,
         },
       };
       accounts = [...accounts, createdAccount];

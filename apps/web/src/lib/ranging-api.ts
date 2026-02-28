@@ -210,9 +210,11 @@ export interface CreateAccountRequest {
 
 export async function fetchAccounts(
   exchangeId?: string,
+  options?: { includeBalance?: boolean },
 ): Promise<AccountSummary[]> {
   const query = new URLSearchParams();
   if (exchangeId) query.set("exchangeId", exchangeId);
+  if (options?.includeBalance) query.set("includeBalance", "true");
   const suffix = query.toString();
   const payload = await getJson<{ accounts: AccountSummary[] }>(
     `/v1/accounts${suffix ? `?${suffix}` : ""}`,
@@ -243,20 +245,27 @@ export async function patchAccount(
   accountId: string,
   request: PatchAccountRequest,
 ): Promise<AccountSummary> {
-  const payload = await fetch(`${API_URL}/v1/accounts/${encodeURIComponent(accountId)}`, {
-    method: "PATCH",
-    headers: {
-      "content-type": "application/json",
+  const payload = await fetch(
+    `${API_URL}/v1/accounts/${encodeURIComponent(accountId)}`,
+    {
+      method: "PATCH",
+      headers: {
+        "content-type": "application/json",
+      },
+      body: JSON.stringify(request),
     },
-    body: JSON.stringify(request),
-  });
+  );
 
   if (!payload.ok) {
     let details = "";
     try {
-      const body = (await payload.json()) as { error?: unknown; details?: unknown };
+      const body = (await payload.json()) as {
+        error?: unknown;
+        details?: unknown;
+      };
       const error = typeof body.error === "string" ? body.error : undefined;
-      const reason = typeof body.details === "string" ? body.details : undefined;
+      const reason =
+        typeof body.details === "string" ? body.details : undefined;
       details = [error, reason].filter(Boolean).join(": ");
     } catch {
       // ignore
@@ -386,13 +395,16 @@ export async function patchBot(
   botId: string,
   request: PatchBotRequest,
 ): Promise<BotRecordView> {
-  const response = await fetch(`${API_URL}/v1/bots/${encodeURIComponent(botId)}`, {
-    method: "PATCH",
-    headers: {
-      "content-type": "application/json",
+  const response = await fetch(
+    `${API_URL}/v1/bots/${encodeURIComponent(botId)}`,
+    {
+      method: "PATCH",
+      headers: {
+        "content-type": "application/json",
+      },
+      body: JSON.stringify(request),
     },
-    body: JSON.stringify(request),
-  });
+  );
 
   if (!response.ok) {
     let details = "";
@@ -401,7 +413,8 @@ export async function patchBot(
         error?: unknown;
         details?: unknown;
       };
-      const error = typeof payload.error === "string" ? payload.error : undefined;
+      const error =
+        typeof payload.error === "string" ? payload.error : undefined;
       const reason =
         typeof payload.details === "string" ? payload.details : undefined;
       details = [error, reason].filter(Boolean).join(": ");

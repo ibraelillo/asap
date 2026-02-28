@@ -5,6 +5,7 @@ import {
   type KucoinService,
 } from "@repo/kucoin";
 import type { ExchangeAdapter, ExecutionContext } from "@repo/trading-engine";
+import { KucoinAccountBalanceReader } from "./exchanges/kucoin/account-balance-reader";
 import type { KucoinSignalProcessorOptions } from "./exchanges/kucoin/signal-processor";
 import { KucoinKlineProvider } from "./exchanges/kucoin/klines";
 import { KucoinPositionReader } from "./exchanges/kucoin/position-reader";
@@ -49,6 +50,10 @@ const kucoinAdapter: ExchangeAdapter<AccountRecord> = {
   createKlineProvider(context: ExecutionContext<AccountRecord>) {
     const { client } = getKucoinRuntime(context.account);
     return new KucoinKlineProvider(client);
+  },
+  createAccountBalanceReader(context: ExecutionContext<AccountRecord>) {
+    const { service } = getKucoinRuntime(context.account);
+    return new KucoinAccountBalanceReader(service);
   },
   createPositionReader(context: ExecutionContext<AccountRecord>) {
     const { service } = getKucoinRuntime(context.account);

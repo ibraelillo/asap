@@ -53,6 +53,7 @@ test("accounts page renders and supports status actions without errors", async (
   await page.goto("/accounts");
   await expect(page.getByRole("heading", { name: "Accounts" })).toBeVisible();
   await expect(page.getByText("main-kucoin")).toBeVisible();
+  await expect(page.getByText("1043.75 USDT")).toBeVisible();
   await page.getByPlaceholder("Main KuCoin").fill("Research KuCoin");
   await page.getByPlaceholder("Paste API key").fill("key-2");
   await page.getByPlaceholder("Paste API secret").fill("secret-2");

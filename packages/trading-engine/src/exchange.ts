@@ -57,6 +57,17 @@ export interface ExchangePositionReader {
   getOpenPositions(symbol: string): Promise<ExchangePositionSnapshot[]>;
 }
 
+export interface ExchangeAccountBalanceSnapshot {
+  currency: string;
+  available: number;
+  total: number;
+  raw?: Record<string, unknown>;
+}
+
+export interface ExchangeAccountBalanceReader {
+  getBalance(currency?: string): Promise<ExchangeAccountBalanceSnapshot>;
+}
+
 export interface ExchangePositionSnapshot {
   symbol: string;
   side: "long" | "short";
@@ -135,6 +146,9 @@ export interface ExchangeAdapter<
   createKlineProvider(
     context: ExecutionContext<TAccount>,
   ): ExchangeKlineProvider;
+  createAccountBalanceReader?(
+    context: ExecutionContext<TAccount>,
+  ): ExchangeAccountBalanceReader;
   createPositionReader(
     context: ExecutionContext<TAccount>,
   ): ExchangePositionReader;

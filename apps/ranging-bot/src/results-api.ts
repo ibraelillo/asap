@@ -12,10 +12,9 @@ import {
   computeDashboardMetrics,
   mapRunsToTrades,
 } from "./monitoring/analytics";
-import {
-  getRuntimeBotById,
-  getRuntimeBotBySymbol,
-} from "./bot-registry";
+import { getRuntimeBotById, getRuntimeBotBySymbol } from "./bot-registry";
+import { runtimeAccountResolver } from "./account-resolver";
+import { exchangeAdapterRegistry } from "./exchange-adapter-registry";
 import {
   createBacktestIdentity,
   createFailedBacktestRecord,
@@ -62,6 +61,7 @@ import {
 } from "./monitoring/store";
 import type {
   AccountRecord,
+  AccountSummary,
   BacktestAiConfig,
   BacktestRecord,
   BacktestTradeView,
@@ -343,7 +343,7 @@ function buildAccountId(exchangeId: string, name: string): string {
   return `${sanitizeSegment(exchangeId)}-${sanitizeSegment(name)}`;
 }
 
-function toAccountSummary(account: AccountRecord) {
+function toAccountSummary(account: AccountRecord): AccountSummary {
   return {
     id: account.id,
     name: account.name,
@@ -357,6 +357,90 @@ function toAccountSummary(account: AccountRecord) {
       apiPassphrase: (account.auth.apiPassphrase?.trim().length ?? 0) > 0,
     },
   };
+}
+
+function isTruthyQueryFlag(raw: string | undefined): boolean {
+  if (!raw) return false;
+  const normalized = raw.trim().toLowerCase();
+  return normalized === "1" || normalized === "true" || normalized === "yes";
+}
+
+async function enrichAccountSummaryWithBalance(
+  account: AccountRecord,
+): Promise<AccountSummary> {
+  const summary = toAccountSummary(account);
+
+  if (account.status !== "active") {
+    return summary;
+  }
+
+  try {
+    const resolvedAccount = await runtimeAccountResolver.requireAccount(
+      account.id,
+      account.exchangeId,
+    );
+    const adapter = exchangeAdapterRegistry.get(account.exchangeId);
+    const reader = adapter.createAccountBalanceReader?.({
+      bot: {
+        id: `account-balance-${account.id}`,
+        name: `account-balance-${account.name}`,
+        strategyId: "account-balance",
+        strategyVersion: "1",
+        exchangeId: account.exchangeId,
+        accountId: account.id,
+        symbol: "ACCOUNT",
+        marketType: "futures",
+        status: "active",
+        execution: {
+          trigger: "event",
+          executionTimeframe: "1h",
+          warmupBars: 0,
+        },
+        context: {
+          primaryPriceTimeframe: "1h",
+          additionalTimeframes: [],
+          providers: [],
+        },
+        riskProfileId: "account-balance",
+        strategyConfig: {},
+        createdAtMs: account.createdAtMs,
+        updatedAtMs: account.updatedAtMs,
+      },
+      account: resolvedAccount,
+      exchangeId: account.exchangeId,
+      nowMs: Date.now(),
+      dryRun: true,
+      metadata: {
+        purpose: "account-balance-read",
+      },
+    });
+
+    if (!reader) {
+      return summary;
+    }
+
+    const balance = await reader.getBalance("USDT");
+    return {
+      ...summary,
+      balance: {
+        currency: balance.currency,
+        available: balance.available,
+        total: balance.total,
+        fetchedAtMs: Date.now(),
+      },
+    };
+  } catch (error) {
+    return {
+      ...summary,
+      balance: {
+        currency: "USDT",
+        available: 0,
+        total: 0,
+        fetchedAtMs: Date.now(),
+        error: error instanceof Error ? error.message : String(error),
+      },
+    };
+  }
 }
 
 function normalizeExchangeId(raw: unknown): string | undefined {
@@ -918,9 +1002,19 @@ export async function accountsHandler(
     const exchangeId = normalizeExchangeId(
       event.queryStringParameters?.exchangeId,
     );
-    const accounts = (await listAccountRecords(limit))
-      .filter((account) => !exchangeId || account.exchangeId === exchangeId)
-      .map((account) => toAccountSummary(account));
+    const includeBalance = isTruthyQueryFlag(
+      event.queryStringParameters?.includeBalance,
+    );
+    const filteredAccounts = (await listAccountRecords(limit)).filter(
+      (account) => !exchangeId || account.exchangeId === exchangeId,
+    );
+    const accounts = includeBalance
+      ? await Promise.all(
+          filteredAccounts.map((account) =>
+            enrichAccountSummaryWithBalance(account),
+          ),
+        )
+      : filteredAccounts.map((account) => toAccountSummary(account));
 
     return json(200, {
       generatedAt: new Date().toISOString(),

@@ -73,6 +73,13 @@ export interface AccountSummary {
     apiSecret: boolean;
     apiPassphrase: boolean;
   };
+  balance?: {
+    currency: string;
+    available: number;
+    total: number;
+    fetchedAtMs: number;
+    error?: string;
+  };
 }
 
 export interface BotOperationalStats {
