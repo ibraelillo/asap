@@ -356,10 +356,18 @@ export default $config({
 
     const marketFeedRefreshQueue = new sst.aws.Queue(
       "RangingMarketFeedRefreshQueue",
+      {
+        visibilityTimeout: "3 minutes",
+      },
     );
-    const botExecutionQueue = new sst.aws.Queue("RangingBotExecutionQueue");
+    const botExecutionQueue = new sst.aws.Queue("RangingBotExecutionQueue", {
+      visibilityTimeout: "3 minutes",
+    });
     const indicatorRefreshQueue = new sst.aws.Queue(
       "RangingIndicatorRefreshQueue",
+      {
+        visibilityTimeout: "3 minutes",
+      },
     );
 
     marketFeedRefreshQueue.subscribe({
