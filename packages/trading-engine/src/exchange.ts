@@ -53,6 +53,10 @@ export interface ExchangeKlineProvider {
   fetchKlines(query: KlineQuery): Promise<Candle[]>;
 }
 
+export interface ExchangePositionReader {
+  getOpenPositions(symbol: string): Promise<ExchangePositionSnapshot[]>;
+}
+
 export interface ExchangePositionSnapshot {
   symbol: string;
   side: "long" | "short";
@@ -131,6 +135,9 @@ export interface ExchangeAdapter<
   createKlineProvider(
     context: ExecutionContext<TAccount>,
   ): ExchangeKlineProvider;
+  createPositionReader(
+    context: ExecutionContext<TAccount>,
+  ): ExchangePositionReader;
   createSignalProcessor<TSnapshot = unknown, TMeta = unknown>(
     context: ExecutionContext<TAccount>,
     options?: unknown,

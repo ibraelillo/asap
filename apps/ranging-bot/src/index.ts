@@ -20,6 +20,8 @@ export * from "./strategy-registry";
 export * from "./account-resolver";
 export * from "./exchange-adapter-registry";
 export * from "./runtime-orchestrator-factory";
+export * from "./runtime-bots";
+export * from "./reconciliation";
 export * from "./tick";
 export * from "./results-api";
 export * from "./monitoring/types";

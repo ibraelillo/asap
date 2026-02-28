@@ -51,6 +51,8 @@ export default $config({
     const botsJson =
       process.env.RANGING_BOTS_JSON ?? JSON.stringify(DEFAULT_BOTS);
     const schedule = process.env.RANGING_SCHEDULE ?? "cron(0 * * * ? *)";
+    const reconciliationSchedule =
+      process.env.RANGING_RECONCILIATION_SCHEDULE ?? "rate(5 minutes)";
     const realtimeToken = process.env.RANGING_REALTIME_TOKEN ?? "";
     const realtimeTopicPrefix = `${$app.name}/${$app.stage}/ranging-bot`;
 
@@ -361,6 +363,25 @@ export default $config({
       },
     });
 
+    new sst.aws.Cron("RangingBotReconciliation", {
+      schedule: reconciliationSchedule,
+      function: {
+        handler: "apps/ranging-bot/src/reconciliation-worker.handler",
+        timeout: "55 seconds",
+        link: [runsTable],
+        environment: {
+          KUCOIN_API_KEY: kucoinApiKey,
+          KUCOIN_API_SECRET: kucoinApiSecret,
+          KUCOIN_API_PASSPHRASE: kucoinApiPassphrase,
+          RANGING_BOTS_JSON: botsJson,
+          RANGING_BOT_RUNS_TABLE: runsTable.name,
+        },
+      },
+      event: {
+        trigger: "ranging-bot-reconciliation-cron",
+      },
+    });
+
     let botCount = DEFAULT_BOTS.length;
     try {
       const parsed = JSON.parse(botsJson);
@@ -374,6 +395,7 @@ export default $config({
     return {
       mode: "ranging-bot-scheduler",
       schedule,
+      reconciliationSchedule,
       botCount,
       dryRun: process.env.RANGING_DRY_RUN ?? "true",
       webUrl: web.url,

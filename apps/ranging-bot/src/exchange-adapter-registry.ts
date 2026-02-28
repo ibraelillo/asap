@@ -7,6 +7,7 @@ import {
 import type { ExchangeAdapter, ExecutionContext } from "@repo/trading-engine";
 import type { KucoinSignalProcessorOptions } from "./exchanges/kucoin/signal-processor";
 import { KucoinKlineProvider } from "./exchanges/kucoin/klines";
+import { KucoinPositionReader } from "./exchanges/kucoin/position-reader";
 import { KucoinSignalProcessor } from "./exchanges/kucoin/signal-processor";
 import type { AccountRecord } from "./monitoring/types";
 
@@ -48,6 +49,10 @@ const kucoinAdapter: ExchangeAdapter<AccountRecord> = {
   createKlineProvider(context: ExecutionContext<AccountRecord>) {
     const { client } = getKucoinRuntime(context.account);
     return new KucoinKlineProvider(client);
+  },
+  createPositionReader(context: ExecutionContext<AccountRecord>) {
+    const { service } = getKucoinRuntime(context.account);
+    return new KucoinPositionReader(service);
   },
   createSignalProcessor<TSnapshot = unknown, TMeta = unknown>(
     context: ExecutionContext<AccountRecord>,

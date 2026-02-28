@@ -77,7 +77,7 @@ export function BotDetailsPage() {
       : undefined;
   const openPosition =
     botDetails.openPosition ??
-    positions?.find((position) => position.status !== "closed");
+    positions?.positions?.find((position) => position.status !== "closed");
   const recentBacktests = botDetails.backtests.slice(0, 6);
   const recentValidations = botDetails.validations.slice(0, 6);
 

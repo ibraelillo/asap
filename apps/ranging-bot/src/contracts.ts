@@ -10,6 +10,7 @@ export type {
   ExchangeAccountAuth,
   ExchangeAdapter,
   ExchangeKlineProvider,
+  ExchangePositionReader,
   ExchangePositionSnapshot,
   ExecutionContext,
   KlineQuery,

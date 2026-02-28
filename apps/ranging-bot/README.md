@@ -41,6 +41,7 @@ Optional flags:
 The stack now runs the bot continuously using a single scheduled Lambda:
 
 - schedule: `rate(1 minute)` (configurable via `RANGING_SCHEDULE`)
+- reconciliation loop: `rate(5 minutes)` (configurable via `RANGING_RECONCILIATION_SCHEDULE`)
 - no VPC/NAT/ECS required
 - one function tick handles all configured symbols
 

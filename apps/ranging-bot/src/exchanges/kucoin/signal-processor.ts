@@ -5,34 +5,12 @@ import type {
   SignalProcessor,
   StrategySignalEvent,
 } from "../../contracts";
+import { mapPositionSnapshot } from "./position-snapshot";
 
 export interface KucoinSignalProcessorOptions {
   dryRun?: boolean;
   marginMode?: "CROSS" | "ISOLATED";
   valueQty?: string;
-}
-
-function mapPositionSnapshot(
-  position:
-    | {
-        symbol: string;
-        positionSide: "LONG" | "SHORT" | "BOTH";
-        currentQty: number;
-        avgEntryPrice: number;
-        isOpen: boolean;
-      }
-    | undefined,
-): ExchangePositionSnapshot | null {
-  if (!position) return null;
-  const quantity = Math.abs(Number(position.currentQty ?? 0));
-  const side = position.positionSide === "SHORT" ? "short" : "long";
-  return {
-    symbol: position.symbol,
-    side,
-    quantity,
-    avgEntryPrice: Number(position.avgEntryPrice ?? 0) || undefined,
-    isOpen: Boolean(position.isOpen) && quantity > 0,
-  };
 }
 
 async function fetchOpenSnapshots(

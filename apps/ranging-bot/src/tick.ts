@@ -4,7 +4,6 @@ import type {
   StrategySignalEvent,
 } from "@repo/trading-engine";
 import { runtimeAccountResolver } from "./account-resolver";
-import { listActiveRuntimeBots } from "./bot-registry";
 import type { OrchestratorRunInput } from "./contracts";
 import { exchangeAdapterRegistry } from "./exchange-adapter-registry";
 import { publishRunRecord, publishTickSummary } from "./monitoring/realtime";
@@ -13,8 +12,6 @@ import {
   getLatestOpenPositionByBot,
   getProcessingCursor,
   putFillRecord,
-  listBotRecords,
-  putBotRecord,
   putOrderRecord,
   putPositionRecord,
   putReconciliationEventRecord,
@@ -33,6 +30,7 @@ import {
   reconcilePositionRecord,
 } from "./execution-ledger";
 import { createBotRuntime } from "./runtime-orchestrator-factory";
+import { loadActiveBots } from "./runtime-bots";
 import {
   getClosedCandleEndTime,
   getTimeframeDurationMs,
@@ -286,28 +284,6 @@ async function persistAndBroadcast(record: BotRunRecord): Promise<void> {
   await Promise.allSettled([putRunRecord(record), publishRunRecord(record)]);
 }
 
-async function loadSchedulableBots(rawBotsJson?: string): Promise<BotRecord[]> {
-  const runtimeBots = listActiveRuntimeBots(rawBotsJson);
-  await Promise.allSettled(runtimeBots.map((bot) => putBotRecord(bot)));
-
-  const storedBots = await listBotRecords(500);
-  const byId = new Map<string, BotRecord>();
-
-  for (const bot of storedBots) {
-    if (bot.status === "active") {
-      byId.set(bot.id, bot);
-    }
-  }
-
-  for (const bot of runtimeBots) {
-    if (bot.status === "active") {
-      byId.set(bot.id, bot);
-    }
-  }
-
-  return [...byId.values()].sort((a, b) => a.name.localeCompare(b.name));
-}
-
 export const handler = async (incomingEvent?: CronTickEvent) => {
   const nowMs = Date.now();
   const event = asObject(incomingEvent);
@@ -317,7 +293,7 @@ export const handler = async (incomingEvent?: CronTickEvent) => {
     typeof event.botsJson === "string"
       ? event.botsJson
       : process.env.RANGING_BOTS_JSON;
-  let bots = await loadSchedulableBots(rawBotsJson);
+  let bots = await loadActiveBots(rawBotsJson);
   if (eventSymbols.length > 0) {
     const allowedSymbols = new Set(eventSymbols);
     bots = bots.filter((bot) => allowedSymbols.has(bot.symbol));
@@ -357,8 +333,6 @@ export const handler = async (incomingEvent?: CronTickEvent) => {
     await publishTickSummary(emptySummary);
     return emptySummary;
   }
-
-  await Promise.allSettled(bots.map((bot) => putBotRecord(bot)));
 
   let processed = 0;
   let signaled = 0;
