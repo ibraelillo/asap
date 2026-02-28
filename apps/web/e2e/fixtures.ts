@@ -559,7 +559,7 @@ const tradeAnalysis = {
 };
 
 export async function mockRangingApi(page: Page) {
-  let account = { ...initialAccount };
+  let accounts = [{ ...initialAccount }];
   let bot = { ...botRecord };
 
   await page.route("**/v1/**", async (route) => {
@@ -606,27 +606,72 @@ export async function mockRangingApi(page: Page) {
     }
 
     if (method === "GET" && pathname === "/v1/accounts") {
-      return json(route, { accounts: [account] });
+      return json(route, { accounts });
     }
 
     if (method === "POST" && pathname === "/v1/accounts") {
+      const body = JSON.parse(request.postData() ?? "{}") as {
+        name?: string;
+        exchangeId?: string;
+      };
+      const createdAccount = {
+        id: `${body.exchangeId ?? "kucoin"}-${String(body.name ?? "new-account")
+          .trim()
+          .toLowerCase()
+          .replace(/[^a-z0-9]+/g, "-")
+          .replace(/^-+|-+$/g, "")}`,
+        name: body.name ?? "new-account",
+        exchangeId: body.exchangeId ?? "kucoin",
+        status: "active",
+        createdAtMs: NOW,
+        updatedAtMs: NOW,
+        hasAuth: {
+          apiKey: true,
+          apiSecret: true,
+          apiPassphrase: body.exchangeId === "kucoin",
+        },
+      };
+      accounts = [...accounts, createdAccount];
       return json(route, {
         generatedAt: iso(NOW),
-        account: account,
+        account: createdAccount,
       });
     }
 
-    if (method === "PATCH" && pathname === `/v1/accounts/${ACCOUNT_ID}`) {
+    if (method === "PATCH" && pathname.startsWith("/v1/accounts/")) {
+      const accountId = decodeURIComponent(pathname.split("/").pop() ?? "");
       const body = JSON.parse(request.postData() ?? "{}") as {
         status?: "active" | "archived";
+        auth?: {
+          apiKey?: string;
+          apiSecret?: string;
+          apiPassphrase?: string;
+        };
       };
-      account = {
-        ...account,
-        status: body.status ?? account.status,
-      };
+      accounts = accounts.map((account) =>
+        account.id === accountId
+          ? {
+              ...account,
+              status: body.status ?? account.status,
+              updatedAtMs: NOW,
+              hasAuth: {
+                apiKey: body.auth?.apiKey ? true : account.hasAuth.apiKey,
+                apiSecret: body.auth?.apiSecret
+                  ? true
+                  : account.hasAuth.apiSecret,
+                apiPassphrase:
+                  body.auth?.apiPassphrase !== undefined
+                    ? body.auth.apiPassphrase.trim().length > 0
+                    : account.hasAuth.apiPassphrase,
+              },
+            }
+          : account,
+      );
+      const updatedAccount =
+        accounts.find((account) => account.id === accountId) ?? accounts[0];
       return json(route, {
         generatedAt: iso(NOW),
-        account,
+        account: updatedAccount,
       });
     }
 

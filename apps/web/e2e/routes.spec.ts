@@ -53,7 +53,15 @@ test("accounts page renders and supports status actions without errors", async (
   await page.goto("/accounts");
   await expect(page.getByRole("heading", { name: "Accounts" })).toBeVisible();
   await expect(page.getByText("main-kucoin")).toBeVisible();
-  await page.getByRole("button", { name: "Archive" }).click();
+  await page.getByPlaceholder("Main KuCoin").fill("Research KuCoin");
+  await page.getByPlaceholder("Paste API key").fill("key-2");
+  await page.getByPlaceholder("Paste API secret").fill("secret-2");
+  await page.getByPlaceholder("KuCoin passphrase").fill("pass-2");
+  await page.getByRole("button", { name: "Create Account" }).click();
+  await expect(page.getByText("Account created.")).toBeVisible();
+  await expect(page.getByText("Research KuCoin")).toBeVisible();
+
+  await page.getByRole("button", { name: "Archive" }).first().click();
   await expect(page.getByRole("button", { name: "Reactivate" })).toBeVisible();
 
   await assertNoBrowserErrors();

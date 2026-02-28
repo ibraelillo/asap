@@ -17,14 +17,10 @@ import {
   fetchAccounts,
   fetchStrategies,
 } from "../../../lib/ranging-api";
-
-const SUPPORTED_EXCHANGES = [
-  {
-    id: "kucoin",
-    label: "KuCoin Futures",
-    description: "Perpetual futures execution via the KuCoin adapter.",
-  },
-] as const;
+import {
+  getSupportedExchange,
+  SUPPORTED_EXCHANGES,
+} from "../supportedExchanges";
 
 const EXECUTION_TIMEFRAME_OPTIONS = [
   { value: "1h", label: "1h" },
@@ -318,16 +314,10 @@ export function BotCreatePage() {
 
           <Panel className="p-4" tone="muted">
             <p className="font-medium text-cyan-100">
-              {SUPPORTED_EXCHANGES.find(
-                (exchange) => exchange.id === form.exchangeId,
-              )?.label ?? form.exchangeId}
+              {getSupportedExchange(form.exchangeId)?.label ?? form.exchangeId}
             </p>
             <p className="mt-1 text-sm text-slate-300/80">
-              {
-                SUPPORTED_EXCHANGES.find(
-                  (exchange) => exchange.id === form.exchangeId,
-                )?.description
-              }
+              {getSupportedExchange(form.exchangeId)?.description}
             </p>
           </Panel>
         </section>
