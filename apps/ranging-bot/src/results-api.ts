@@ -601,6 +601,10 @@ async function syncConfiguredBots(): Promise<BotRecord[]> {
   return loadConfiguredBots();
 }
 
+function includeBotInPrimaryListings(bot: BotRecord): boolean {
+  return bot.status !== "archived";
+}
+
 function completedBacktests(backtests: BacktestRecord[]): BacktestRecord[] {
   return backtests.filter((backtest) => backtest.status === "completed");
 }
@@ -875,8 +879,10 @@ async function loadDashboard(
   const configuredBots = await syncConfiguredBots();
   const selectedBots =
     botIds && botIds.length > 0
-      ? configuredBots.filter((bot) => botIds.includes(bot.id))
-      : configuredBots;
+      ? configuredBots.filter(
+          (bot) => botIds.includes(bot.id) && includeBotInPrimaryListings(bot),
+        )
+      : configuredBots.filter(includeBotInPrimaryListings);
 
   const latestRunsByBotId =
     selectedBots.length > 0
@@ -981,8 +987,10 @@ export async function botsHandler(
     const configuredBots = await syncConfiguredBots();
     const selectedBots =
       botIds.length > 0
-        ? configuredBots.filter((bot) => botIds.includes(bot.id))
-        : configuredBots;
+        ? configuredBots.filter(
+            (bot) => botIds.includes(bot.id) && includeBotInPrimaryListings(bot),
+          )
+        : configuredBots.filter(includeBotInPrimaryListings);
     const latestRuns =
       selectedBots.length > 0
         ? await listLatestRunsByBotIds(selectedBots.map((bot) => bot.id))
@@ -1397,15 +1405,18 @@ export async function patchBotHandler(
 
     const accountId =
       normalizeNonEmptyString(body.accountId) ?? existing.accountId;
-    const account = await getAccountRecordById(accountId);
-    if (!account) {
-      return json(400, { error: "unknown_account" });
-    }
-    if (account.status !== "active") {
-      return json(400, { error: "inactive_account" });
-    }
-    if (account.exchangeId !== existing.exchangeId) {
-      return json(400, { error: "account_exchange_mismatch" });
+    const accountValidationRequired = requestedStatus !== "archived";
+    if (accountValidationRequired) {
+      const account = await getAccountRecordById(accountId);
+      if (!account) {
+        return json(400, { error: "unknown_account" });
+      }
+      if (account.status !== "active") {
+        return json(400, { error: "inactive_account" });
+      }
+      if (account.exchangeId !== existing.exchangeId) {
+        return json(400, { error: "account_exchange_mismatch" });
+      }
     }
 
     const normalized = normalizeBotConfig({
