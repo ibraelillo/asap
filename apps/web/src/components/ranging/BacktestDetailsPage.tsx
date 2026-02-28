@@ -14,7 +14,10 @@ import {
   fetchBacktestDetails,
   fetchStrategyDetails,
 } from "../../lib/ranging-api";
-import type { BacktestRecord, BacktestTrade } from "../../types/ranging-dashboard";
+import type {
+  BacktestRecord,
+  BacktestTrade,
+} from "../../types/ranging-dashboard";
 import { BacktestReplayChart } from "./BacktestReplayChart";
 import { BacktestConfigDrawer } from "./BacktestConfigDrawer";
 import { StrategySummaryConfigSnapshot } from "./StrategyConfigSnapshot";
@@ -159,7 +162,7 @@ export function BacktestDetailsPage({
     asRecord(botDetails?.bot.runtime.strategyConfig),
   );
   const hasSnapshot = Object.keys(storedBacktestStrategyConfig).length > 0;
-  const isLiveConfig =
+  const matchesBotConfig =
     hasSnapshot &&
     configsEqual(effectiveBacktestStrategyConfig, currentBotStrategyConfig);
 
@@ -339,9 +342,9 @@ export function BacktestDetailsPage({
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
-            {isLiveConfig ? (
+            {matchesBotConfig ? (
               <span className="rounded-full border border-emerald-300/30 bg-emerald-400/10 px-2 py-1 text-xs text-emerald-100">
-                live
+                matches bot config
               </span>
             ) : null}
             {hasSnapshot ? null : (
@@ -355,9 +358,10 @@ export function BacktestDetailsPage({
         {hasSnapshot ? (
           <>
             <p className="mb-4 text-sm text-slate-400">
-              This panel shows the exact settings stored on this backtest.
-              Use edit-and-rerun to fork this snapshot, change values, and open
-              the new replay immediately.
+              This panel shows the exact settings stored on this backtest. This
+              snapshot is independent from the bot. If the bot currently uses an
+              identical copied config, it is marked as matching the bot config.
+              Deleting this backtest does not change the bot.
             </p>
             <StrategySummaryConfigSnapshot
               strategy={strategySummary}

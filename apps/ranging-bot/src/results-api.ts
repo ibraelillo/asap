@@ -1609,7 +1609,9 @@ export async function patchBotHandler(
       manifest.resolveConfig(
         body.strategyConfig !== undefined
           ? toStrategyConfigRecord(body.strategyConfig)
-          : toStrategyConfigRecord(existing.strategyConfig),
+          : toStrategyConfigRecord(
+              existing.runtime.strategyConfig ?? existing.strategyConfig,
+            ),
       ),
     );
 

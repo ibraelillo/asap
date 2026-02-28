@@ -197,9 +197,8 @@ export function BotBacktestsPage() {
     selectedBacktestId !== undefined
       ? (backtests ?? []).find((entry) => entry.id === selectedBacktestId)
       : undefined;
-  const selectedBacktestStrategyConfig = mergeConfigDefaults(
-    asRecord(strategySummary?.configDefaults),
-    asRecord(selectedBacktest?.strategyConfig),
+  const selectedBacktestStrategyConfig = asRecord(
+    selectedBacktest?.strategyConfig,
   );
   const comparedBacktests = (backtests ?? []).filter((backtest) =>
     selectedComparisonIds.includes(backtest.id),
@@ -430,7 +429,8 @@ export function BotBacktestsPage() {
                 onClick={openComparisonDrawer}
                 disabled={selectedComparisonIds.length === 0}
               >
-                Compare{selectedComparisonIds.length > 0
+                Compare
+                {selectedComparisonIds.length > 0
                   ? ` (${selectedComparisonIds.length})`
                   : ""}
               </Button>
@@ -495,9 +495,12 @@ export function BotBacktestsPage() {
                   asRecord(strategySummary?.configDefaults),
                   asRecord(backtest.strategyConfig),
                 );
-                const isLiveConfig =
+                const matchesBotConfig =
                   hasSnapshot &&
-                  configsEqual(effectiveBacktestConfig, currentBotStrategyConfig);
+                  configsEqual(
+                    effectiveBacktestConfig,
+                    currentBotStrategyConfig,
+                  );
                 const selectedForCompare = selectedComparisonIds.includes(
                   backtest.id,
                 );
@@ -543,13 +546,13 @@ export function BotBacktestsPage() {
                     </td>
                     <td className="py-3 pr-4 text-xs">
                       {hasSnapshot ? (
-                        isLiveConfig ? (
+                        matchesBotConfig ? (
                           <span className="rounded-full border border-emerald-300/30 bg-emerald-400/10 px-2 py-0.5 text-emerald-100">
-                            live
+                            matches bot config
                           </span>
                         ) : (
                           <span className="rounded-full border border-amber-300/30 bg-amber-400/10 px-2 py-0.5 text-amber-100">
-                            snapshot differs
+                            independent snapshot
                           </span>
                         )
                       ) : (
@@ -862,8 +865,8 @@ export function BotBacktestsPage() {
         }
         description={
           selectedBacktest
-            ? "This drawer is seeded with the configuration used by the selected backtest. Edit the values, queue a new run, and jump straight to the new replay."
-            : "Run a new backtest from the bot’s current strategy configuration."
+            ? "This drawer is seeded with the exact configuration stored on the selected backtest. Edit the values, queue a new run, and jump straight to the new replay."
+            : "Run a new backtest from the bot’s current copied strategy configuration."
         }
         onCreated={async (backtest: BacktestRecord) => {
           setBacktestFeedback(
