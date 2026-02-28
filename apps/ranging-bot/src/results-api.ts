@@ -78,6 +78,7 @@ import type {
 import { fetchTradeContextKlines } from "./monitoring/kucoin-public-klines";
 import { decodeTradeId } from "./monitoring/trades";
 import type { OrchestratorTimeframe } from "./contracts";
+import { strategyRegistry } from "./strategy-registry";
 import {
   normalizeBotConfig,
   toBotDefinition,
@@ -671,6 +672,7 @@ async function loadStrategySummaries(
   backtestLimit: number,
 ): Promise<StrategySummary[]> {
   const bots = await syncConfiguredBots();
+  const manifests = strategyRegistry.listManifests();
   const [runs, backtests, positionsByBot] = await Promise.all([
     listRecentRuns(runsLimit),
     listRecentBacktests(backtestLimit),
@@ -686,11 +688,10 @@ async function loadStrategySummaries(
 
   const windowStartMs = Date.now() - windowHours * 60 * 60_000;
   const positions = positionsByBot.flat();
-  const strategyIds = [...new Set(bots.map((bot) => bot.strategyId))];
 
-  return strategyIds
-    .map((strategyId) => {
-      const strategyBots = bots.filter((bot) => bot.strategyId === strategyId);
+  return manifests
+    .map((manifest) => {
+      const strategyBots = bots.filter((bot) => bot.strategyId === manifest.id);
       const strategyBotIds = new Set(strategyBots.map((bot) => bot.id));
       const strategyRuns = runs.filter((run) => strategyBotIds.has(run.botId));
       const strategyRunsInWindow = strategyRuns.filter(
@@ -704,8 +705,11 @@ async function loadStrategySummaries(
       );
 
       return {
-        strategyId,
-        versions: [
+        strategyId: manifest.id,
+        label: manifest.label,
+        description: manifest.description,
+        manifestVersion: manifest.version,
+        configuredVersions: [
           ...new Set(strategyBots.map((bot) => bot.strategyVersion)),
         ].sort(),
         configuredBots: strategyBots.length,
@@ -724,8 +728,7 @@ async function loadStrategySummaries(
     .map(({ bots: _bots, ...summary }) => summary)
     .sort(
       (a, b) =>
-        b.configuredBots - a.configuredBots ||
-        a.strategyId.localeCompare(b.strategyId),
+        b.configuredBots - a.configuredBots || a.label.localeCompare(b.label),
     );
 }
 
@@ -759,10 +762,16 @@ async function loadStrategyDetails(
   runsLimit: number,
   backtestLimit: number,
 ): Promise<StrategyDetailsPayload | undefined> {
+  let manifest;
+  try {
+    manifest = strategyRegistry.getManifest(strategyId);
+  } catch {
+    return undefined;
+  }
+
   const bots = (await syncConfiguredBots()).filter(
     (bot) => bot.strategyId === strategyId,
   );
-  if (bots.length === 0) return undefined;
 
   const botIds = new Set(bots.map((bot) => bot.id));
   const [runs, backtests, positionsByBot, latestRuns] = await Promise.all([
@@ -786,7 +795,12 @@ async function loadStrategyDetails(
     generatedAt: new Date().toISOString(),
     strategy: {
       strategyId,
-      versions: [...new Set(bots.map((bot) => bot.strategyVersion))].sort(),
+      label: manifest.label,
+      description: manifest.description,
+      manifestVersion: manifest.version,
+      configuredVersions: [
+        ...new Set(bots.map((bot) => bot.strategyVersion)),
+      ].sort(),
       configuredBots: bots.length,
       activeBots: bots.filter((bot) => bot.status === "active").length,
       symbols: [...new Set(bots.map((bot) => bot.symbol))].sort(),

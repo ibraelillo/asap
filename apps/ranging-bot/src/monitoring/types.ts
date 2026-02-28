@@ -289,7 +289,10 @@ export interface BotStatsSummary {
 
 export interface StrategySummary {
   strategyId: string;
-  versions: string[];
+  label: string;
+  description: string;
+  manifestVersion: string;
+  configuredVersions: string[];
   configuredBots: number;
   activeBots: number;
   symbols: string[];

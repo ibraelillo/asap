@@ -52,11 +52,17 @@ export function StrategyDetailsPage() {
           Strategy
         </p>
         <h1 className="mt-2 text-3xl font-semibold text-slate-100">
-          {strategyId}
+          {strategy.label}
         </h1>
-        <p className="mt-2 text-sm text-slate-300/90">
-          Bot membership and latest runtime activity for this strategy family.
-        </p>
+        <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-slate-400">
+          <span className="rounded-full border border-cyan-300/25 bg-cyan-400/10 px-3 py-1 text-cyan-100">
+            {strategy.strategyId}
+          </span>
+          <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-slate-200">
+            manifest v{strategy.manifestVersion}
+          </span>
+        </div>
+        <p className="mt-2 text-sm text-slate-300/90">{strategy.description}</p>
       </header>
 
       <section className="grid grid-cols-1 gap-4 md:grid-cols-3">
@@ -144,6 +150,21 @@ export function StrategyDetailsPage() {
             value={String(strategy.positions.openPositions)}
             icon={<Bot className="h-5 w-5" />}
           />
+        </div>
+        <div className="mt-4 flex flex-wrap gap-2 text-xs text-slate-300">
+          {strategy.configuredVersions.map((version) => (
+            <span
+              key={`${strategy.strategyId}-${version}`}
+              className="rounded-full border border-cyan-300/20 bg-cyan-400/10 px-2.5 py-1 text-cyan-100"
+            >
+              strategy v{version}
+            </span>
+          ))}
+          {strategy.configuredVersions.length === 0 ? (
+            <span className="rounded-full border border-white/10 bg-slate-950/40 px-2.5 py-1 text-slate-400">
+              No bots are using this strategy yet
+            </span>
+          ) : null}
         </div>
       </section>
     </div>

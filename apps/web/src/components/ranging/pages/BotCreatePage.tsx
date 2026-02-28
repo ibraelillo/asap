@@ -90,13 +90,15 @@ export function BotCreatePage() {
   );
 
   const strategyOptions = useMemo(() => {
-    const ids = new Set<string>(["range-reversal"]);
-    for (const strategy of strategies ?? []) {
-      ids.add(strategy.strategyId);
+    if (!strategies || strategies.length === 0) {
+      return [{ value: "range-reversal", label: "Range Reversal" }];
     }
-    return [...ids]
-      .sort()
-      .map((strategyId) => ({ value: strategyId, label: strategyId }));
+
+    return strategies.map((strategy) => ({
+      value: strategy.strategyId,
+      label: strategy.label,
+      description: `${strategy.strategyId} · manifest v${strategy.manifestVersion}`,
+    }));
   }, [strategies]);
 
   const exchangeOptions = useMemo(

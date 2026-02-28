@@ -90,10 +90,13 @@ export function StrategiesPage() {
                   Strategy
                 </p>
                 <h2 className="mt-2 text-xl font-semibold text-slate-100">
-                  {strategy.strategyId}
+                  {strategy.label}
                 </h2>
+                <p className="mt-1 text-sm text-slate-300/90">
+                  {strategy.description}
+                </p>
                 <p className="mt-1 text-xs text-slate-400">
-                  Versions {strategy.versions.join(", ")}
+                  {strategy.strategyId} · manifest v{strategy.manifestVersion}
                 </p>
               </div>
               <span className="rounded-full border border-cyan-300/30 bg-cyan-400/10 px-3 py-1 text-xs text-cyan-100">
@@ -102,6 +105,14 @@ export function StrategiesPage() {
             </div>
 
             <div className="mt-4 flex flex-wrap gap-2 text-xs text-slate-300">
+              {strategy.configuredVersions.map((version) => (
+                <span
+                  key={`${strategy.strategyId}-${version}`}
+                  className="rounded-full border border-cyan-300/20 bg-cyan-400/10 px-2.5 py-1 text-cyan-100"
+                >
+                  strategy v{version}
+                </span>
+              ))}
               {strategy.symbols.slice(0, 6).map((symbol) => (
                 <span
                   key={symbol}
@@ -110,6 +121,11 @@ export function StrategiesPage() {
                   {symbol}
                 </span>
               ))}
+              {strategy.symbols.length === 0 ? (
+                <span className="rounded-full border border-white/10 bg-slate-950/50 px-2.5 py-1 text-slate-500">
+                  No bots configured yet
+                </span>
+              ) : null}
             </div>
           </Link>
         ))}

@@ -484,7 +484,11 @@ const validations = [
 const strategies = [
   {
     strategyId: STRATEGY_ID,
-    versions: ["1"],
+    label: "Range Reversal",
+    description:
+      "Daily + 4h aligned value-area reversal strategy with divergence, money flow, and SFP confirmation.",
+    manifestVersion: "1",
+    configuredVersions: ["1"],
     configuredBots: 1,
     activeBots: 1,
     symbols: ["SUIUSDTM"],
@@ -492,6 +496,53 @@ const strategies = [
     strategy: stats.strategy,
     positions: stats.positions,
     backtests: stats.backtests,
+  },
+  {
+    strategyId: "indicator-bot",
+    label: "Indicator Bot",
+    description:
+      "Scaffold strategy for future indicator confluence systems. Currently hold-only.",
+    manifestVersion: "1",
+    configuredVersions: [],
+    configuredBots: 0,
+    activeBots: 0,
+    symbols: [],
+    operations: {
+      totalRuns: 0,
+      failedRuns: 0,
+      signalRuns: 0,
+      longSignals: 0,
+      shortSignals: 0,
+      noSignalRuns: 0,
+      orderSubmitted: 0,
+      dryRunSignals: 0,
+      skippedSignals: 0,
+      signalRate: 0,
+      failureRate: 0,
+    },
+    strategy: {
+      netPnl: 0,
+      grossProfit: 0,
+      grossLoss: 0,
+      winRate: 0,
+      totalTrades: 0,
+      profitableBacktests: 0,
+    },
+    positions: {
+      openPositions: 0,
+      reducingPositions: 0,
+      closingPositions: 0,
+      reconciliationsPending: 0,
+      forcedCloseCount: 0,
+      breakevenMoves: 0,
+    },
+    backtests: {
+      total: 0,
+      running: 0,
+      completed: 0,
+      failed: 0,
+      profitable: 0,
+    },
   },
 ];
 

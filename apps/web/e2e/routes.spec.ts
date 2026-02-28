@@ -35,9 +35,11 @@ test("strategies pages render cleanly", async ({ page }) => {
 
   await page.goto("/strategies");
   await expect(page.getByRole("heading", { name: "Strategies" })).toBeVisible();
-  await page.getByRole("link", { name: /range-reversal/i }).click();
+  await page.getByRole("link", { name: /range reversal/i }).click();
   await expect(page).toHaveURL(`/strategies/${STRATEGY_ID}`);
-  await expect(page.getByRole("heading", { name: STRATEGY_ID })).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "Range Reversal" }),
+  ).toBeVisible();
   await expect(
     page.getByRole("link", { name: /Create Bot From Strategy/i }),
   ).toBeVisible();
