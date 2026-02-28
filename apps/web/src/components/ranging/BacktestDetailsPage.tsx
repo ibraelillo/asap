@@ -255,6 +255,8 @@ export function BacktestDetailsPage({
         />
       </section>
 
+      <BacktestReplayChart details={details} />
+
       {details.replayError ? (
         <Panel className="p-4" tone="warning">
           <p className="text-sm text-amber-100">
@@ -300,8 +302,6 @@ export function BacktestDetailsPage({
           </p>
         )}
       </Panel>
-
-      <BacktestReplayChart details={details} />
 
       <section className="grid grid-cols-1 gap-4 xl:grid-cols-2">
         <Panel className="p-4">
