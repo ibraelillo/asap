@@ -44,14 +44,22 @@ export function computeWaveTrend(
   const tp = candles.map((c) => (c.high + c.low + c.close) / 3);
   const esa = ema(tp, channelLength);
   const deviation = ema(
-    tp.map((v, i) => Math.abs(v - (esa[i] ?? v))),
+    tp.map((v, i) => {
+      const esaValue = esa[i];
+      return Math.abs(
+        v - (typeof esaValue === "number" && Number.isFinite(esaValue) ? esaValue : v),
+      );
+    }),
     channelLength,
   );
 
   const ci = tp.map((v, i) => {
     const d = deviation[i];
-    if (!Number.isFinite(d) || d === 0) return 0;
-    return (v - (esa[i] ?? v)) / (0.015 * d);
+    const esaValue = esa[i];
+    if (typeof d !== "number" || !Number.isFinite(d) || d === 0) return 0;
+    return (
+      v - (typeof esaValue === "number" && Number.isFinite(esaValue) ? esaValue : v)
+    ) / (0.015 * d);
   });
 
   const wt1 = ema(ci, averageLength);
@@ -67,19 +75,29 @@ export function computeMoneyFlow(candles: Candle[], period: number): number[] {
     return ((c.close - c.low) - (c.high - c.close)) / range;
   });
 
-  const mfv = candles.map((c, i) => mfm[i] * c.volume);
+  const mfv = candles.map((c, i) => (mfm[i] ?? 0) * c.volume);
   const out = new Array(candles.length).fill(Number.NaN);
 
   let sumFlow = 0;
   let sumVolume = 0;
 
   for (let i = 0; i < candles.length; i++) {
-    sumFlow += mfv[i];
-    sumVolume += candles[i].volume;
+    const flowValue = mfv[i];
+    const candle = candles[i];
+    if (flowValue === undefined || !candle) {
+      continue;
+    }
+
+    sumFlow += flowValue;
+    sumVolume += candle.volume;
 
     if (i >= period) {
-      sumFlow -= mfv[i - period];
-      sumVolume -= candles[i - period].volume;
+      const outgoingFlow = mfv[i - period];
+      const outgoingCandle = candles[i - period];
+      if (outgoingFlow !== undefined && outgoingCandle) {
+        sumFlow -= outgoingFlow;
+        sumVolume -= outgoingCandle.volume;
+      }
     }
 
     if (i >= period - 1) {
@@ -99,7 +117,12 @@ export function slopeAt(values: number[], index: number, lookbackBars: number): 
   const current = values[index];
   const previous = values[from];
 
-  if (!Number.isFinite(current) || !Number.isFinite(previous)) {
+  if (
+    current === undefined ||
+    previous === undefined ||
+    !Number.isFinite(current) ||
+    !Number.isFinite(previous)
+  ) {
     return 0;
   }
 

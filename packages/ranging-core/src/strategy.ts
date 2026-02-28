@@ -294,10 +294,11 @@ export function buildRangeReversalDecision(input: {
   const { decision, diagnostics } = evaluateEntryState(input.snapshot, input.config);
 
   if (decision.signal) {
+    const currentPosition = input.position;
     const oppositePositionOpen =
-      input.position &&
-      input.position.remainingQuantity > 0 &&
-      input.position.side !== decision.signal;
+      currentPosition &&
+      currentPosition.remainingQuantity > 0 &&
+      currentPosition.side !== decision.signal;
 
     if (oppositePositionOpen && input.config.exits.runnerExitOnOppositeSignal) {
       const closeIntent: ClosePositionIntent<RangeReversalIntentMeta> = {
@@ -306,11 +307,11 @@ export function buildRangeReversalDecision(input: {
         strategyId,
         time: input.snapshot.time,
         reasons: ["opposite_signal_confirmed"],
-        side: input.position.side,
+        side: currentPosition.side,
         price: input.executionCandle.close,
         meta: {
           range: input.snapshot.range.effective,
-          stopPrice: input.position.stopPrice ?? input.executionCandle.close,
+          stopPrice: currentPosition.stopPrice ?? input.executionCandle.close,
           tp1Price: input.executionCandle.close,
           tp2Price: input.executionCandle.close,
           diagnostics,

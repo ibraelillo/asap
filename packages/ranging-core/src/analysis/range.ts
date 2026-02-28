@@ -22,6 +22,9 @@ export function computeVolumeProfileLevels(
   if (candles.length === 0) return { val: 0, vah: 0, poc: 0 };
   if (candles.length === 1) {
     const c = candles[0];
+    if (!c) {
+      return fallbackLevels(candles);
+    }
     return { val: c.low, vah: c.high, poc: c.close };
   }
 
@@ -40,12 +43,18 @@ export function computeVolumeProfileLevels(
     const typical = (candle.high + candle.low + candle.close) / 3;
     const rawIdx = Math.floor((typical - minPrice) / binSize);
     const idx = clamp(rawIdx, 0, binCount - 1);
-    volumes[idx] += Math.max(0, candle.volume);
+    volumes[idx] = (volumes[idx] ?? 0) + Math.max(0, candle.volume);
   }
 
   let pocIdx = 0;
   for (let i = 1; i < volumes.length; i++) {
-    if (volumes[i] > volumes[pocIdx]) {
+    const volume = volumes[i];
+    const pocVolume = volumes[pocIdx];
+    if (volume === undefined || pocVolume === undefined) {
+      continue;
+    }
+
+    if (volume > pocVolume) {
       pocIdx = i;
     }
   }
@@ -54,31 +63,35 @@ export function computeVolumeProfileLevels(
   const target = totalVolume * clamp(valueAreaPct, 0.1, 1);
 
   const selected = new Set<number>([pocIdx]);
-  let cumulative = volumes[pocIdx];
+  let cumulative = volumes[pocIdx] ?? 0;
   let left = pocIdx - 1;
   let right = pocIdx + 1;
 
   while (cumulative < target && (left >= 0 || right < binCount)) {
     const leftVolume = left >= 0 ? volumes[left] : -1;
     const rightVolume = right < binCount ? volumes[right] : -1;
+    const safeLeftVolume = leftVolume ?? -1;
+    const safeRightVolume = rightVolume ?? -1;
 
-    if (rightVolume > leftVolume) {
+    if (safeRightVolume > safeLeftVolume && right < binCount) {
       selected.add(right);
-      cumulative += rightVolume;
+      cumulative += safeRightVolume;
       right += 1;
       continue;
     }
 
     if (left >= 0) {
       selected.add(left);
-      cumulative += leftVolume;
+      cumulative += safeLeftVolume;
       left -= 1;
       continue;
     }
 
-    selected.add(right);
-    cumulative += rightVolume;
-    right += 1;
+    if (right < binCount) {
+      selected.add(right);
+      cumulative += safeRightVolume;
+      right += 1;
+    }
   }
 
   const selectedBins = [...selected].sort((a, b) => a - b);

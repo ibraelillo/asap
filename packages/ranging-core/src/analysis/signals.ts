@@ -2,12 +2,13 @@ import type { Candle } from "../types";
 
 function isPivotLow(values: number[], index: number, left: number, right: number): boolean {
   const value = values[index];
-  if (!Number.isFinite(value)) return false;
+  if (value === undefined || !Number.isFinite(value)) return false;
 
   for (let i = index - left; i <= index + right; i++) {
     if (i === index) continue;
     if (i < 0 || i >= values.length) return false;
-    if (values[i] <= value) return false;
+    const candidate = values[i];
+    if (candidate === undefined || candidate <= value) return false;
   }
 
   return true;
@@ -15,12 +16,13 @@ function isPivotLow(values: number[], index: number, left: number, right: number
 
 function isPivotHigh(values: number[], index: number, left: number, right: number): boolean {
   const value = values[index];
-  if (!Number.isFinite(value)) return false;
+  if (value === undefined || !Number.isFinite(value)) return false;
 
   for (let i = index - left; i <= index + right; i++) {
     if (i === index) continue;
     if (i < 0 || i >= values.length) return false;
-    if (values[i] >= value) return false;
+    const candidate = values[i];
+    if (candidate === undefined || candidate >= value) return false;
   }
 
   return true;
@@ -59,11 +61,18 @@ export function detectBullishDivergence(
 
   const p2 = pivots[pivots.length - 1];
   const p1 = pivots[pivots.length - 2];
+  if (p1 === undefined || p2 === undefined) return false;
 
   if (index - p2 > maxBarsAfterDivergence) return false;
 
-  const priceLowerLow = candles[p2].low < candles[p1].low;
-  const oscHigherLow = (waveTrend[p2] ?? Number.NaN) > (waveTrend[p1] ?? Number.NaN);
+  const candle2 = candles[p2];
+  const candle1 = candles[p1];
+  const wave2 = waveTrend[p2];
+  const wave1 = waveTrend[p1];
+  if (!candle1 || !candle2 || wave1 === undefined || wave2 === undefined) return false;
+
+  const priceLowerLow = candle2.low < candle1.low;
+  const oscHigherLow = wave2 > wave1;
 
   return priceLowerLow && oscHigherLow;
 }
@@ -83,11 +92,18 @@ export function detectBearishDivergence(
 
   const p2 = pivots[pivots.length - 1];
   const p1 = pivots[pivots.length - 2];
+  if (p1 === undefined || p2 === undefined) return false;
 
   if (index - p2 > maxBarsAfterDivergence) return false;
 
-  const priceHigherHigh = candles[p2].high > candles[p1].high;
-  const oscLowerHigh = (waveTrend[p2] ?? Number.NaN) < (waveTrend[p1] ?? Number.NaN);
+  const candle2 = candles[p2];
+  const candle1 = candles[p1];
+  const wave2 = waveTrend[p2];
+  const wave1 = waveTrend[p1];
+  if (!candle1 || !candle2 || wave1 === undefined || wave2 === undefined) return false;
+
+  const priceHigherHigh = candle2.high > candle1.high;
+  const oscLowerHigh = wave2 < wave1;
 
   return priceHigherHigh && oscLowerHigh;
 }
@@ -99,12 +115,15 @@ export function detectBullishSfp(candles: Candle[], index: number, lookbackBars:
   let previousSwingLow = Number.POSITIVE_INFINITY;
 
   for (let i = from; i < index; i++) {
-    previousSwingLow = Math.min(previousSwingLow, candles[i].low);
+    const candle = candles[i];
+    if (!candle) continue;
+    previousSwingLow = Math.min(previousSwingLow, candle.low);
   }
 
   if (!Number.isFinite(previousSwingLow)) return false;
 
   const candle = candles[index];
+  if (!candle) return false;
   return candle.low < previousSwingLow && candle.close > previousSwingLow;
 }
 
@@ -115,11 +134,14 @@ export function detectBearishSfp(candles: Candle[], index: number, lookbackBars:
   let previousSwingHigh = Number.NEGATIVE_INFINITY;
 
   for (let i = from; i < index; i++) {
-    previousSwingHigh = Math.max(previousSwingHigh, candles[i].high);
+    const candle = candles[i];
+    if (!candle) continue;
+    previousSwingHigh = Math.max(previousSwingHigh, candle.high);
   }
 
   if (!Number.isFinite(previousSwingHigh)) return false;
 
   const candle = candles[index];
+  if (!candle) return false;
   return candle.high > previousSwingHigh && candle.close < previousSwingHigh;
 }
