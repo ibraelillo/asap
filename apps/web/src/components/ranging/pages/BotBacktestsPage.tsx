@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import useSWR, { useSWRConfig } from "swr";
 import {
   CheckCircle2,
+  GitCompareArrows,
   History,
   Loader2,
   Play,
@@ -9,7 +10,7 @@ import {
   WandSparkles,
   XCircle,
 } from "lucide-react";
-import { Button, DatePicker, Drawer, Select } from "@repo/ui";
+import { Button, Checkbox, DatePicker, Drawer, Select } from "@repo/ui";
 import { Link, Navigate, useNavigate, useParams } from "react-router-dom";
 import {
   createRangeValidation,
@@ -28,6 +29,7 @@ import {
   type StrategyConfigEditorHandle,
 } from "../StrategyConfigEditor";
 import { BacktestConfigDrawer } from "../BacktestConfigDrawer";
+import { BacktestComparisonDrawer } from "../BacktestComparisonDrawer";
 import { asRecord, cloneRecord, mergeConfigDefaults } from "../config-utils";
 
 type DrawerMode = "bot-settings" | "new-backtest" | "rerun-backtest" | null;
@@ -100,6 +102,10 @@ export function BotBacktestsPage() {
     string | undefined
   >();
   const [selectedBacktestId, setSelectedBacktestId] = useState<string>();
+  const [selectedComparisonIds, setSelectedComparisonIds] = useState<string[]>(
+    [],
+  );
+  const [compareDrawerOpen, setCompareDrawerOpen] = useState(false);
   const [validationTimeframe, setValidationTimeframe] = useState<string>("15m");
   const [validationFromDate, setValidationFromDate] = useState<string>(() =>
     dateInputDaysAgo(30),
@@ -191,6 +197,26 @@ export function BotBacktestsPage() {
     asRecord(strategySummary?.configDefaults),
     asRecord(selectedBacktest?.strategyConfig),
   );
+  const comparedBacktests = (backtests ?? []).filter((backtest) =>
+    selectedComparisonIds.includes(backtest.id),
+  );
+
+  function toggleBacktestComparison(backtestId: string) {
+    setSelectedComparisonIds((current) => {
+      if (current.includes(backtestId)) {
+        return current.filter((value) => value !== backtestId);
+      }
+      if (current.length >= 4) {
+        return current;
+      }
+      return [...current, backtestId];
+    });
+  }
+
+  function openComparisonDrawer() {
+    if (selectedComparisonIds.length === 0) return;
+    setCompareDrawerOpen(true);
+  }
   function openBotSettingsDrawer() {
     const nextConfig = cloneRecord(currentBotStrategyConfig);
     setDraftBotStrategyConfig(nextConfig);
@@ -361,6 +387,17 @@ export function BotBacktestsPage() {
           description="Each backtest stores its own strategy settings snapshot so you can fork variants, rerun them, and jump straight into the new replay."
           aside={
             <div className="flex flex-wrap items-center gap-2">
+              <Button
+                size="sm"
+                variant="secondary"
+                leadingIcon={<GitCompareArrows className="h-3.5 w-3.5" />}
+                onClick={openComparisonDrawer}
+                disabled={selectedComparisonIds.length === 0}
+              >
+                Compare{selectedComparisonIds.length > 0
+                  ? ` (${selectedComparisonIds.length})`
+                  : ""}
+              </Button>
               {backtestFeedback ? (
                 <p className="text-xs text-cyan-200">{backtestFeedback}</p>
               ) : null}
@@ -378,6 +415,7 @@ export function BotBacktestsPage() {
           <table className="min-w-full text-left text-sm">
             <thead>
               <tr className="text-xs uppercase tracking-wide text-slate-400">
+                <th className="pb-3 pr-4">Compare</th>
                 <th className="pb-3 pr-4">Created</th>
                 <th className="pb-3 pr-4">Mode</th>
                 <th className="pb-3 pr-4">Status</th>
@@ -421,12 +459,26 @@ export function BotBacktestsPage() {
                   hasSnapshot &&
                   normalizeConfigString(backtest.strategyConfig) !==
                     currentBotConfigString;
+                const selectedForCompare = selectedComparisonIds.includes(
+                  backtest.id,
+                );
 
                 return (
                   <tr
                     key={backtest.id}
                     className="border-t border-white/5 text-slate-200"
                   >
+                    <td className="py-3 pr-4">
+                      <Checkbox
+                        aria-label={`Compare ${backtest.id}`}
+                        checked={selectedForCompare}
+                        disabled={
+                          !selectedForCompare &&
+                          selectedComparisonIds.length >= 4
+                        }
+                        onChange={() => toggleBacktestComparison(backtest.id)}
+                      />
+                    </td>
                     <td className="py-3 pr-4 text-xs text-slate-300">
                       <Link
                         to={detailHref}
@@ -494,7 +546,7 @@ export function BotBacktestsPage() {
               {backtestsLoading && (backtests?.length ?? 0) === 0 ? (
                 <tr>
                   <td
-                    colSpan={10}
+                    colSpan={11}
                     className="py-4 text-center text-xs text-slate-400"
                   >
                     Loading backtests...
@@ -768,6 +820,14 @@ export function BotBacktestsPage() {
             `/bots/${encodeURIComponent(botId)}/backtests/${encodeURIComponent(backtest.id)}`,
           );
         }}
+      />
+
+      <BacktestComparisonDrawer
+        open={compareDrawerOpen}
+        onClose={() => setCompareDrawerOpen(false)}
+        strategy={strategySummary}
+        currentBotConfig={currentBotStrategyConfig}
+        backtests={comparedBacktests}
       />
     </div>
   );

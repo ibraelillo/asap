@@ -679,6 +679,140 @@ function toStrategyConfigRecord(value: unknown): Record<string, unknown> {
     : {};
 }
 
+function mergeStrategyConfigDefaults(
+  defaults: Record<string, unknown>,
+  overrides: Record<string, unknown>,
+): Record<string, unknown> {
+  const next = JSON.parse(JSON.stringify(defaults)) as Record<string, unknown>;
+
+  for (const [key, value] of Object.entries(overrides)) {
+    if (
+      value &&
+      typeof value === "object" &&
+      !Array.isArray(value) &&
+      next[key] &&
+      typeof next[key] === "object" &&
+      !Array.isArray(next[key])
+    ) {
+      next[key] = mergeStrategyConfigDefaults(
+        toStrategyConfigRecord(next[key]),
+        value as Record<string, unknown>,
+      );
+      continue;
+    }
+
+    next[key] = value;
+  }
+
+  return next;
+}
+
+function stableStringify(value: unknown): string {
+  if (Array.isArray(value)) {
+    return `[${value.map((entry) => stableStringify(entry)).join(",")}]`;
+  }
+  if (value && typeof value === "object") {
+    const entries = Object.entries(value as Record<string, unknown>).sort(
+      ([left], [right]) => left.localeCompare(right),
+    );
+    return `{${entries
+      .map(([key, entry]) => `${JSON.stringify(key)}:${stableStringify(entry)}`)
+      .join(",")}}`;
+  }
+
+  return JSON.stringify(value);
+}
+
+function buildStrategyConfigVariants(
+  backtests: BacktestRecord[],
+  configDefaults: Record<string, unknown>,
+) {
+  const variants = new Map<
+    string,
+    {
+      key: string;
+      strategyConfig: Record<string, unknown>;
+      backtestCount: number;
+      completedCount: number;
+      netPnlTotal: number;
+      winRateTotal: number;
+      bestNetPnl?: number;
+      worstNetPnl?: number;
+      latestCreatedAtMs: number;
+      sampleBacktestId?: string;
+    }
+  >();
+
+  for (const backtest of backtests) {
+    const strategyConfig = mergeStrategyConfigDefaults(
+      configDefaults,
+      toStrategyConfigRecord(backtest.strategyConfig),
+    );
+    const key = stableStringify(strategyConfig);
+    const current = variants.get(key) ?? {
+      key,
+      strategyConfig,
+      backtestCount: 0,
+      completedCount: 0,
+      netPnlTotal: 0,
+      winRateTotal: 0,
+      bestNetPnl: undefined,
+      worstNetPnl: undefined,
+      latestCreatedAtMs: 0,
+      sampleBacktestId: undefined,
+    };
+
+    current.backtestCount += 1;
+    current.latestCreatedAtMs = Math.max(
+      current.latestCreatedAtMs,
+      backtest.createdAtMs,
+    );
+    current.sampleBacktestId ??= backtest.id;
+
+    if (backtest.status === "completed") {
+      current.completedCount += 1;
+      current.netPnlTotal += backtest.netPnl;
+      current.winRateTotal += backtest.winRate;
+      current.bestNetPnl =
+        current.bestNetPnl === undefined
+          ? backtest.netPnl
+          : Math.max(current.bestNetPnl, backtest.netPnl);
+      current.worstNetPnl =
+        current.worstNetPnl === undefined
+          ? backtest.netPnl
+          : Math.min(current.worstNetPnl, backtest.netPnl);
+    }
+
+    variants.set(key, current);
+  }
+
+  return [...variants.values()]
+    .map((variant) => ({
+      key: variant.key,
+      strategyConfig: variant.strategyConfig,
+      backtestCount: variant.backtestCount,
+      completedCount: variant.completedCount,
+      avgNetPnl:
+        variant.completedCount > 0
+          ? variant.netPnlTotal / variant.completedCount
+          : 0,
+      avgWinRate:
+        variant.completedCount > 0
+          ? variant.winRateTotal / variant.completedCount
+          : 0,
+      bestNetPnl: variant.bestNetPnl,
+      worstNetPnl: variant.worstNetPnl,
+      latestCreatedAtMs: variant.latestCreatedAtMs,
+      sampleBacktestId: variant.sampleBacktestId,
+    }))
+    .sort(
+      (left, right) =>
+        right.avgNetPnl - left.avgNetPnl ||
+        right.completedCount - left.completedCount ||
+        right.latestCreatedAtMs - left.latestCreatedAtMs,
+    );
+}
+
 async function loadStrategySummaries(
   windowHours: number,
   runsLimit: number,
@@ -792,6 +926,8 @@ async function loadStrategyDetails(
     botIds.has(backtest.botId),
   );
   const strategyPositions = positionsByBot.flat();
+  const configDefaults = toStrategyConfigRecord(manifest.getDefaultConfig());
+  const completedStrategyBacktests = completedBacktests(strategyBacktests);
 
   return {
     generatedAt: new Date().toISOString(),
@@ -802,7 +938,7 @@ async function loadStrategyDetails(
       manifestVersion: manifest.version,
       configJsonSchema: manifest.configJsonSchema,
       configUi: manifest.configUi,
-      configDefaults: toStrategyConfigRecord(manifest.getDefaultConfig()),
+      configDefaults,
       configuredVersions: [
         ...new Set(bots.map((bot) => bot.strategyVersion)),
       ].sort(),
@@ -818,6 +954,19 @@ async function loadStrategyDetails(
     recentRuns: strategyRuns
       .sort((a, b) => b.generatedAtMs - a.generatedAtMs)
       .slice(0, runsLimit),
+    recentBacktests: strategyBacktests
+      .slice()
+      .sort((a, b) => b.createdAtMs - a.createdAtMs)
+      .slice(0, Math.min(backtestLimit, 12)),
+    bestBacktests: completedStrategyBacktests.slice(0, 5),
+    worstBacktests: completedStrategyBacktests
+      .slice()
+      .sort((a, b) => a.netPnl - b.netPnl)
+      .slice(0, 5),
+    configVariants: buildStrategyConfigVariants(
+      strategyBacktests,
+      configDefaults,
+    ).slice(0, 8),
   };
 }
 

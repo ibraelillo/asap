@@ -43,6 +43,8 @@ test("strategies pages render cleanly", async ({ page }) => {
   await expect(
     page.getByRole("link", { name: /Create Bot From Strategy/i }),
   ).toBeVisible();
+  await expect(page.getByText("Config Variants")).toBeVisible();
+  await expect(page.getByText("Recent Backtests")).toBeVisible();
 
   await assertNoBrowserErrors();
 });
@@ -167,6 +169,19 @@ test("bot backtests page can queue jobs without browser errors", async ({
   ).toBeVisible();
   await expect(
     rerunDrawer.getByText("AI range validation"),
+  ).toBeVisible();
+
+  await page.goto(`/bots/${BOT_ID}/backtests`);
+  await page.getByLabel(`Compare ${BACKTEST_ID}`).check();
+  await page.getByLabel("Compare bt-sui-running").check();
+  await page.getByRole("button", { name: /Compare \(2\)/ }).click();
+  const compareDrawer = page.getByRole("dialog");
+  await expect(
+    compareDrawer.getByRole("heading", { name: "Compare Backtests" }),
+  ).toBeVisible();
+  await expect(compareDrawer.getByText("Current Bot Config")).toBeVisible();
+  await expect(
+    compareDrawer.getByRole("columnheader", { name: BACKTEST_ID }),
   ).toBeVisible();
 
   await assertNoBrowserErrors();

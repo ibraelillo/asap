@@ -674,6 +674,33 @@ const strategyDetails = {
   strategy: strategies[0],
   bots: [botSummary],
   recentRuns: runs,
+  recentBacktests: [runningBacktest, completedBacktest],
+  bestBacktests: [completedBacktest],
+  worstBacktests: [completedBacktest],
+  configVariants: [
+    {
+      key: "variant-default",
+      strategyConfig: runningBacktest.strategyConfig,
+      backtestCount: 1,
+      completedCount: 0,
+      avgNetPnl: 0,
+      avgWinRate: 0,
+      latestCreatedAtMs: runningBacktest.createdAtMs,
+      sampleBacktestId: runningBacktest.id,
+    },
+    {
+      key: "variant-profit",
+      strategyConfig: completedBacktest.strategyConfig,
+      backtestCount: 1,
+      completedCount: 1,
+      avgNetPnl: completedBacktest.netPnl,
+      avgWinRate: completedBacktest.winRate,
+      bestNetPnl: completedBacktest.netPnl,
+      worstNetPnl: completedBacktest.netPnl,
+      latestCreatedAtMs: completedBacktest.createdAtMs,
+      sampleBacktestId: completedBacktest.id,
+    },
+  ],
 };
 
 const backtestDetailsBase = {

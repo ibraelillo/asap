@@ -328,11 +328,28 @@ export interface StrategySummary {
   backtests: BacktestStats;
 }
 
+export interface StrategyConfigVariantSummary {
+  key: string;
+  strategyConfig: Record<string, unknown>;
+  backtestCount: number;
+  completedCount: number;
+  avgNetPnl: number;
+  avgWinRate: number;
+  bestNetPnl?: number;
+  worstNetPnl?: number;
+  latestCreatedAtMs: number;
+  sampleBacktestId?: string;
+}
+
 export interface StrategyDetailsPayload {
   generatedAt: string;
   strategy: StrategySummary;
   bots: BotAnalysisSummary[];
   recentRuns: BotRunRecord[];
+  recentBacktests: BacktestRecord[];
+  bestBacktests: BacktestRecord[];
+  worstBacktests: BacktestRecord[];
+  configVariants: StrategyConfigVariantSummary[];
 }
 
 export interface BacktestExit {
