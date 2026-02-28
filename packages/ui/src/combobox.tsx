@@ -85,15 +85,17 @@ export function Combobox<T extends string = string>({
         </div>
 
         <ComboboxOptions
+          as="div"
           anchor="bottom start"
           className="z-50 mt-2 max-h-80 w-[var(--input-width)] min-w-[16rem] overflow-auto rounded-2xl border border-white/10 bg-slate-950/95 p-1 shadow-[0_24px_80px_-30px_rgba(0,0,0,0.85)] backdrop-blur-xl [--anchor-gap:0.5rem]"
         >
           {filteredOptions.length === 0 ? (
             <div className="px-3 py-2 text-sm text-slate-400">{emptyState}</div>
           ) : (
-            <>
+            <div>
               {visibleOptions.map((option) => (
                 <ComboboxOption
+                  as="div"
                   key={option.value}
                   value={option}
                   disabled={option.disabled}
@@ -116,7 +118,7 @@ export function Combobox<T extends string = string>({
                   {filteredOptions.length}. Keep typing to narrow the list.
                 </div>
               ) : null}
-            </>
+            </div>
           )}
         </ComboboxOptions>
       </div>
