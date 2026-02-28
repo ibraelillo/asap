@@ -181,6 +181,7 @@ export function BacktestConfigDrawer({
     setFeedback(undefined);
 
     try {
+      setDraftStrategyConfig(cloneRecord(resolved.config));
       const backtest = await createBacktest(botId, {
         fromMs,
         toMs,
@@ -196,7 +197,6 @@ export function BacktestConfigDrawer({
       });
 
       await onCreated(backtest);
-      onClose();
     } catch (error) {
       setFeedback(
         `Backtest request failed: ${error instanceof Error ? error.message : String(error)}`,

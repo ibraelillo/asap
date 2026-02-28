@@ -172,8 +172,6 @@ export function BotBacktestsPage() {
     const nextConfig = cloneRecord(asRecord(botDetails.bot.runtime.strategyConfig));
     setDraftBotStrategyConfig(nextConfig);
     botStrategyConfigEditorRef.current?.resetDrafts();
-    setBotSettingsError(undefined);
-    setBotSettingsFeedback(undefined);
   }, [botDetails]);
 
   if (!botId) {
@@ -236,7 +234,6 @@ export function BotBacktestsPage() {
         mutate(["bot-stats", botId]),
         mutate("ranging-dashboard"),
       ]);
-      setDrawerMode(null);
     } catch (error) {
       setBotSettingsError(
         error instanceof Error ? error.message : String(error),

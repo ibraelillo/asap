@@ -95,8 +95,6 @@ export function BotDetailsPage() {
       cloneRecord(asRecord(botDetails.bot.runtime.strategyConfig)),
     );
     strategyConfigEditorRef.current?.resetDrafts();
-    setConfigError(undefined);
-    setConfigSuccess(undefined);
   }, [botDetails]);
 
   if (!botId) {
@@ -442,6 +440,8 @@ export function BotDetailsPage() {
                   disabled={configSaving}
                   onClick={() => {
                     strategyConfigEditorRef.current?.resetDrafts();
+                    setConfigError(undefined);
+                    setConfigSuccess(undefined);
                     setDraftStrategyConfig(
                       cloneRecord(
                         asRecord(botDetails.bot.runtime.strategyConfig),
