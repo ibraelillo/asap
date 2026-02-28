@@ -178,6 +178,14 @@ test("backtest replay page renders charts without browser errors", async ({
     ),
   ).toBeVisible();
   await expect(page.getByText("AI-integrated")).toBeVisible();
+  await expect(page.getByText("Strategy Snapshot")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Compare Settings" })).toBeVisible();
+  await page.getByRole("button", { name: "Compare Settings" }).click();
+  const compareDrawer = page.getByRole("dialog");
+  await expect(
+    compareDrawer.getByRole("heading", { name: "Compare Backtest Settings" }),
+  ).toBeVisible();
+  await expect(compareDrawer.getByText("Current Bot").first()).toBeVisible();
 
   await assertNoBrowserErrors();
 });
