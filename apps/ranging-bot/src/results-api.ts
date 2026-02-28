@@ -120,64 +120,9 @@ const DEFAULT_BACKTEST_RUNNING_STALE_MS = 20 * 60_000;
 const DEFAULT_VALIDATION_CONFIDENCE_THRESHOLD = 0.72;
 const DEFAULT_VALIDATION_MODEL_PRIMARY = "gpt-5-nano-2025-08-07";
 const DEFAULT_VALIDATION_MODEL_FALLBACK = "gpt-5-mini-2025-08-07";
-const DEMO_TRADE_ID = "demo";
 const SUPPORTED_EXCHANGE_IDS = new Set(["kucoin"]);
 
 let cachedEventBridgeClient: EventBridgeClient | null = null;
-
-const DEMO_RUN: BotRunRecord = {
-  id: "demo-run",
-  botId: "demo-bot",
-  botName: "BTCUSDTM",
-  strategyId: "range-reversal",
-  strategyVersion: "1",
-  exchangeId: "kucoin",
-  accountId: "default",
-  symbol: "BTCUSDTM",
-  generatedAtMs: Date.UTC(2026, 1, 20, 12, 0, 0),
-  recordedAtMs: Date.UTC(2026, 1, 20, 12, 0, 5),
-  runStatus: "ok",
-  executionTimeframe: "15m",
-  primaryRangeTimeframe: "1d",
-  secondaryRangeTimeframe: "4h",
-  signal: "long",
-  reasons: [
-    "demo_trade_for_ui_validation",
-    "bullish_divergence_confirmed",
-    "bullish_sfp_confirmed",
-  ],
-  price: 96_420,
-  rangeVal: 95_600,
-  rangePoc: 97_150,
-  rangeVah: 98_200,
-  rangeIsAligned: true,
-  rangeOverlapRatio: 0.81,
-  bullishDivergence: true,
-  bearishDivergence: false,
-  bullishSfp: true,
-  bearishSfp: false,
-  moneyFlowSlope: 0.12,
-  processing: {
-    status: "order-submitted",
-    side: "long",
-    message: "demo-order-submitted",
-    orderId: "DEMO-ORDER-0001",
-    clientOid: "demo-client-0001",
-  },
-};
-
-const DEMO_TRADE: TradeSignalRecord = {
-  id: DEMO_TRADE_ID,
-  botId: DEMO_RUN.botId,
-  symbol: DEMO_RUN.symbol,
-  side: "long",
-  generatedAtMs: DEMO_RUN.generatedAtMs,
-  price: DEMO_RUN.price,
-  processingStatus: DEMO_RUN.processing.status,
-  orderId: DEMO_RUN.processing.orderId,
-  clientOid: DEMO_RUN.processing.clientOid,
-  reasons: DEMO_RUN.reasons,
-};
 
 const timeframeMs: Record<OrchestratorTimeframe, number> = {
   "1m": 60_000,
@@ -922,49 +867,6 @@ function getBotDefaults(bot: BotRecord): {
   };
 }
 
-function buildDemoKlines(
-  timeframe: OrchestratorTimeframe,
-  barsBefore: number,
-  barsAfter: number,
-) {
-  const frameMs = timeframeMs[timeframe];
-  const candles: Candle[] = [];
-  const totalBars = barsBefore + barsAfter + 1;
-  const startMs = DEMO_RUN.generatedAtMs - barsBefore * frameMs;
-  const basePrice = DEMO_RUN.rangePoc ?? DEMO_RUN.price ?? 1;
-  let previousClose = basePrice - 120;
-
-  for (let index = 0; index < totalBars; index += 1) {
-    const time = startMs + index * frameMs;
-    const drift = (index - barsBefore) * 3;
-    const wave = Math.sin(index / 3) * 45;
-    let close = basePrice + drift + wave;
-    let open = previousClose;
-    let high = Math.max(open, close) + 24 + (index % 5);
-    let low = Math.min(open, close) - 24 - (index % 4);
-
-    if (index === barsBefore) {
-      close = DEMO_RUN.price ?? close;
-      open = close - 22;
-      high = close + 38;
-      low = close - 54;
-    }
-
-    candles.push({
-      time,
-      open: Number(open.toFixed(2)),
-      high: Number(high.toFixed(2)),
-      low: Number(low.toFixed(2)),
-      close: Number(close.toFixed(2)),
-      volume: 180 + (index % 9) * 17,
-    });
-
-    previousClose = close;
-  }
-
-  return candles;
-}
-
 async function loadDashboard(
   limit: number,
   botIds?: string[],
@@ -982,14 +884,13 @@ async function loadDashboard(
       : [];
 
   const mappedTrades = mapRunsToTrades(recentRuns);
-  const trades = mappedTrades.length > 0 ? mappedTrades : [DEMO_TRADE];
 
   return {
     generatedAt: new Date().toISOString(),
     metrics: computeDashboardMetrics(recentRuns),
     bots: buildBotSummaries(selectedBots, latestRunsByBotId),
     recentRuns,
-    trades,
+    trades: mappedTrades,
   };
 }
 
@@ -2693,33 +2594,6 @@ export async function tradeDetailsHandler(
     }
 
     const tradeId = decodeURIComponent(rawTradeId);
-    if (tradeId === DEMO_TRADE_ID) {
-      const timeframeInput = event.queryStringParameters?.timeframe?.trim();
-      const timeframe = isTimeframe(timeframeInput)
-        ? timeframeInput
-        : DEMO_RUN.executionTimeframe;
-      const barsBefore = parsePositiveInt(
-        event.queryStringParameters?.barsBefore,
-        DEFAULT_BARS_BEFORE,
-        MAX_BARS_CONTEXT,
-      );
-      const barsAfter = parsePositiveInt(
-        event.queryStringParameters?.barsAfter,
-        DEFAULT_BARS_AFTER,
-        MAX_BARS_CONTEXT,
-      );
-
-      return json(200, {
-        generatedAt: new Date().toISOString(),
-        trade: DEMO_TRADE,
-        run: DEMO_RUN,
-        timeframe,
-        barsBefore,
-        barsAfter,
-        klines: buildDemoKlines(timeframe, barsBefore, barsAfter),
-      });
-    }
-
     const parsedTradeId = decodeTradeId(tradeId);
     if (!parsedTradeId) {
       return json(400, { error: "invalid_trade_id" });
