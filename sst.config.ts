@@ -89,7 +89,7 @@ export default $config({
     router.routeBucket("/symbols", klineCacheBucket, {
       rewrite: {
         regex: "^/symbols/(.*)$",
-        to: "/$1",
+        to: "/symbols/$1",
       },
     });
 

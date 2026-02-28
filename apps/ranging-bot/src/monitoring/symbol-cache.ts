@@ -68,7 +68,8 @@ function toPublicUrl(key: string): string | undefined {
   if (!base) return undefined;
 
   const normalized = base.replace(/\/+$/, "");
-  const encoded = key
+  const publicKey = key.startsWith("symbols/") ? key.slice("symbols/".length) : key;
+  const encoded = publicKey
     .split("/")
     .map((segment) => encodeURIComponent(segment))
     .join("/");
