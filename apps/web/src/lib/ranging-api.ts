@@ -41,7 +41,9 @@ function getKlineRefUrl(ref: KlineCacheReference): string | undefined {
 function normalizeKlinesPayload(raw: unknown): KlineCandle[] {
   const rows = Array.isArray(raw)
     ? raw
-    : (raw && typeof raw === "object" && Array.isArray((raw as { candles?: unknown[] }).candles))
+    : raw &&
+        typeof raw === "object" &&
+        Array.isArray((raw as { candles?: unknown[] }).candles)
       ? (raw as { candles: unknown[] }).candles
       : [];
 
@@ -100,8 +102,10 @@ async function getJson<T>(path: string): Promise<T> {
         error?: unknown;
         details?: unknown;
       };
-      const error = typeof payload.error === "string" ? payload.error : undefined;
-      const reason = typeof payload.details === "string" ? payload.details : undefined;
+      const error =
+        typeof payload.error === "string" ? payload.error : undefined;
+      const reason =
+        typeof payload.details === "string" ? payload.details : undefined;
       details = [error, reason].filter(Boolean).join(": ");
     } catch {
       // ignore parsing failures and keep default message
@@ -130,8 +134,10 @@ async function postJson<T>(path: string, body: unknown): Promise<T> {
         error?: unknown;
         details?: unknown;
       };
-      const error = typeof payload.error === "string" ? payload.error : undefined;
-      const reason = typeof payload.details === "string" ? payload.details : undefined;
+      const error =
+        typeof payload.error === "string" ? payload.error : undefined;
+      const reason =
+        typeof payload.details === "string" ? payload.details : undefined;
       details = [error, reason].filter(Boolean).join(": ");
     } catch {
       // ignore parsing failures and keep default message
@@ -153,14 +159,21 @@ export async function fetchDashboard(limit = 200): Promise<DashboardPayload> {
   return getJson<DashboardPayload>(`/v1/ranging/dashboard?${query.toString()}`);
 }
 
-export async function fetchRuns(limit = 200, botId?: string): Promise<BotRunRecord[]> {
+export async function fetchRuns(
+  limit = 200,
+  botId?: string,
+): Promise<BotRunRecord[]> {
   const query = new URLSearchParams({ limit: String(limit) });
   if (botId) query.set("botId", botId);
-  const payload = await getJson<{ runs: BotRunRecord[] }>(`/v1/ranging/runs?${query.toString()}`);
+  const payload = await getJson<{ runs: BotRunRecord[] }>(
+    `/v1/ranging/runs?${query.toString()}`,
+  );
   return payload.runs;
 }
 
-export async function fetchBots(botIds?: string[]): Promise<BotAnalysisSummary[]> {
+export async function fetchBots(
+  botIds?: string[],
+): Promise<BotAnalysisSummary[]> {
   const query = new URLSearchParams();
   if (botIds && botIds.length > 0) {
     query.set("botIds", botIds.join(","));
@@ -173,11 +186,13 @@ export async function fetchBots(botIds?: string[]): Promise<BotAnalysisSummary[]
   return payload.bots;
 }
 
-export async function createBot(request: CreateBotRequest): Promise<Record<string, unknown>> {
-  const payload = await postJson<{ generatedAt: string; bot: Record<string, unknown> }>(
-    "/v1/bots",
-    request,
-  );
+export async function createBot(
+  request: CreateBotRequest,
+): Promise<Record<string, unknown>> {
+  const payload = await postJson<{
+    generatedAt: string;
+    bot: Record<string, unknown>;
+  }>("/v1/bots", request);
   return payload.bot;
 }
 
@@ -191,7 +206,9 @@ export interface CreateAccountRequest {
   };
 }
 
-export async function fetchAccounts(exchangeId?: string): Promise<AccountSummary[]> {
+export async function fetchAccounts(
+  exchangeId?: string,
+): Promise<AccountSummary[]> {
   const query = new URLSearchParams();
   if (exchangeId) query.set("exchangeId", exchangeId);
   const suffix = query.toString();
@@ -201,15 +218,19 @@ export async function fetchAccounts(exchangeId?: string): Promise<AccountSummary
   return payload.accounts;
 }
 
-export async function createAccount(request: CreateAccountRequest): Promise<AccountSummary> {
-  const payload = await postJson<{ generatedAt: string; account: AccountSummary }>(
-    "/v1/accounts",
-    request,
-  );
+export async function createAccount(
+  request: CreateAccountRequest,
+): Promise<AccountSummary> {
+  const payload = await postJson<{
+    generatedAt: string;
+    account: AccountSummary;
+  }>("/v1/accounts", request);
   return payload.account;
 }
 
-export async function fetchStrategies(windowHours = 24): Promise<StrategySummary[]> {
+export async function fetchStrategies(
+  windowHours = 24,
+): Promise<StrategySummary[]> {
   const query = new URLSearchParams({ windowHours: String(windowHours) });
   const payload = await getJson<{ strategies: StrategySummary[] }>(
     `/v1/strategies?${query.toString()}`,
@@ -308,7 +329,10 @@ export interface CreateRangeValidationRequest {
   confidenceThreshold?: number;
 }
 
-export async function fetchBacktests(limit = 50, botId?: string): Promise<BacktestRecord[]> {
+export async function fetchBacktests(
+  limit = 50,
+  botId?: string,
+): Promise<BacktestRecord[]> {
   if (botId) {
     const payload = await getJson<{ backtests: BacktestRecord[] }>(
       `/v1/bots/${encodeURIComponent(botId)}/backtests?limit=${encodeURIComponent(String(limit))}`,
@@ -392,15 +416,22 @@ export async function fetchRangeValidations(
   return payload.validations;
 }
 
-export async function fetchBotStats(botId?: string, windowHours = 24): Promise<BotStatsSummary> {
+export async function fetchBotStats(
+  botId?: string,
+  windowHours = 24,
+): Promise<BotStatsSummary> {
   const query = new URLSearchParams({ windowHours: String(windowHours) });
   if (botId) {
-    return getJson<BotStatsSummary>(`/v1/bots/${encodeURIComponent(botId)}/stats?${query.toString()}`);
+    return getJson<BotStatsSummary>(
+      `/v1/bots/${encodeURIComponent(botId)}/stats?${query.toString()}`,
+    );
   }
   return getJson<BotStatsSummary>(`/v1/ranging/bots/stats?${query.toString()}`);
 }
 
-export async function fetchBotPositions(botId: string): Promise<PositionRecord[]> {
+export async function fetchBotPositions(
+  botId: string,
+): Promise<PositionRecord[]> {
   const payload = await getJson<{ positions: PositionRecord[] }>(
     `/v1/bots/${encodeURIComponent(botId)}/positions`,
   );

@@ -24,7 +24,12 @@ const dotClasses: Record<NonNullable<BadgeProps["tone"]>, string> = {
   info: "bg-cyan-300",
 };
 
-export function Badge({ children, tone = "neutral", dot = false, className }: BadgeProps) {
+export function Badge({
+  children,
+  tone = "neutral",
+  dot = false,
+  className,
+}: BadgeProps) {
   return (
     <span
       className={cn(
@@ -33,7 +38,9 @@ export function Badge({ children, tone = "neutral", dot = false, className }: Ba
         className,
       )}
     >
-      {dot ? <span className={cn("h-1.5 w-1.5 rounded-full", dotClasses[tone])} /> : null}
+      {dot ? (
+        <span className={cn("h-1.5 w-1.5 rounded-full", dotClasses[tone])} />
+      ) : null}
       {children}
     </span>
   );
@@ -50,7 +57,10 @@ export interface BadgeListProps {
   emptyMessage?: ReactNode;
 }
 
-export function BadgeList({ items, emptyMessage = "No items" }: BadgeListProps) {
+export function BadgeList({
+  items,
+  emptyMessage = "No items",
+}: BadgeListProps) {
   if (items.length === 0) {
     return <p className="text-slate-400">{emptyMessage}</p>;
   }

@@ -31,7 +31,12 @@ function candle(
 class FakeProvider implements ExchangeKlineProvider {
   calls: KlineQuery[] = [];
 
-  constructor(private readonly byTf: Record<string, (Candle & { features?: Record<string, unknown> })[]>) {}
+  constructor(
+    private readonly byTf: Record<
+      string,
+      (Candle & { features?: Record<string, unknown> })[]
+    >,
+  ) {}
 
   async fetchKlines(query: KlineQuery): Promise<Candle[]> {
     this.calls.push(query);
@@ -42,10 +47,16 @@ class FakeProvider implements ExchangeKlineProvider {
 class CapturingProcessor implements SignalProcessor {
   events: StrategySignalEvent[] = [];
 
-  async process(event: StrategySignalEvent): Promise<{ status: "dry-run" | "no-signal" }> {
+  async process(
+    event: StrategySignalEvent,
+  ): Promise<{ status: "dry-run" | "no-signal" }> {
     this.events.push(event);
-    const enterIntent = event.decision.intents.find((intent) => intent.kind === "enter");
-    return enterIntent ? { status: "dry-run", side: enterIntent.side } : { status: "no-signal" };
+    const enterIntent = event.decision.intents.find(
+      (intent) => intent.kind === "enter",
+    );
+    return enterIntent
+      ? { status: "dry-run", side: enterIntent.side }
+      : { status: "no-signal" };
   }
 }
 
@@ -90,18 +101,23 @@ describe("exchange orchestrator", () => {
       config,
     );
 
-    const event = await orchestrator.runOnce({
-      bot,
-      executionTimeframe: "15m",
-      primaryRangeTimeframe: "1d",
-      secondaryRangeTimeframe: "4h",
-      executionLimit: 200,
-      primaryRangeLimit: 60,
-      secondaryRangeLimit: 120,
-    }, null);
+    const event = await orchestrator.runOnce(
+      {
+        bot,
+        executionTimeframe: "15m",
+        primaryRangeTimeframe: "1d",
+        secondaryRangeTimeframe: "4h",
+        executionLimit: 200,
+        primaryRangeLimit: 60,
+        secondaryRangeLimit: 120,
+      },
+      null,
+    );
 
     expect(provider.calls).toHaveLength(3);
-    expect(event.decision.intents.find((intent) => intent.kind === "enter")).toMatchObject({
+    expect(
+      event.decision.intents.find((intent) => intent.kind === "enter"),
+    ).toMatchObject({
       kind: "enter",
       side: "long",
     });

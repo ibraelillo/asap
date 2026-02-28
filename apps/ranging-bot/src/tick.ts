@@ -17,7 +17,12 @@ import {
   putPositionRecord,
   putRunRecord,
 } from "./monitoring/store";
-import type { AccountRecord, BotRecord, BotRunRecord, PositionRecord } from "./monitoring/types";
+import type {
+  AccountRecord,
+  BotRecord,
+  BotRunRecord,
+  PositionRecord,
+} from "./monitoring/types";
 import { createBotRuntime } from "./runtime-orchestrator-factory";
 import {
   getClosedCandleEndTime,
@@ -50,7 +55,10 @@ function parseSymbols(raw: unknown): string[] {
     const parsed = JSON.parse(raw);
     if (!Array.isArray(parsed)) return [];
 
-    return parsed.filter((symbol): symbol is string => typeof symbol === "string" && symbol.length > 0);
+    return parsed.filter(
+      (symbol): symbol is string =>
+        typeof symbol === "string" && symbol.length > 0,
+    );
   } catch {
     return raw
       .split(",")
@@ -99,7 +107,9 @@ function isExecutionTimeframeCompatibleForHourlyDispatch(
   bot: BotRecord,
 ): boolean {
   const durationMs = getTimeframeDurationMs(bot.runtime.executionTimeframe);
-  return durationMs >= HOURLY_DISPATCH_MS && durationMs % HOURLY_DISPATCH_MS === 0;
+  return (
+    durationMs >= HOURLY_DISPATCH_MS && durationMs % HOURLY_DISPATCH_MS === 0
+  );
 }
 
 function toErrorMessage(error: unknown): string {
@@ -114,8 +124,12 @@ function toErrorMessage(error: unknown): string {
   }
 }
 
-function extractEntrySide(decision: { intents: Array<{ kind: string; side?: "long" | "short" }> }): "long" | "short" | null {
-  const enterIntent = decision.intents.find((intent) => intent.kind === "enter");
+function extractEntrySide(decision: {
+  intents: Array<{ kind: string; side?: "long" | "short" }>;
+}): "long" | "short" | null {
+  const enterIntent = decision.intents.find(
+    (intent) => intent.kind === "enter",
+  );
   return enterIntent?.side ?? null;
 }
 
@@ -174,8 +188,12 @@ function toRunRecord(
     bearishSfp: snapshot.bearishSfp,
     moneyFlowSlope: snapshot.moneyFlowSlope,
     positionStatusBefore: positionBefore?.status,
-    positionStatusAfter: processing.positionSnapshot?.isOpen ? "open" : positionBefore?.status,
-    exchangeReconciliationStatus: processing.positionSnapshot ? "ok" : undefined,
+    positionStatusAfter: processing.positionSnapshot?.isOpen
+      ? "open"
+      : positionBefore?.status,
+    exchangeReconciliationStatus: processing.positionSnapshot
+      ? "ok"
+      : undefined,
     processing,
   };
 }
@@ -338,7 +356,9 @@ export const handler = async (incomingEvent?: CronTickEvent) => {
 
   const eventSymbols = parseSymbols(event.symbols);
   const rawBotsJson =
-    typeof event.botsJson === "string" ? event.botsJson : process.env.RANGING_BOTS_JSON;
+    typeof event.botsJson === "string"
+      ? event.botsJson
+      : process.env.RANGING_BOTS_JSON;
   let bots = await loadSchedulableBots(rawBotsJson);
   if (eventSymbols.length > 0) {
     const allowedSymbols = new Set(eventSymbols);
@@ -347,9 +367,12 @@ export const handler = async (incomingEvent?: CronTickEvent) => {
 
   const envDryRun = toBoolean(process.env.RANGING_DRY_RUN, true);
   const globalDryRun =
-    typeof event.dryRun === "string" ? toBoolean(event.dryRun, envDryRun) : envDryRun;
+    typeof event.dryRun === "string"
+      ? toBoolean(event.dryRun, envDryRun)
+      : envDryRun;
 
-  const envMarginMode = process.env.RANGING_MARGIN_MODE === "ISOLATED" ? "ISOLATED" : "CROSS";
+  const envMarginMode =
+    process.env.RANGING_MARGIN_MODE === "ISOLATED" ? "ISOLATED" : "CROSS";
   const globalMarginMode =
     event.marginMode === "ISOLATED" || event.marginMode === "CROSS"
       ? event.marginMode
@@ -360,7 +383,9 @@ export const handler = async (incomingEvent?: CronTickEvent) => {
       : (process.env.RANGING_VALUE_QTY ?? "100");
 
   if (bots.length === 0) {
-    console.warn("[ranging-tick] No enabled bot configs. Set RANGING_BOTS_JSON or pass event.symbols.");
+    console.warn(
+      "[ranging-tick] No enabled bot configs. Set RANGING_BOTS_JSON or pass event.symbols.",
+    );
     const emptySummary = {
       processed: 0,
       signaled: 0,
@@ -430,14 +455,22 @@ export const handler = async (incomingEvent?: CronTickEvent) => {
         },
       });
 
-      const strategyEvent = await instance.runOnce(runInput, toPositionState(positionBefore ?? null));
+      const strategyEvent = await instance.runOnce(
+        runInput,
+        toPositionState(positionBefore ?? null),
+      );
       processed += 1;
 
       if (extractEntrySide(strategyEvent.decision)) {
         signaled += 1;
       }
 
-      const runRecord = toRunRecord(bot, runInput, positionBefore ?? null, strategyEvent);
+      const runRecord = toRunRecord(
+        bot,
+        runInput,
+        positionBefore ?? null,
+        strategyEvent,
+      );
       const reconciledPosition = reconcilePositionRecord(
         bot,
         positionBefore ?? null,

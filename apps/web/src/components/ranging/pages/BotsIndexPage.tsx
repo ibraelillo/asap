@@ -16,7 +16,10 @@ export function BotsIndexPage() {
     [bots],
   );
   const strategyOptions = useMemo(
-    () => [{ value: "all", label: "All strategies" }, ...strategies.map((strategy) => ({ value: strategy, label: strategy }))],
+    () => [
+      { value: "all", label: "All strategies" },
+      ...strategies.map((strategy) => ({ value: strategy, label: strategy })),
+    ],
     [strategies],
   );
   const visibleBots = useMemo(() => {
@@ -34,14 +37,18 @@ export function BotsIndexPage() {
   }, [bots, query, strategyFilter]);
 
   if (!dashboard && isDashboardLoading) {
-    return <Panel className="p-6 text-sm text-slate-300">Loading bots...</Panel>;
+    return (
+      <Panel className="p-6 text-sm text-slate-300">Loading bots...</Panel>
+    );
   }
 
   if (!dashboard || dashboardError) {
     return (
       <Panel className="p-6">
         <p className="text-sm text-rose-300">Failed to load bots.</p>
-        <p className="mt-2 text-xs text-slate-400 mono">{dashboardError ?? "Unknown API error"}</p>
+        <p className="mt-2 text-xs text-slate-400 mono">
+          {dashboardError ?? "Unknown API error"}
+        </p>
       </Panel>
     );
   }
@@ -64,7 +71,11 @@ export function BotsIndexPage() {
       />
 
       <section className="grid grid-cols-1 gap-4 md:grid-cols-3">
-        <MetricCard label="Configured Bots" value={String(bots.length)} icon={<Bot className="h-5 w-5" />} />
+        <MetricCard
+          label="Configured Bots"
+          value={String(bots.length)}
+          icon={<Bot className="h-5 w-5" />}
+        />
         <MetricCard
           label="Strategies In Use"
           value={String(strategies.length)}
@@ -92,7 +103,11 @@ export function BotsIndexPage() {
           </Field>
 
           <Field label="Strategy">
-            <Select value={strategyFilter} onChange={setStrategyFilter} options={strategyOptions} />
+            <Select
+              value={strategyFilter}
+              onChange={setStrategyFilter}
+              options={strategyOptions}
+            />
           </Field>
         </div>
       </Panel>
@@ -106,7 +121,9 @@ export function BotsIndexPage() {
           >
             <div className="flex items-start justify-between gap-4">
               <div>
-                <p className="text-lg font-semibold text-slate-100">{bot.symbol}</p>
+                <p className="text-lg font-semibold text-slate-100">
+                  {bot.symbol}
+                </p>
                 <p className="mt-1 text-xs text-slate-400">
                   {bot.strategyId} / {bot.exchangeId} / {bot.accountId}
                 </p>
@@ -119,19 +136,27 @@ export function BotsIndexPage() {
             <div className="mt-4 grid grid-cols-2 gap-3 text-xs text-slate-300 md:grid-cols-4">
               <div>
                 <p className="text-slate-400">Signal</p>
-                <p className="mt-1 text-sm text-slate-100">{bot.signal ?? "none"}</p>
+                <p className="mt-1 text-sm text-slate-100">
+                  {bot.signal ?? "none"}
+                </p>
               </div>
               <div>
                 <p className="text-slate-400">Processing</p>
-                <p className="mt-1 text-sm text-slate-100">{bot.processingStatus}</p>
+                <p className="mt-1 text-sm text-slate-100">
+                  {bot.processingStatus}
+                </p>
               </div>
               <div>
                 <p className="text-slate-400">Price</p>
-                <p className="mt-1 text-sm text-slate-100">{bot.price?.toLocaleString() ?? "-"}</p>
+                <p className="mt-1 text-sm text-slate-100">
+                  {bot.price?.toLocaleString() ?? "-"}
+                </p>
               </div>
               <div>
                 <p className="text-slate-400">Updated</p>
-                <p className="mt-1 text-sm text-slate-100">{formatDateTime(bot.generatedAtMs)}</p>
+                <p className="mt-1 text-sm text-slate-100">
+                  {formatDateTime(bot.generatedAtMs)}
+                </p>
               </div>
             </div>
 

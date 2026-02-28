@@ -1,4 +1,9 @@
-import type { Candle, RangeContext, RangeReversalConfig, ValueAreaLevels } from "../types";
+import type {
+  Candle,
+  RangeContext,
+  RangeReversalConfig,
+  ValueAreaLevels,
+} from "../types";
 
 function clamp(value: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, value));
@@ -28,10 +33,20 @@ export function computeVolumeProfileLevels(
     return { val: c.low, vah: c.high, poc: c.close };
   }
 
-  const minPrice = candles.reduce((acc, c) => Math.min(acc, c.low), Number.POSITIVE_INFINITY);
-  const maxPrice = candles.reduce((acc, c) => Math.max(acc, c.high), Number.NEGATIVE_INFINITY);
+  const minPrice = candles.reduce(
+    (acc, c) => Math.min(acc, c.low),
+    Number.POSITIVE_INFINITY,
+  );
+  const maxPrice = candles.reduce(
+    (acc, c) => Math.max(acc, c.high),
+    Number.NEGATIVE_INFINITY,
+  );
 
-  if (!Number.isFinite(minPrice) || !Number.isFinite(maxPrice) || minPrice === maxPrice) {
+  if (
+    !Number.isFinite(minPrice) ||
+    !Number.isFinite(maxPrice) ||
+    minPrice === maxPrice
+  ) {
     return fallbackLevels(candles);
   }
 
@@ -105,7 +120,10 @@ export function computeVolumeProfileLevels(
   };
 }
 
-export function computeOverlapRatio(a: ValueAreaLevels, b: ValueAreaLevels): number {
+export function computeOverlapRatio(
+  a: ValueAreaLevels,
+  b: ValueAreaLevels,
+): number {
   const overlap = Math.max(0, Math.min(a.vah, b.vah) - Math.max(a.val, b.val));
   const union = Math.max(a.vah, b.vah) - Math.min(a.val, b.val);
 
@@ -113,7 +131,10 @@ export function computeOverlapRatio(a: ValueAreaLevels, b: ValueAreaLevels): num
   return overlap / union;
 }
 
-function averageLevels(a: ValueAreaLevels, b: ValueAreaLevels): ValueAreaLevels {
+function averageLevels(
+  a: ValueAreaLevels,
+  b: ValueAreaLevels,
+): ValueAreaLevels {
   return {
     val: (a.val + b.val) / 2,
     vah: (a.vah + b.vah) / 2,
@@ -128,12 +149,20 @@ export function buildRangeContext(
 ): RangeContext {
   const primary =
     primaryCandles.length > 0
-      ? computeVolumeProfileLevels(primaryCandles, config.range.bins, config.range.valueAreaPct)
+      ? computeVolumeProfileLevels(
+          primaryCandles,
+          config.range.bins,
+          config.range.valueAreaPct,
+        )
       : fallbackLevels(secondaryCandles);
 
   const secondary =
     secondaryCandles.length > 0
-      ? computeVolumeProfileLevels(secondaryCandles, config.range.bins, config.range.valueAreaPct)
+      ? computeVolumeProfileLevels(
+          secondaryCandles,
+          config.range.bins,
+          config.range.valueAreaPct,
+        )
       : fallbackLevels(primaryCandles);
 
   const overlapRatio = computeOverlapRatio(primary, secondary);
@@ -147,7 +176,10 @@ export function buildRangeContext(
   };
 }
 
-export function resolveLevel(levels: ValueAreaLevels, label: "VAL" | "VAH" | "POC"): number {
+export function resolveLevel(
+  levels: ValueAreaLevels,
+  label: "VAL" | "VAH" | "POC",
+): number {
   if (label === "VAL") return levels.val;
   if (label === "VAH") return levels.vah;
   return levels.poc;

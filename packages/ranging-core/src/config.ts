@@ -59,7 +59,10 @@ function deepMerge<T>(base: T, patch: DeepPartial<T> | undefined): T {
     if (value === undefined) continue;
 
     if (isObject(value) && isObject(out[key])) {
-      out[key] = deepMerge(out[key] as Record<string, unknown>, value as Record<string, unknown>);
+      out[key] = deepMerge(
+        out[key] as Record<string, unknown>,
+        value as Record<string, unknown>,
+      );
       continue;
     }
 
@@ -69,6 +72,8 @@ function deepMerge<T>(base: T, patch: DeepPartial<T> | undefined): T {
   return out as T;
 }
 
-export function createConfig(overrides?: DeepPartial<RangeReversalConfig>): RangeReversalConfig {
+export function createConfig(
+  overrides?: DeepPartial<RangeReversalConfig>,
+): RangeReversalConfig {
   return deepMerge(defaultRangeReversalConfig, overrides);
 }

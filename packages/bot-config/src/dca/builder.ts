@@ -14,7 +14,7 @@ export function buildDcaSteps(
   firstDistancePct: number,
   firstSizeMult: number,
   distFactor: number,
-  sizeFactor: number
+  sizeFactor: number,
 ): DcaStep[] {
   const steps: DcaStep[] = [];
 

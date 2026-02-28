@@ -4,10 +4,7 @@ import {
   type KucoinClient,
   type KucoinService,
 } from "@repo/kucoin";
-import type {
-  ExchangeAdapter,
-  ExecutionContext,
-} from "@repo/trading-engine";
+import type { ExchangeAdapter, ExecutionContext } from "@repo/trading-engine";
 import type { KucoinSignalProcessorOptions } from "./exchanges/kucoin/signal-processor";
 import { KucoinKlineProvider } from "./exchanges/kucoin/klines";
 import { KucoinSignalProcessor } from "./exchanges/kucoin/signal-processor";
@@ -21,7 +18,11 @@ type KucoinRuntimeHandle = {
 const kucoinRuntimeCache = new Map<string, KucoinRuntimeHandle>();
 
 function getKucoinRuntime(account: AccountRecord): KucoinRuntimeHandle {
-  if (!account.auth.apiKey || !account.auth.apiSecret || !account.auth.apiPassphrase) {
+  if (
+    !account.auth.apiKey ||
+    !account.auth.apiSecret ||
+    !account.auth.apiPassphrase
+  ) {
     throw new Error(`Incomplete KuCoin credentials for account ${account.id}`);
   }
 
@@ -73,4 +74,3 @@ export const exchangeAdapterRegistry: ExchangeAdapterRegistry = {
     throw new Error(`Unsupported exchange adapter: ${exchangeId}`);
   },
 };
-

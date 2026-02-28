@@ -1,4 +1,7 @@
-import { IoTDataPlaneClient, PublishCommand } from "@aws-sdk/client-iot-data-plane";
+import {
+  IoTDataPlaneClient,
+  PublishCommand,
+} from "@aws-sdk/client-iot-data-plane";
 import { Resource } from "sst";
 import type { BotRunRecord } from "./types";
 
@@ -29,8 +32,7 @@ function getRealtimeConfig(): RealtimeConfig | null {
   const fromResource = getResourceConfig();
 
   const endpoint =
-    process.env.RANGING_REALTIME_ENDPOINT ??
-    fromResource.endpoint;
+    process.env.RANGING_REALTIME_ENDPOINT ?? fromResource.endpoint;
 
   if (!endpoint) {
     return null;
@@ -90,7 +92,9 @@ export async function publishRunRecord(record: BotRunRecord): Promise<void> {
   await Promise.allSettled(topics.map((topic) => publish(topic, payload)));
 }
 
-export async function publishTickSummary(summary: Record<string, unknown>): Promise<void> {
+export async function publishTickSummary(
+  summary: Record<string, unknown>,
+): Promise<void> {
   const config = getRealtimeConfig();
   if (!config) return;
 

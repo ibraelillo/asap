@@ -28,8 +28,9 @@ import type {
   RangeValidationResult,
 } from "./types";
 
-const OPENAI_ENDPOINT = process.env.OPENAI_RESPONSES_ENDPOINT
-  ?? "https://api.openai.com/v1/responses";
+const OPENAI_ENDPOINT =
+  process.env.OPENAI_RESPONSES_ENDPOINT ??
+  "https://api.openai.com/v1/responses";
 const DEFAULT_AI_MODEL_PRIMARY =
   process.env.RANGING_VALIDATION_MODEL_PRIMARY ?? "gpt-5-nano-2025-08-07";
 const DEFAULT_AI_MODEL_FALLBACK =
@@ -129,15 +130,19 @@ interface AiRangeValidationResponse {
   usedFallback: boolean;
 }
 
-type BacktestAiProgressReporter =
-  (summary: BacktestAiSummary) => Promise<void> | void;
+type BacktestAiProgressReporter = (
+  summary: BacktestAiSummary,
+) => Promise<void> | void;
 
 function clamp(value: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, value));
 }
 
 function isTimeframe(value: unknown): value is OrchestratorTimeframe {
-  return typeof value === "string" && TIMEFRAME_SET.has(value as OrchestratorTimeframe);
+  return (
+    typeof value === "string" &&
+    TIMEFRAME_SET.has(value as OrchestratorTimeframe)
+  );
 }
 
 function newBacktestId(symbol: string, createdAtMs: number): string {
@@ -149,7 +154,11 @@ function newBacktestId(symbol: string, createdAtMs: number): string {
   return `${symbol}-${createdAtMs}-${suffix}`;
 }
 
-function sanitizeRange(val: number, poc: number, vah: number): {
+function sanitizeRange(
+  val: number,
+  poc: number,
+  vah: number,
+): {
   val: number;
   poc: number;
   vah: number;
@@ -168,9 +177,7 @@ function truncateText(value: string, maxLength: number): string {
 }
 
 function sanitizeReasons(reasons: string[]): string[] {
-  return reasons
-    .slice(0, 6)
-    .map((reason) => truncateText(reason, 96));
+  return reasons.slice(0, 6).map((reason) => truncateText(reason, 96));
 }
 
 function defaultRange(candles: Candle[]): {
@@ -198,14 +205,12 @@ function summarizeCandles(candles: Candle[]) {
     Number.NEGATIVE_INFINITY,
   );
   const avgVolume =
-    candles.reduce((acc, candle) => acc + candle.volume, 0)
-    / Math.max(candles.length, 1);
+    candles.reduce((acc, candle) => acc + candle.volume, 0) /
+    Math.max(candles.length, 1);
 
   const fallbackClose = last?.close ?? first?.close ?? 1;
   const width =
-    Number.isFinite(maxHigh) && Number.isFinite(minLow)
-      ? maxHigh - minLow
-      : 0;
+    Number.isFinite(maxHigh) && Number.isFinite(minLow) ? maxHigh - minLow : 0;
   const widthPct = fallbackClose > 0 ? width / fallbackClose : 0;
 
   return {
@@ -220,10 +225,7 @@ function summarizeCandles(candles: Candle[]) {
   };
 }
 
-function buildPromptPayload(
-  detail: AiPromptDetail,
-  candles: Candle[],
-) {
+function buildPromptPayload(detail: AiPromptDetail, candles: Candle[]) {
   const candidate = defaultRange(candles);
   const summary = summarizeCandles(candles);
 
@@ -249,7 +251,10 @@ function extractOutputText(payload: unknown): string | undefined {
   if (!payload || typeof payload !== "object") return undefined;
   const root = payload as Record<string, unknown>;
 
-  if (typeof root.output_text === "string" && root.output_text.trim().length > 0) {
+  if (
+    typeof root.output_text === "string" &&
+    root.output_text.trim().length > 0
+  ) {
     return root.output_text;
   }
 
@@ -270,20 +275,23 @@ function extractOutputText(payload: unknown): string | undefined {
         parts.push(text);
       }
       if (
-        text
-        && typeof text === "object"
-        && typeof (text as { value?: unknown }).value === "string"
-        && (text as { value: string }).value.trim().length > 0
+        text &&
+        typeof text === "object" &&
+        typeof (text as { value?: unknown }).value === "string" &&
+        (text as { value: string }).value.trim().length > 0
       ) {
         parts.push((text as { value: string }).value);
       }
-      if (typeof row.output_text === "string" && row.output_text.trim().length > 0) {
+      if (
+        typeof row.output_text === "string" &&
+        row.output_text.trim().length > 0
+      ) {
         parts.push(row.output_text);
       }
       if (
-        row.type === "output_json"
-        && row.json
-        && typeof row.json === "object"
+        row.type === "output_json" &&
+        row.json &&
+        typeof row.json === "object"
       ) {
         parts.push(JSON.stringify(row.json));
       }
@@ -338,19 +346,22 @@ function normalizeValidationResult(
   candles: Candle[],
 ): RangeValidationResult {
   const fallback = defaultRange(candles);
-  const root = raw && typeof raw === "object"
-    ? (raw as Record<string, unknown>)
-    : {};
-  const rawRange = root.range && typeof root.range === "object"
-    ? (root.range as Record<string, unknown>)
-    : {};
+  const root =
+    raw && typeof raw === "object" ? (raw as Record<string, unknown>) : {};
+  const rawRange =
+    root.range && typeof root.range === "object"
+      ? (root.range as Record<string, unknown>)
+      : {};
   const reasons = Array.isArray(root.reasons)
     ? root.reasons.filter((value): value is string => typeof value === "string")
     : [];
 
-  const isRanging = typeof root.isRanging === "boolean" ? root.isRanging : false;
+  const isRanging =
+    typeof root.isRanging === "boolean" ? root.isRanging : false;
   const confidenceRaw = Number(root.confidence);
-  const confidence = Number.isFinite(confidenceRaw) ? clamp(confidenceRaw, 0, 1) : 0;
+  const confidence = Number.isFinite(confidenceRaw)
+    ? clamp(confidenceRaw, 0, 1)
+    : 0;
   const detected = root.timeframeDetected;
   const timeframeDetected =
     typeof detected === "string" && isTimeframe(detected)
@@ -426,12 +437,12 @@ async function callOpenAiModel(
           verbosity: "low",
         },
         max_output_tokens:
-          Number.isFinite(maxOutputTokensOverride)
-          && maxOutputTokensOverride
-          && maxOutputTokensOverride > 0
+          Number.isFinite(maxOutputTokensOverride) &&
+          maxOutputTokensOverride &&
+          maxOutputTokensOverride > 0
             ? Math.floor(maxOutputTokensOverride)
-            : Number.isFinite(DEFAULT_AI_MAX_OUTPUT_TOKENS)
-              && DEFAULT_AI_MAX_OUTPUT_TOKENS > 0
+            : Number.isFinite(DEFAULT_AI_MAX_OUTPUT_TOKENS) &&
+                DEFAULT_AI_MAX_OUTPUT_TOKENS > 0
               ? Math.floor(DEFAULT_AI_MAX_OUTPUT_TOKENS)
               : 800,
       }),
@@ -445,11 +456,13 @@ async function callOpenAiModel(
       );
     }
 
-    const responseJson = await response.json() as unknown;
+    const responseJson = (await response.json()) as unknown;
     const outputText = extractOutputText(responseJson);
     if (!outputText) {
       const reason = detectMissingOutputReason(responseJson);
-      throw new Error(`OpenAI response did not include assistant text (${reason})`);
+      throw new Error(
+        `OpenAI response did not include assistant text (${reason})`,
+      );
     }
 
     const parsed = safeJsonParse(outputText);
@@ -470,7 +483,8 @@ async function runAiValidationWithFallback(
   aiConfig: BacktestAiConfig,
 ): Promise<AiRangeValidationResponse> {
   const primaryBudget =
-    Number.isFinite(DEFAULT_AI_MAX_OUTPUT_TOKENS) && DEFAULT_AI_MAX_OUTPUT_TOKENS > 0
+    Number.isFinite(DEFAULT_AI_MAX_OUTPUT_TOKENS) &&
+    DEFAULT_AI_MAX_OUTPUT_TOKENS > 0
       ? Math.floor(DEFAULT_AI_MAX_OUTPUT_TOKENS)
       : 800;
   const retryBudget = Math.min(primaryBudget * 2, 2_000);
@@ -542,13 +556,17 @@ async function runAiValidationWithFallback(
   const primaryMessage =
     primaryError instanceof Error ? primaryError.message : String(primaryError);
   const fallbackMessage =
-    fallbackError instanceof Error ? fallbackError.message : String(fallbackError);
+    fallbackError instanceof Error
+      ? fallbackError.message
+      : String(fallbackError);
   throw new Error(
     `Validation failed on both models. Primary: ${primaryMessage}. Fallback: ${fallbackMessage}`,
   );
 }
 
-function normalizeAiConfig(ai: BacktestAiConfig | undefined): BacktestAiConfig | undefined {
+function normalizeAiConfig(
+  ai: BacktestAiConfig | undefined,
+): BacktestAiConfig | undefined {
   if (!ai?.enabled) return undefined;
 
   const lookbackCandles = Number.isFinite(ai.lookbackCandles)
@@ -581,7 +599,9 @@ function normalizeAiConfig(ai: BacktestAiConfig | undefined): BacktestAiConfig |
   };
 }
 
-function createInitialAiSummary(ai: BacktestAiConfig | undefined): BacktestAiSummary | undefined {
+function createInitialAiSummary(
+  ai: BacktestAiConfig | undefined,
+): BacktestAiSummary | undefined {
   const normalized = normalizeAiConfig(ai);
   if (!normalized) return undefined;
 
@@ -643,7 +663,11 @@ function buildEvaluationPlan(
   const effectiveCadenceBars = Math.max(1, cadenceFromLimit);
 
   const indices: number[] = [];
-  for (let index = startIndex; index < totalBars; index += effectiveCadenceBars) {
+  for (
+    let index = startIndex;
+    index < totalBars;
+    index += effectiveCadenceBars
+  ) {
     indices.push(index);
   }
 
@@ -709,8 +733,8 @@ async function buildAiSummary(
         aiConfig,
       );
       const accepted =
-        validation.result.isRanging
-        && validation.result.confidence >= aiConfig.confidenceThreshold;
+        validation.result.isRanging &&
+        validation.result.confidence >= aiConfig.confidenceThreshold;
 
       summary.evaluationsRun += 1;
       if (accepted) summary.evaluationsAccepted += 1;
@@ -815,7 +839,9 @@ function applyAiSummaryToExecutionCandles(
   });
 }
 
-function dedupeRefs(refs: Array<KlineCacheReference | undefined>): KlineCacheReference[] {
+function dedupeRefs(
+  refs: Array<KlineCacheReference | undefined>,
+): KlineCacheReference[] {
   const byKey = new Map<string, KlineCacheReference>();
 
   for (const ref of refs) {
@@ -829,7 +855,9 @@ function dedupeRefs(refs: Array<KlineCacheReference | undefined>): KlineCacheRef
   return [...byKey.values()];
 }
 
-async function resolveCandles(input: ResolveCandlesInput): Promise<CandleResolution> {
+async function resolveCandles(
+  input: ResolveCandlesInput,
+): Promise<CandleResolution> {
   const existing = findMatchingKlineRef(
     input.refs,
     input.symbol,
@@ -909,7 +937,10 @@ async function fetchBacktestCandles(
   backtestId: string,
   refs?: KlineCacheReference[],
 ): Promise<BacktestComputationCandles> {
-  const byTimeframe = new Map<OrchestratorTimeframe, Promise<CandleResolution>>();
+  const byTimeframe = new Map<
+    OrchestratorTimeframe,
+    Promise<CandleResolution>
+  >();
 
   const getCandlesForTimeframe = (timeframe: OrchestratorTimeframe) => {
     const existing = byTimeframe.get(timeframe);
@@ -1235,7 +1266,11 @@ export async function replayBacktestRecord(
     result,
     chartCandles: chart.candles,
     chartCandlesRef: chart.ref,
-    trades: enrichTradesWithRangeLevels(input, candlesForComputation, result.trades),
+    trades: enrichTradesWithRangeLevels(
+      input,
+      candlesForComputation,
+      result.trades,
+    ),
     klineRefs: dedupeRefs([...candles.klineRefs, chart.ref]),
   };
 }

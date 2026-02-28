@@ -2,7 +2,7 @@ import { Bot, Power, Settings, TrendingUp, TrendingDown } from "lucide-react";
 import type { BotConfig } from "@repo/bot-config";
 
 interface BotCardProps {
-  bot: BotConfig
+  bot: BotConfig;
   onToggle: (id: string) => void;
   onEdit: (bot: BotConfig) => void;
 }
@@ -49,7 +49,11 @@ export function BotCard({ bot, onToggle, onEdit }: BotCardProps) {
       <div className="grid grid-cols-2 gap-4 text-sm">
         <div>
           <p className="text-gray-500">Base Order</p>
-          <p className="font-medium">{bot.equity.size ? `${bot.equity.size} USDT` : `${bot.equity.percentage}%`}</p>
+          <p className="font-medium">
+            {bot.equity.size
+              ? `${bot.equity.size} USDT`
+              : `${bot.equity.percentage}%`}
+          </p>
         </div>
         <div>
           <p className="text-gray-500">Take Profit</p>

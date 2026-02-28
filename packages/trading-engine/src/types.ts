@@ -26,7 +26,13 @@ export interface Candle {
 
 export interface ContextProviderSpec {
   id: string;
-  kind: "price" | "indicator" | "validation" | "fundamental" | "news" | "custom";
+  kind:
+    | "price"
+    | "indicator"
+    | "validation"
+    | "fundamental"
+    | "news"
+    | "custom";
   enabled?: boolean;
   config?: Record<string, unknown>;
 }
@@ -136,7 +142,8 @@ export interface IntentBase<TMeta = unknown> {
   meta?: TMeta;
 }
 
-export interface EnterPositionIntent<TMeta = unknown> extends IntentBase<TMeta> {
+export interface EnterPositionIntent<TMeta = unknown>
+  extends IntentBase<TMeta> {
   kind: "enter";
   side: Side;
   entry: {
@@ -147,7 +154,8 @@ export interface EnterPositionIntent<TMeta = unknown> extends IntentBase<TMeta> 
   management?: PositionManagementPlan;
 }
 
-export interface ReducePositionIntent<TMeta = unknown> extends IntentBase<TMeta> {
+export interface ReducePositionIntent<TMeta = unknown>
+  extends IntentBase<TMeta> {
   kind: "reduce";
   side: Side;
   price?: number;
@@ -160,7 +168,8 @@ export interface MoveStopIntent<TMeta = unknown> extends IntentBase<TMeta> {
   stopPrice: number;
 }
 
-export interface ClosePositionIntent<TMeta = unknown> extends IntentBase<TMeta> {
+export interface ClosePositionIntent<TMeta = unknown>
+  extends IntentBase<TMeta> {
   kind: "close";
   side: Side;
   price?: number;
@@ -189,7 +198,9 @@ export interface TradingStrategy<TConfig, TSnapshot, TIntentsMeta = unknown> {
   readonly id: string;
   readonly version: string;
   buildSnapshot(input: StrategySnapshotInput<TConfig>): TSnapshot;
-  evaluate(input: StrategyEvaluationInput<TConfig, TSnapshot>): StrategyDecision<TIntentsMeta>;
+  evaluate(
+    input: StrategyEvaluationInput<TConfig, TSnapshot>,
+  ): StrategyDecision<TIntentsMeta>;
 }
 
 export interface SlippageModelSpec {
@@ -324,8 +335,9 @@ export interface PositionSizingInput<TConfig, TSnapshot, TMeta = unknown> {
   equity: number;
 }
 
-export type PositionSizer<TConfig, TSnapshot, TMeta = unknown> =
-  (input: PositionSizingInput<TConfig, TSnapshot, TMeta>) => PositionSizingResult;
+export type PositionSizer<TConfig, TSnapshot, TMeta = unknown> = (
+  input: PositionSizingInput<TConfig, TSnapshot, TMeta>,
+) => PositionSizingResult;
 
 export interface BacktestEngineInput<TConfig, TSnapshot, TMeta = unknown> {
   request: BacktestRequest;

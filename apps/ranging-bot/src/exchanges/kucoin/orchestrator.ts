@@ -23,7 +23,9 @@ export function createKucoinOrchestrator(input: CreateKucoinOrchestratorInput) {
 
   return {
     ...runtime,
-    runOnce: (runInput: Omit<OrchestratorRunInput, "bot">, position: PositionState | null) =>
-      runtime.runOnce(runInput, position),
+    runOnce: (
+      runInput: Omit<OrchestratorRunInput, "bot">,
+      position: PositionState | null,
+    ) => runtime.runOnce(runInput, position),
   };
 }

@@ -9,7 +9,10 @@ export interface IndicatorBotSnapshot {
   price: number;
 }
 
-export function createIndicatorBotStrategy(): TradingStrategy<IndicatorBotConfig, IndicatorBotSnapshot> {
+export function createIndicatorBotStrategy(): TradingStrategy<
+  IndicatorBotConfig,
+  IndicatorBotSnapshot
+> {
   return {
     id: "indicator-bot",
     version: "1",

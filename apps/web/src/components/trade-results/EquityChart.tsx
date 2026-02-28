@@ -43,7 +43,10 @@ export function EquityChart({ curve, trades }: EquityChartProps) {
   }));
 
   const path = points
-    .map((point, index) => `${index === 0 ? "M" : "L"} ${point.x.toFixed(2)} ${point.y.toFixed(2)}`)
+    .map(
+      (point, index) =>
+        `${index === 0 ? "M" : "L"} ${point.x.toFixed(2)} ${point.y.toFixed(2)}`,
+    )
     .join(" ");
 
   const endEquity = curve[curve.length - 1]?.equity ?? 0;
@@ -59,7 +62,9 @@ export function EquityChart({ curve, trades }: EquityChartProps) {
             Trades plotted on close with PnL markers
           </p>
         </div>
-        <p className={`text-sm font-medium ${trendUp ? "text-emerald-300" : "text-rose-300"}`}>
+        <p
+          className={`text-sm font-medium ${trendUp ? "text-emerald-300" : "text-rose-300"}`}
+        >
           {formatCurrency(endEquity - startEquity)}
         </p>
       </div>
@@ -77,7 +82,11 @@ export function EquityChart({ curve, trades }: EquityChartProps) {
         </defs>
 
         {[0, 0.25, 0.5, 0.75, 1].map((r) => {
-          const y = toY(minValue + (maxValue - minValue) * r, minValue, maxValue);
+          const y = toY(
+            minValue + (maxValue - minValue) * r,
+            minValue,
+            maxValue,
+          );
           return (
             <line
               key={r}
@@ -91,21 +100,49 @@ export function EquityChart({ curve, trades }: EquityChartProps) {
           );
         })}
 
-        <path d={`${path} L ${points[points.length - 1]?.x ?? 0} ${height - paddingY} L ${points[0]?.x ?? 0} ${height - paddingY} Z`} fill="url(#equity-area)" />
-        <path d={path} fill="none" stroke="url(#equity-line)" strokeWidth="3" strokeLinecap="round" />
+        <path
+          d={`${path} L ${points[points.length - 1]?.x ?? 0} ${height - paddingY} L ${points[0]?.x ?? 0} ${height - paddingY} Z`}
+          fill="url(#equity-area)"
+        />
+        <path
+          d={path}
+          fill="none"
+          stroke="url(#equity-line)"
+          strokeWidth="3"
+          strokeLinecap="round"
+        />
 
         {points.map((point, index) => {
           const trade = trades[index];
           if (!trade) return null;
 
           const color = trade.netPnl >= 0 ? "#34d399" : "#fb7185";
-          return <circle key={trade.id} cx={point.x} cy={point.y} r="3.2" fill={color} opacity="0.95" />;
+          return (
+            <circle
+              key={trade.id}
+              cx={point.x}
+              cy={point.y}
+              r="3.2"
+              fill={color}
+              opacity="0.95"
+            />
+          );
         })}
 
-        <text x={paddingX} y={paddingY - 8} fill="rgba(226,232,240,0.8)" fontSize="11">
+        <text
+          x={paddingX}
+          y={paddingY - 8}
+          fill="rgba(226,232,240,0.8)"
+          fontSize="11"
+        >
           {formatCurrency(maxValue)}
         </text>
-        <text x={paddingX} y={height - 8} fill="rgba(148,163,184,0.8)" fontSize="11">
+        <text
+          x={paddingX}
+          y={height - 8}
+          fill="rgba(148,163,184,0.8)"
+          fontSize="11"
+        >
           {formatCurrency(minValue)}
         </text>
       </svg>

@@ -8,19 +8,61 @@ import {
 } from "react-router-dom";
 import { AppShell, useAppShellData } from "./components/layout/AppShell";
 
-const ResultsPage = lazy(() => import("./components/ranging/ResultsPage").then((module) => ({ default: module.ResultsPage })));
-const BacktestDetailsPage = lazy(() => import("./components/ranging/BacktestDetailsPage").then((module) => ({ default: module.BacktestDetailsPage })));
-const TradeAnalysisPage = lazy(() => import("./components/ranging/TradeAnalysisPage").then((module) => ({ default: module.TradeAnalysisPage })));
-const StrategiesPage = lazy(() => import("./components/ranging/pages/StrategiesPage").then((module) => ({ default: module.StrategiesPage })));
-const StrategyDetailsPage = lazy(() => import("./components/ranging/pages/StrategyDetailsPage").then((module) => ({ default: module.StrategyDetailsPage })));
-const BotsIndexPage = lazy(() => import("./components/ranging/pages/BotsIndexPage").then((module) => ({ default: module.BotsIndexPage })));
-const BotCreatePage = lazy(() => import("./components/ranging/pages/BotCreatePage").then((module) => ({ default: module.BotCreatePage })));
-const BotDetailsPage = lazy(() => import("./components/ranging/pages/BotDetailsPage").then((module) => ({ default: module.BotDetailsPage })));
-const BotBacktestsPage = lazy(() => import("./components/ranging/pages/BotBacktestsPage").then((module) => ({ default: module.BotBacktestsPage })));
-const BotPositionsPage = lazy(() => import("./components/ranging/pages/BotPositionsPage").then((module) => ({ default: module.BotPositionsPage })));
+const ResultsPage = lazy(() =>
+  import("./components/ranging/ResultsPage").then((module) => ({
+    default: module.ResultsPage,
+  })),
+);
+const BacktestDetailsPage = lazy(() =>
+  import("./components/ranging/BacktestDetailsPage").then((module) => ({
+    default: module.BacktestDetailsPage,
+  })),
+);
+const TradeAnalysisPage = lazy(() =>
+  import("./components/ranging/TradeAnalysisPage").then((module) => ({
+    default: module.TradeAnalysisPage,
+  })),
+);
+const StrategiesPage = lazy(() =>
+  import("./components/ranging/pages/StrategiesPage").then((module) => ({
+    default: module.StrategiesPage,
+  })),
+);
+const StrategyDetailsPage = lazy(() =>
+  import("./components/ranging/pages/StrategyDetailsPage").then((module) => ({
+    default: module.StrategyDetailsPage,
+  })),
+);
+const BotsIndexPage = lazy(() =>
+  import("./components/ranging/pages/BotsIndexPage").then((module) => ({
+    default: module.BotsIndexPage,
+  })),
+);
+const BotCreatePage = lazy(() =>
+  import("./components/ranging/pages/BotCreatePage").then((module) => ({
+    default: module.BotCreatePage,
+  })),
+);
+const BotDetailsPage = lazy(() =>
+  import("./components/ranging/pages/BotDetailsPage").then((module) => ({
+    default: module.BotDetailsPage,
+  })),
+);
+const BotBacktestsPage = lazy(() =>
+  import("./components/ranging/pages/BotBacktestsPage").then((module) => ({
+    default: module.BotBacktestsPage,
+  })),
+);
+const BotPositionsPage = lazy(() =>
+  import("./components/ranging/pages/BotPositionsPage").then((module) => ({
+    default: module.BotPositionsPage,
+  })),
+);
 
 function RouteFallback() {
-  return <div className="panel p-6 text-sm text-slate-300">Loading page...</div>;
+  return (
+    <div className="panel p-6 text-sm text-slate-300">Loading page...</div>
+  );
 }
 
 function ResultsRoutePage() {
@@ -61,7 +103,10 @@ function NotFoundPage() {
 }
 
 function BacktestDetailsPageRoute() {
-  const { botId, backtestId } = useParams<{ botId: string; backtestId: string }>();
+  const { botId, backtestId } = useParams<{
+    botId: string;
+    backtestId: string;
+  }>();
 
   if (!botId || !backtestId) {
     return <Navigate to="/bots" replace />;

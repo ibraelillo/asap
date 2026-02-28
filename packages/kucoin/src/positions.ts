@@ -76,7 +76,7 @@ export const createPositionHandler = (
       }
     }
 
-    return undefined
+    return undefined;
   }
 
   /**

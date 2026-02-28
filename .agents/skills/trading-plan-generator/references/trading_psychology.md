@@ -11,6 +11,7 @@ Master your mind, master the markets.
 **Psychology:** 50% of success
 
 **The hard truth:**
+
 - You are your own worst enemy
 - Emotions destroy accounts
 - Discipline beats intelligence
@@ -21,83 +22,97 @@ Master your mind, master the markets.
 ## The Emotional Cycle of Trading
 
 ### Stage 1: Optimism
+
 - First wins
 - "This is easy!"
 - Overconfidence building
 - Taking bigger positions
 
 ### Stage 2: Excitement
+
 - String of wins
 - Feeling invincible
 - Breaking rules
 - Maximum risk
 
 ### Stage 3: Thrill
+
 - Biggest position yet
 - Ignoring warnings
 - "I can't lose"
 - Peak overconfidence
 
 ### Stage 4: Euphoria
+
 - Top of cycle
 - Taking ANY trade
 - No risk management
 - Disaster imminent
 
 ### Stage 5: Anxiety
+
 - First big loss
 - "Just bad luck"
 - Revenge trading starts
 - Doubling down
 
 ### Stage 6: Denial
+
 - "Market is wrong"
 - Moving stops
 - Averaging down
 - Refusing to accept loss
 
 ### Stage 7: Fear
+
 - Watching losses grow
 - Paralyzed
 - Can't exit
 - Hope replacing strategy
 
 ### Stage 8: Desperation
+
 - All-in trades
 - Gambling, not trading
 - Breaking all rules
 - Account in danger
 
 ### Stage 9: Panic
+
 - Forced exits
 - Margin calls
 - Capitulation
 - Major loss realized
 
 ### Stage 10: Capitulation
+
 - Give up
 - "Trading doesn't work"
 - Blame external factors
 - Quit or start over
 
 ### Stage 11: Despondency
+
 - Depression
 - Lost confidence
 - Consider quitting
 - Seeking answers
 
 ### Stage 12: Depression
+
 - Lowest point
 - Questioning everything
 - But...learning begins
 
 ### Stage 13: Hope
+
 - Education phase
 - Developing plan
 - Paper trading
 - Slow rebuild
 
 ### Stage 14: Relief
+
 - Small wins return
 - Following plan
 - Confidence building
@@ -114,18 +129,21 @@ Master your mind, master the markets.
 ### 1. Revenge Trading
 
 **What it is:**
+
 - Trading to "get back" losses
 - Emotional, not strategic
 - Larger positions
 - Breaks all rules
 
 **Why it happens:**
+
 - Ego hurt
 - Feel need to "win"
 - Loss aversion
 - Impatience
 
 **How to avoid:**
+
 - Hard daily loss limits
 - Mandatory cool-down periods
 - Accept losses as business cost
@@ -136,18 +154,21 @@ Master your mind, master the markets.
 ### 2. FOMO (Fear of Missing Out)
 
 **What it is:**
+
 - Chasing moves without setup
 - Entering late
 - Ignoring risk
 - "Everyone else is making money"
 
 **Why it happens:**
+
 - Social comparison
 - Greed
 - Impatience
 - Scarcity mindset
 
 **How to avoid:**
+
 - Wait for YOUR setup
 - Ignore what others are doing
 - Abundance mindset (opportunities come again)
@@ -158,18 +179,21 @@ Master your mind, master the markets.
 ### 3. Overconfidence
 
 **What it is:**
+
 - Taking outsized risk after wins
 - Ignoring risk management
 - "I can't lose"
 - Breaking rules
 
 **Why it happens:**
+
 - Recent wins
 - Confirmation bias
 - Ego
 - Misunderstanding edge
 
 **How to avoid:**
+
 - Fixed position sizing always
 - Review losers, not just winners
 - Remember: market is humbling
@@ -180,18 +204,21 @@ Master your mind, master the markets.
 ### 4. Analysis Paralysis
 
 **What it is:**
+
 - Over-analyzing
 - Can't pull trigger
 - Waiting for "perfect" setup
 - Missing trades
 
 **Why it happens:**
+
 - Fear of being wrong
 - Perfectionism
 - Too many indicators
 - No clear plan
 
 **How to avoid:**
+
 - Simple setup criteria
 - Binary decision framework
 - Accept imperfect trades
@@ -202,18 +229,21 @@ Master your mind, master the markets.
 ### 5. Loss Aversion
 
 **What it is:**
+
 - Refusing to take small loss
 - Moving stops
 - Hoping for recovery
 - Small loss becomes big
 
 **Why it happens:**
+
 - Pain of being wrong
 - Sunk cost fallacy
 - Ego protection
 - Loss hurts more than gain feels good
 
 **How to avoid:**
+
 - Stops are non-negotiable
 - View losses as business expense
 - Protect capital first
@@ -224,18 +254,21 @@ Master your mind, master the markets.
 ### 6. Confirmation Bias
 
 **What it is:**
+
 - Seeking info that confirms view
 - Ignoring contrary evidence
 - Refusing to exit losing trade
 - Doubling down on mistakes
 
 **Why it happens:**
+
 - Need to be right
 - Selective perception
 - Ego protection
 - Prior commitment
 
 **How to avoid:**
+
 - Actively seek contrary evidence
 - Play devil's advocate
 - Follow price action, not opinion
@@ -248,6 +281,7 @@ Master your mind, master the markets.
 ### Pre-Trade
 
 **Checklist before EVERY trade:**
+
 - [ ] Meets setup criteria?
 - [ ] R:R acceptable?
 - [ ] Position size calculated?
@@ -261,6 +295,7 @@ Master your mind, master the markets.
 ### During Trade
 
 **Rules while in position:**
+
 - Check portfolio 2-3x max per day
 - Don't watch every tick
 - Trust your stop
@@ -270,6 +305,7 @@ Master your mind, master the markets.
 ### Post-Trade
 
 **After every trade:**
+
 - Log trade in journal
 - Note what went right/wrong
 - Capture lessons
@@ -283,6 +319,7 @@ Master your mind, master the markets.
 ### Pre-Market Routine
 
 **Daily checklist (15-30 min):**
+
 - [ ] Adequate sleep (7+ hours)?
 - [ ] Hydrated and fed?
 - [ ] Calm and centered?
@@ -295,6 +332,7 @@ Master your mind, master the markets.
 ### Recognizing Tilt
 
 **Warning signs:**
+
 - Increasing position size
 - Abandoning stops
 - Taking marginal setups
@@ -304,6 +342,7 @@ Master your mind, master the markets.
 - Rushing into trades
 
 **When tilting:**
+
 1. STOP immediately
 2. Close positions
 3. Walk away
@@ -313,18 +352,21 @@ Master your mind, master the markets.
 ### Cool-Down Periods
 
 **After any loss:**
+
 - Minimum 15-30 minutes
 - Walk, breathe, reset
 - Review trade objectively
 - Return only when calm
 
 **After 2 consecutive losses:**
+
 - 1 hour minimum
 - Full review of both trades
 - Confirm plan compliance
 - Reduce size if continuing
 
 **After 3 consecutive losses:**
+
 - DONE for the day
 - Full day review tomorrow
 - Don't force it
@@ -337,11 +379,13 @@ Master your mind, master the markets.
 ### From Outcome to Process
 
 **Wrong focus:**
+
 - "I need to make $X today"
 - "I need to win this trade"
 - "I can't afford to lose"
 
 **Right focus:**
+
 - "Did I follow my plan?"
 - "Was my risk management correct?"
 - "What can I learn?"
@@ -349,11 +393,13 @@ Master your mind, master the markets.
 ### From Prediction to Probabilities
 
 **Wrong thinking:**
+
 - "This trade WILL work"
 - "I know what market will do"
 - "I can't be wrong"
 
 **Right thinking:**
+
 - "This has good probability"
 - "I don't know, but R:R is good"
 - "I can be wrong and still profitable"
@@ -361,11 +407,13 @@ Master your mind, master the markets.
 ### From Money to Process
 
 **Wrong focus:**
+
 - Daily P&L
 - "How much did I make?"
 - Comparing to others
 
 **Right focus:**
+
 - Plan compliance
 - "Did I execute well?"
 - Personal improvement
@@ -377,12 +425,14 @@ Master your mind, master the markets.
 ### Accept Losses as Business Cost
 
 **Truth:**
+
 - Losses are inevitable
 - Even 70% win rate = 30% losses
 - Losses are data, not failure
 - Cost of doing business
 
 **Mindset:**
+
 - "This is expected"
 - "I planned for this"
 - "On to next trade"
@@ -391,12 +441,14 @@ Master your mind, master the markets.
 ### Learn from Every Loss
 
 **After each loss ask:**
+
 - Did I follow my plan?
 - Was setup valid?
 - Was risk management correct?
 - What can I improve?
 
 **Categories of losses:**
+
 1. **Good loss:** Followed plan, just didn't work
 2. **Bad loss:** Broke rules
 3. **Learning loss:** New insight gained
@@ -410,6 +462,7 @@ Master your mind, master the markets.
 ### Don't Get Overconfident
 
 **After big win:**
+
 - Resist urge to increase size
 - Follow plan as always
 - One win doesn't mean edge
@@ -418,12 +471,14 @@ Master your mind, master the markets.
 ### Avoid Euphoria
 
 **Warning signs:**
+
 - Feeling invincible
 - "I figured it out"
 - Itching to trade more
 - Looking for any setup
 
 **Remedy:**
+
 - Stick to plan
 - Take break if needed
 - Remember: regression to mean
@@ -436,6 +491,7 @@ Master your mind, master the markets.
 ### Morning
 
 **Before market open:**
+
 - Review plan
 - Check emotional state
 - Set intentions
@@ -446,6 +502,7 @@ Master your mind, master the markets.
 ### During Session
 
 **While trading:**
+
 - Follow checklist
 - One trade at a time
 - Take breaks
@@ -456,6 +513,7 @@ Master your mind, master the markets.
 ### Evening
 
 **After market close:**
+
 - Journal all trades
 - Calculate P&L
 - Review compliance
@@ -470,6 +528,7 @@ Master your mind, master the markets.
 ### Trade Journal
 
 **Required entries:**
+
 - Setup and reasoning
 - Emotional state
 - Rule compliance
@@ -479,6 +538,7 @@ Master your mind, master the markets.
 ### Performance Review
 
 **Weekly:**
+
 - Win rate
 - Avg win/loss
 - Compliance %
@@ -486,6 +546,7 @@ Master your mind, master the markets.
 - Improvement areas
 
 **Monthly:**
+
 - Full performance analysis
 - Goal progress
 - Strategy refinement
@@ -494,6 +555,7 @@ Master your mind, master the markets.
 ### External Accountability
 
 **Consider:**
+
 - Trading buddy
 - Mentor
 - Trading journal app
@@ -506,6 +568,7 @@ Master your mind, master the markets.
 ### Why It Helps
 
 **Benefits for traders:**
+
 - Emotional regulation
 - Impulse control
 - Focus and clarity
@@ -515,6 +578,7 @@ Master your mind, master the markets.
 ### Simple Practice
 
 **Daily meditation (10 min):**
+
 1. Sit comfortably
 2. Focus on breath
 3. Notice thoughts
@@ -522,6 +586,7 @@ Master your mind, master the markets.
 5. No judgment
 
 **Before trading:**
+
 - 5 minutes breathing
 - Center yourself
 - Set intention
@@ -534,6 +599,7 @@ Master your mind, master the markets.
 ### Sleep
 
 **Critical for trading:**
+
 - 7-9 hours minimum
 - Consistent schedule
 - No trading if tired
@@ -542,12 +608,14 @@ Master your mind, master the markets.
 ### Exercise
 
 **Benefits:**
+
 - Stress management
 - Mental clarity
 - Emotional regulation
 - Energy levels
 
 **Recommendation:**
+
 - 30 min daily minimum
 - Before or after trading
 - Not during market hours
@@ -555,11 +623,13 @@ Master your mind, master the markets.
 ### Nutrition
 
 **Avoid:**
+
 - Excessive caffeine
 - Sugar spikes
 - Trading hungry
 
 **Prefer:**
+
 - Balanced meals
 - Steady energy
 - Hydration
@@ -571,6 +641,7 @@ Master your mind, master the markets.
 ### Normal Part of Trading
 
 **Reality:**
+
 - All traders have drawdowns
 - Expect them
 - Plan for them
@@ -579,6 +650,7 @@ Master your mind, master the markets.
 ### During Drawdown
 
 **Actions:**
+
 1. Review all trades
 2. Verify plan compliance
 3. Reduce position size
@@ -587,6 +659,7 @@ Master your mind, master the markets.
 6. Trust recovery
 
 **Don't:**
+
 - Increase size to "get back"
 - Abandon plan
 - Change strategy mid-stream
@@ -613,6 +686,7 @@ Master your mind, master the markets.
 ## Psychological Checklist
 
 **Before trading session:**
+
 - [ ] Adequate sleep
 - [ ] Calm and focused
 - [ ] No major stress
@@ -621,6 +695,7 @@ Master your mind, master the markets.
 - [ ] No revenge mindset
 
 **During trading:**
+
 - [ ] Checking P&L minimally
 - [ ] Following checklist
 - [ ] Taking breaks
@@ -628,6 +703,7 @@ Master your mind, master the markets.
 - [ ] No tilt signs
 
 **After trading:**
+
 - [ ] Journaled all trades
 - [ ] Reviewed objectively
 - [ ] Noted lessons
@@ -639,12 +715,14 @@ Master your mind, master the markets.
 ## Summary
 
 **Trading psychology is:**
+
 - 50% of success
 - Controllable
 - Improvable
 - Critical
 
 **Master these:**
+
 - Emotional control
 - Discipline
 - Process focus
@@ -652,6 +730,7 @@ Master your mind, master the markets.
 - Patience
 
 **Remember:**
+
 - Markets are uncertain
 - Outcomes are random
 - Process is controllable

@@ -5,7 +5,11 @@ import type {
   StrategyDecision,
   TradingStrategy,
 } from "@repo/trading-engine";
-import { computeMoneyFlow, computeWaveTrend, slopeAt } from "./analysis/indicators";
+import {
+  computeMoneyFlow,
+  computeWaveTrend,
+  slopeAt,
+} from "./analysis/indicators";
 import { buildRangeContext, resolveLevel } from "./analysis/range";
 import {
   detectBearishDivergence,
@@ -40,17 +44,26 @@ interface EvaluatedEntry {
   diagnostics: RangeReversalDecisionDiagnostics;
 }
 
-function sliceUpToTime(candles: Candle[], time: number, lookbackBars: number): Candle[] {
+function sliceUpToTime(
+  candles: Candle[],
+  time: number,
+  lookbackBars: number,
+): Candle[] {
   const eligible = candles.filter((c) => c.time <= time);
   return eligible.slice(-lookbackBars);
 }
 
-function applyRangeOverrides(range: RangeContext, candle: BacktestCandle): RangeContext {
+function applyRangeOverrides(
+  range: RangeContext,
+  candle: BacktestCandle,
+): RangeContext {
   const features = candle.features;
   if (!features) return range;
 
   const hasAnyLevel =
-    features.val !== undefined || features.vah !== undefined || features.poc !== undefined;
+    features.val !== undefined ||
+    features.vah !== undefined ||
+    features.poc !== undefined;
 
   if (!hasAnyLevel && features.rangeValid === undefined) {
     return range;
@@ -75,7 +88,9 @@ function clamp(value: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, value));
 }
 
-export function buildSignalSnapshot(input: SignalSnapshotInput): SignalSnapshot {
+export function buildSignalSnapshot(
+  input: SignalSnapshotInput,
+): SignalSnapshot {
   const { executionCandles, index, config } = input;
   const candle = executionCandles[index];
   if (!candle) {
@@ -93,7 +108,11 @@ export function buildSignalSnapshot(input: SignalSnapshotInput): SignalSnapshot 
 
   let range = buildRangeContext(
     sliceUpToTime(primarySource, candle.time, config.range.primaryLookbackBars),
-    sliceUpToTime(secondarySource, candle.time, config.range.secondaryLookbackBars),
+    sliceUpToTime(
+      secondarySource,
+      candle.time,
+      config.range.secondaryLookbackBars,
+    ),
     config,
   );
   range = applyRangeOverrides(range, candle);
@@ -104,11 +123,18 @@ export function buildSignalSnapshot(input: SignalSnapshotInput): SignalSnapshot 
     config.signal.waveTrendAverageLength,
     config.signal.waveTrendSignalLength,
   );
-  const moneyFlow = computeMoneyFlow(executionSlice, config.signal.moneyFlowPeriod);
+  const moneyFlow = computeMoneyFlow(
+    executionSlice,
+    config.signal.moneyFlowPeriod,
+  );
 
   const moneyFlowSlope =
     candle.features?.moneyFlowSlope ??
-    slopeAt(moneyFlow, executionSlice.length - 1, config.signal.moneyFlowSlopeBars);
+    slopeAt(
+      moneyFlow,
+      executionSlice.length - 1,
+      config.signal.moneyFlowSlopeBars,
+    );
 
   const bullishDivergence =
     candle.features?.bullishDivergence ??
@@ -132,11 +158,19 @@ export function buildSignalSnapshot(input: SignalSnapshotInput): SignalSnapshot 
 
   const bullishSfp =
     candle.features?.bullishSfp ??
-    detectBullishSfp(executionSlice, executionSlice.length - 1, config.signal.swingLookback * 3);
+    detectBullishSfp(
+      executionSlice,
+      executionSlice.length - 1,
+      config.signal.swingLookback * 3,
+    );
 
   const bearishSfp =
     candle.features?.bearishSfp ??
-    detectBearishSfp(executionSlice, executionSlice.length - 1, config.signal.swingLookback * 3);
+    detectBearishSfp(
+      executionSlice,
+      executionSlice.length - 1,
+      config.signal.swingLookback * 3,
+    );
 
   const excursionWindow = Math.max(1, config.signal.priceExcursionLookbackBars);
   const excursionSlice = executionSlice.slice(-excursionWindow);
@@ -169,8 +203,15 @@ function evaluateEntryState(
 ): EvaluatedEntry {
   const failedLong: string[] = [];
   const failedShort: string[] = [];
-  const rangeWidth = Math.max(snapshot.range.effective.vah - snapshot.range.effective.val, Number.EPSILON);
-  const reentryDistancePct = clamp(config.signal.armedReentryMaxDistancePct, 0, 1);
+  const rangeWidth = Math.max(
+    snapshot.range.effective.vah - snapshot.range.effective.val,
+    Number.EPSILON,
+  );
+  const reentryDistancePct = clamp(
+    config.signal.armedReentryMaxDistancePct,
+    0,
+    1,
+  );
 
   if (!snapshot.range.isAligned) {
     failedLong.push("range_not_aligned");
@@ -184,7 +225,8 @@ function evaluateEntryState(
       failedLong.push("price_not_below_val");
       failedLong.push("missing_recent_val_sweep");
     } else {
-      const maxLongReentry = snapshot.range.effective.val + rangeWidth * reentryDistancePct;
+      const maxLongReentry =
+        snapshot.range.effective.val + rangeWidth * reentryDistancePct;
       if (snapshot.price > maxLongReentry) {
         failedLong.push("price_not_below_val");
         failedLong.push("long_reentry_too_far_from_val");
@@ -199,7 +241,8 @@ function evaluateEntryState(
       failedShort.push("price_not_above_vah");
       failedShort.push("missing_recent_vah_sweep");
     } else {
-      const minShortReentry = snapshot.range.effective.vah - rangeWidth * reentryDistancePct;
+      const minShortReentry =
+        snapshot.range.effective.vah - rangeWidth * reentryDistancePct;
       if (snapshot.price < minShortReentry) {
         failedShort.push("price_not_above_vah");
         failedShort.push("short_reentry_too_far_from_vah");
@@ -208,12 +251,15 @@ function evaluateEntryState(
   }
 
   if (config.signal.requireDivergence) {
-    if (!snapshot.bullishDivergence) failedLong.push("missing_bullish_divergence");
-    if (!snapshot.bearishDivergence) failedShort.push("missing_bearish_divergence");
+    if (!snapshot.bullishDivergence)
+      failedLong.push("missing_bullish_divergence");
+    if (!snapshot.bearishDivergence)
+      failedShort.push("missing_bearish_divergence");
   }
 
   if (!(snapshot.moneyFlowSlope > 0)) failedLong.push("money_flow_not_rising");
-  if (!(snapshot.moneyFlowSlope < 0)) failedShort.push("money_flow_not_falling");
+  if (!(snapshot.moneyFlowSlope < 0))
+    failedShort.push("money_flow_not_falling");
 
   if (config.signal.requireSfp) {
     if (!snapshot.bullishSfp) failedLong.push("missing_bullish_sfp");
@@ -278,7 +324,10 @@ function evaluateEntryState(
   };
 }
 
-export function evaluateEntry(snapshot: SignalSnapshot, config: RangeReversalConfig): EntryDecision {
+export function evaluateEntry(
+  snapshot: SignalSnapshot,
+  config: RangeReversalConfig,
+): EntryDecision {
   return evaluateEntryState(snapshot, config).decision;
 }
 
@@ -291,7 +340,10 @@ export function buildRangeReversalDecision(input: {
   position: PositionState | null;
 }): StrategyDecision<RangeReversalIntentMeta> {
   const strategyId = input.strategyId ?? "range-reversal";
-  const { decision, diagnostics } = evaluateEntryState(input.snapshot, input.config);
+  const { decision, diagnostics } = evaluateEntryState(
+    input.snapshot,
+    input.config,
+  );
 
   if (decision.signal) {
     const currentPosition = input.position;
@@ -338,7 +390,8 @@ export function buildRangeReversalDecision(input: {
       botId: input.botId,
       strategyId,
       time: input.snapshot.time,
-      reasons: decision.reasons.length > 0 ? decision.reasons : ["position_open_hold"],
+      reasons:
+        decision.reasons.length > 0 ? decision.reasons : ["position_open_hold"],
       meta: {
         range: input.snapshot.range.effective,
         stopPrice: input.position.stopPrice ?? input.executionCandle.close,
@@ -367,7 +420,8 @@ export function buildRangeReversalDecision(input: {
       botId: input.botId,
       strategyId,
       time: input.snapshot.time,
-      reasons: decision.reasons.length > 0 ? decision.reasons : ["no_confluence"],
+      reasons:
+        decision.reasons.length > 0 ? decision.reasons : ["no_confluence"],
     };
 
     return {
@@ -472,7 +526,11 @@ export function resolveTakeProfitLevels(
 
 export function createRangeReversalStrategy(
   config: RangeReversalConfig,
-): TradingStrategy<RangeReversalConfig, RangeReversalSnapshot, RangeReversalIntentMeta> {
+): TradingStrategy<
+  RangeReversalConfig,
+  RangeReversalSnapshot,
+  RangeReversalIntentMeta
+> {
   return {
     id: "range-reversal",
     version: "1",

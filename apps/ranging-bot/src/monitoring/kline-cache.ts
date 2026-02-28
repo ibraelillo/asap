@@ -1,4 +1,8 @@
-import { GetObjectCommand, PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
+import {
+  GetObjectCommand,
+  PutObjectCommand,
+  S3Client,
+} from "@aws-sdk/client-s3";
 import type { Candle } from "@repo/ranging-core";
 import { Resource } from "sst";
 import type { OrchestratorTimeframe } from "../contracts";
@@ -41,7 +45,10 @@ function getBucketName(): string | undefined {
     return fromEnv.trim();
   }
 
-  const resources = Resource as unknown as Record<string, { name?: string } | undefined>;
+  const resources = Resource as unknown as Record<
+    string,
+    { name?: string } | undefined
+  >;
   const fromResource = resources.RangingKlineCache?.name;
   if (fromResource && fromResource.trim().length > 0) {
     return fromResource.trim();
@@ -61,7 +68,11 @@ function parseCandle(raw: unknown): Candle | null {
   const close = Number(row.close);
   const volume = Number(row.volume ?? 0);
 
-  if (![time, open, high, low, close, volume].every((value) => Number.isFinite(value))) {
+  if (
+    ![time, open, high, low, close, volume].every((value) =>
+      Number.isFinite(value),
+    )
+  ) {
     return null;
   }
 
@@ -78,9 +89,9 @@ function parseCandle(raw: unknown): Candle | null {
 function normalizeCandles(raw: unknown): Candle[] {
   const list = Array.isArray(raw)
     ? raw
-    : (raw &&
-      typeof raw === "object" &&
-      Array.isArray((raw as { candles?: unknown[] }).candles))
+    : raw &&
+        typeof raw === "object" &&
+        Array.isArray((raw as { candles?: unknown[] }).candles)
       ? (raw as { candles: unknown[] }).candles
       : [];
 
@@ -271,7 +282,9 @@ export async function loadCandlesFromCacheKey(
       return undefined;
     }
 
-    const content = await (body as { transformToString: () => Promise<string> }).transformToString();
+    const content = await (
+      body as { transformToString: () => Promise<string> }
+    ).transformToString();
     const parsed = parseJsonSafely(content);
     const candles = normalizeCandles(parsed);
     if (candles.length === 0) {

@@ -1,11 +1,17 @@
 import type { BotDefinition } from "@repo/trading-engine";
-import { parseBotConfigs, toBotDefinition, type RuntimeBotConfig } from "./runtime-config";
+import {
+  parseBotConfigs,
+  toBotDefinition,
+  type RuntimeBotConfig,
+} from "./runtime-config";
 
 export interface RuntimeBotRecord extends BotDefinition {
   runtime: RuntimeBotConfig;
 }
 
-export function loadRuntimeBots(raw = process.env.RANGING_BOTS_JSON): RuntimeBotRecord[] {
+export function loadRuntimeBots(
+  raw = process.env.RANGING_BOTS_JSON,
+): RuntimeBotRecord[] {
   return parseBotConfigs(raw)
     .map((runtime) => ({
       ...toBotDefinition(runtime),
@@ -14,7 +20,9 @@ export function loadRuntimeBots(raw = process.env.RANGING_BOTS_JSON): RuntimeBot
     .filter((bot) => bot.status !== "archived");
 }
 
-export function listActiveRuntimeBots(raw = process.env.RANGING_BOTS_JSON): RuntimeBotRecord[] {
+export function listActiveRuntimeBots(
+  raw = process.env.RANGING_BOTS_JSON,
+): RuntimeBotRecord[] {
   return loadRuntimeBots(raw).filter((bot) => bot.runtime.enabled !== false);
 }
 

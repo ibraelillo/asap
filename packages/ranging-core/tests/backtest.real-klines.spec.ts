@@ -28,12 +28,20 @@ async function loadFixture(): Promise<KucoinFixture> {
   return JSON.parse(raw) as KucoinFixture;
 }
 
-function sliceLastDays(candles: BacktestCandle[], granularityMinutes: number, days: number): BacktestCandle[] {
+function sliceLastDays(
+  candles: BacktestCandle[],
+  granularityMinutes: number,
+  days: number,
+): BacktestCandle[] {
   const bars = Math.ceil((days * 24 * 60) / granularityMinutes);
   return candles.slice(-Math.max(1, bars));
 }
 
-function printBacktestSummary(label: string, result: BacktestResult, candles: number): void {
+function printBacktestSummary(
+  label: string,
+  result: BacktestResult,
+  candles: number,
+): void {
   console.info(
     `[backtest real:${label}] ${JSON.stringify({
       candles,
@@ -53,54 +61,61 @@ describe("real kucoin klines backtest", () => {
     { label: "1_week", days: 7 },
     { label: "15_days", days: 15 },
     { label: "1_month", days: 30 },
-  ])("runs deterministically on $label from real fixture", async ({ label, days }) => {
-    const fixture = await loadFixture();
-    const executionCandles = sliceLastDays(fixture.candles, fixture.granularityMinutes, days);
+  ])(
+    "runs deterministically on $label from real fixture",
+    async ({ label, days }) => {
+      const fixture = await loadFixture();
+      const executionCandles = sliceLastDays(
+        fixture.candles,
+        fixture.granularityMinutes,
+        days,
+      );
 
-    expect(fixture.exchange).toBe("kucoin-futures");
-    expect(fixture.candleCount).toBe(fixture.candles.length);
-    expect(executionCandles.length).toBeGreaterThan(100);
+      expect(fixture.exchange).toBe("kucoin-futures");
+      expect(fixture.candleCount).toBe(fixture.candles.length);
+      expect(executionCandles.length).toBeGreaterThan(100);
 
-    const bot = createRangingBot({
-      signal: {
-        requireDivergence: false,
-        requireSfp: false,
-      },
-      risk: {
-        riskPctPerTrade: 0.01,
-        leverage: 5,
-        maxNotionalPctEquity: 1,
-        feeRate: 0.0006,
-      },
-      exits: {
-        tp1Level: "POC",
-        tp2LongLevel: "VAH",
-        tp2ShortLevel: "VAL",
-        cooldownBars: 1,
-      },
-    });
+      const bot = createRangingBot({
+        signal: {
+          requireDivergence: false,
+          requireSfp: false,
+        },
+        risk: {
+          riskPctPerTrade: 0.01,
+          leverage: 5,
+          maxNotionalPctEquity: 1,
+          feeRate: 0.0006,
+        },
+        exits: {
+          tp1Level: "POC",
+          tp2LongLevel: "VAH",
+          tp2ShortLevel: "VAL",
+          cooldownBars: 1,
+        },
+      });
 
-    const first = bot.runBacktest({
-      initialEquity: 1000,
-      executionCandles,
-      primaryRangeCandles: executionCandles,
-      secondaryRangeCandles: executionCandles,
-    });
-    const second = bot.runBacktest({
-      initialEquity: 1000,
-      executionCandles,
-      primaryRangeCandles: executionCandles,
-      secondaryRangeCandles: executionCandles,
-    });
+      const first = bot.runBacktest({
+        initialEquity: 1000,
+        executionCandles,
+        primaryRangeCandles: executionCandles,
+        secondaryRangeCandles: executionCandles,
+      });
+      const second = bot.runBacktest({
+        initialEquity: 1000,
+        executionCandles,
+        primaryRangeCandles: executionCandles,
+        secondaryRangeCandles: executionCandles,
+      });
 
-    printBacktestSummary(label, first, executionCandles.length);
+      printBacktestSummary(label, first, executionCandles.length);
 
-    expect(first.metrics).toEqual(second.metrics);
-    expect(first.trades).toEqual(second.trades);
-    expect(first.equityCurve).toEqual(second.equityCurve);
+      expect(first.metrics).toEqual(second.metrics);
+      expect(first.trades).toEqual(second.trades);
+      expect(first.equityCurve).toEqual(second.equityCurve);
 
-    expect(Number.isFinite(first.metrics.netPnl)).toBe(true);
-    expect(Number.isFinite(first.metrics.endingEquity)).toBe(true);
-    expect(first.metrics.totalTrades).toBeGreaterThanOrEqual(0);
-  });
+      expect(Number.isFinite(first.metrics.netPnl)).toBe(true);
+      expect(Number.isFinite(first.metrics.endingEquity)).toBe(true);
+      expect(first.metrics.totalTrades).toBeGreaterThanOrEqual(0);
+    },
+  );
 });

@@ -51,7 +51,10 @@ function getTableName(): string {
   const fromEnv = process.env[TABLE_ENV_KEY];
   if (fromEnv) return fromEnv;
 
-  const resources = Resource as unknown as Record<string, { name?: string } | undefined>;
+  const resources = Resource as unknown as Record<
+    string,
+    { name?: string } | undefined
+  >;
   const fromResource = resources.RangingBotRuns?.name;
   if (fromResource) return fromResource;
 
@@ -158,7 +161,9 @@ function toBacktestItem(record: BacktestRecord): Record<string, unknown> {
   };
 }
 
-function toValidationItem(record: RangeValidationRecord): Record<string, unknown> {
+function toValidationItem(
+  record: RangeValidationRecord,
+): Record<string, unknown> {
   return {
     PK: PK_VALIDATION,
     SK: sortKey(record.createdAtMs, record.id),
@@ -171,46 +176,76 @@ function toValidationItem(record: RangeValidationRecord): Record<string, unknown
 function fromItem(item: Record<string, unknown>): BotRunRecord {
   return {
     id: parseRunId(item),
-    botId: typeof item.botId === "string" ? item.botId : `legacy-${String(item.symbol ?? "unknown")}`,
-    botName: typeof item.botName === "string" ? item.botName : String(item.symbol ?? "unknown"),
-    strategyId: typeof item.strategyId === "string" ? item.strategyId : "range-reversal",
-    strategyVersion: typeof item.strategyVersion === "string" ? item.strategyVersion : "1",
-    exchangeId: typeof item.exchangeId === "string" ? item.exchangeId : "kucoin",
+    botId:
+      typeof item.botId === "string"
+        ? item.botId
+        : `legacy-${String(item.symbol ?? "unknown")}`,
+    botName:
+      typeof item.botName === "string"
+        ? item.botName
+        : String(item.symbol ?? "unknown"),
+    strategyId:
+      typeof item.strategyId === "string" ? item.strategyId : "range-reversal",
+    strategyVersion:
+      typeof item.strategyVersion === "string" ? item.strategyVersion : "1",
+    exchangeId:
+      typeof item.exchangeId === "string" ? item.exchangeId : "kucoin",
     accountId: typeof item.accountId === "string" ? item.accountId : "default",
     symbol: String(item.symbol),
     generatedAtMs: Number(item.generatedAtMs),
     recordedAtMs: Number(item.recordedAtMs),
     latencyMs: typeof item.latencyMs === "number" ? item.latencyMs : undefined,
     runStatus: item.runStatus === "failed" ? "failed" : "ok",
-    executionTimeframe: String(item.executionTimeframe) as BotRunRecord["executionTimeframe"],
-    primaryRangeTimeframe: String(item.primaryRangeTimeframe) as BotRunRecord["primaryRangeTimeframe"],
-    secondaryRangeTimeframe: String(item.secondaryRangeTimeframe) as BotRunRecord["secondaryRangeTimeframe"],
+    executionTimeframe: String(
+      item.executionTimeframe,
+    ) as BotRunRecord["executionTimeframe"],
+    primaryRangeTimeframe: String(
+      item.primaryRangeTimeframe,
+    ) as BotRunRecord["primaryRangeTimeframe"],
+    secondaryRangeTimeframe: String(
+      item.secondaryRangeTimeframe,
+    ) as BotRunRecord["secondaryRangeTimeframe"],
     signal:
-      item.signal === "long" || item.signal === "short"
-        ? item.signal
-        : null,
+      item.signal === "long" || item.signal === "short" ? item.signal : null,
     reasons: Array.isArray(item.reasons)
-      ? item.reasons.filter((value): value is string => typeof value === "string")
+      ? item.reasons.filter(
+          (value): value is string => typeof value === "string",
+        )
       : [],
     price: typeof item.price === "number" ? item.price : undefined,
     rangeVal: typeof item.rangeVal === "number" ? item.rangeVal : undefined,
     rangeVah: typeof item.rangeVah === "number" ? item.rangeVah : undefined,
     rangePoc: typeof item.rangePoc === "number" ? item.rangePoc : undefined,
     rangeIsAligned:
-      typeof item.rangeIsAligned === "boolean" ? item.rangeIsAligned : undefined,
+      typeof item.rangeIsAligned === "boolean"
+        ? item.rangeIsAligned
+        : undefined,
     rangeOverlapRatio:
-      typeof item.rangeOverlapRatio === "number" ? item.rangeOverlapRatio : undefined,
+      typeof item.rangeOverlapRatio === "number"
+        ? item.rangeOverlapRatio
+        : undefined,
     bullishDivergence:
-      typeof item.bullishDivergence === "boolean" ? item.bullishDivergence : undefined,
+      typeof item.bullishDivergence === "boolean"
+        ? item.bullishDivergence
+        : undefined,
     bearishDivergence:
-      typeof item.bearishDivergence === "boolean" ? item.bearishDivergence : undefined,
-    bullishSfp: typeof item.bullishSfp === "boolean" ? item.bullishSfp : undefined,
-    bearishSfp: typeof item.bearishSfp === "boolean" ? item.bearishSfp : undefined,
-    moneyFlowSlope: typeof item.moneyFlowSlope === "number" ? item.moneyFlowSlope : undefined,
+      typeof item.bearishDivergence === "boolean"
+        ? item.bearishDivergence
+        : undefined,
+    bullishSfp:
+      typeof item.bullishSfp === "boolean" ? item.bullishSfp : undefined,
+    bearishSfp:
+      typeof item.bearishSfp === "boolean" ? item.bearishSfp : undefined,
+    moneyFlowSlope:
+      typeof item.moneyFlowSlope === "number" ? item.moneyFlowSlope : undefined,
     positionStatusBefore:
-      typeof item.positionStatusBefore === "string" ? item.positionStatusBefore : undefined,
+      typeof item.positionStatusBefore === "string"
+        ? item.positionStatusBefore
+        : undefined,
     positionStatusAfter:
-      typeof item.positionStatusAfter === "string" ? item.positionStatusAfter : undefined,
+      typeof item.positionStatusAfter === "string"
+        ? item.positionStatusAfter
+        : undefined,
     exchangeReconciliationStatus:
       item.exchangeReconciliationStatus === "ok" ||
       item.exchangeReconciliationStatus === "drift" ||
@@ -219,39 +254,55 @@ function fromItem(item: Record<string, unknown>): BotRunRecord {
         : undefined,
     processing: {
       status:
-        typeof item.processing === "object" && item.processing &&
+        typeof item.processing === "object" &&
+        item.processing &&
         typeof (item.processing as { status?: unknown }).status === "string"
-          ? ((item.processing as { status: BotRunRecord["processing"]["status"] }).status)
+          ? (
+              item.processing as {
+                status: BotRunRecord["processing"]["status"];
+              }
+            ).status
           : "error",
       side:
-        typeof item.processing === "object" && item.processing &&
+        typeof item.processing === "object" &&
+        item.processing &&
         ((item.processing as { side?: unknown }).side === "long" ||
           (item.processing as { side?: unknown }).side === "short")
-          ? ((item.processing as { side: "long" | "short" }).side)
+          ? (item.processing as { side: "long" | "short" }).side
           : undefined,
       message:
-        typeof item.processing === "object" && item.processing &&
+        typeof item.processing === "object" &&
+        item.processing &&
         typeof (item.processing as { message?: unknown }).message === "string"
           ? (item.processing as { message: string }).message
           : undefined,
       orderId:
-        typeof item.processing === "object" && item.processing &&
+        typeof item.processing === "object" &&
+        item.processing &&
         typeof (item.processing as { orderId?: unknown }).orderId === "string"
           ? (item.processing as { orderId: string }).orderId
           : undefined,
       clientOid:
-        typeof item.processing === "object" && item.processing &&
-        typeof (item.processing as { clientOid?: unknown }).clientOid === "string"
+        typeof item.processing === "object" &&
+        item.processing &&
+        typeof (item.processing as { clientOid?: unknown }).clientOid ===
+          "string"
           ? (item.processing as { clientOid: string }).clientOid
           : undefined,
       positionSnapshot:
         typeof item.processing === "object" &&
         item.processing &&
-        typeof (item.processing as { positionSnapshot?: unknown }).positionSnapshot === "object"
-          ? ((item.processing as { positionSnapshot: BotRunRecord["processing"]["positionSnapshot"] }).positionSnapshot)
+        typeof (item.processing as { positionSnapshot?: unknown })
+          .positionSnapshot === "object"
+          ? (
+              item.processing as {
+                positionSnapshot: BotRunRecord["processing"]["positionSnapshot"];
+              }
+            ).positionSnapshot
           : undefined,
     },
-    errorMessage: typeof item.errorMessage === "string" ? item.errorMessage : undefined,
+    errorMessage:
+      typeof item.errorMessage === "string" ? item.errorMessage : undefined,
   };
 }
 
@@ -304,130 +355,156 @@ function fromBacktestItem(item: Record<string, unknown>): BacktestRecord {
     .filter((entry): entry is KlineCacheReference => Boolean(entry));
 
   const rawAi = item.ai;
-  const ai = rawAi && typeof rawAi === "object"
-    ? (() => {
-        const row = rawAi as Record<string, unknown>;
-        const enabled = row.enabled;
-        const lookbackCandles = Number(row.lookbackCandles);
-        const cadenceBars = Number(row.cadenceBars);
-        const maxEvaluations = Number(row.maxEvaluations);
-        const confidenceThreshold = Number(row.confidenceThreshold);
-        const modelPrimary = typeof row.modelPrimary === "string" ? row.modelPrimary : "";
-        const modelFallback = typeof row.modelFallback === "string" ? row.modelFallback : "";
-        const effectiveCadenceBars = Number(row.effectiveCadenceBars);
-        const plannedEvaluationsRaw = Number(row.plannedEvaluations);
-        const evaluationsRun = Number(row.evaluationsRun);
-        const evaluationsAccepted = Number(row.evaluationsAccepted);
-        const fallbackUsed = Number(row.fallbackUsed);
-        const failed = Number(row.failed);
-        const rawEvaluations = Array.isArray(row.evaluations) ? row.evaluations : [];
-        const evaluations = rawEvaluations
-          .map((entry): BacktestAiEvaluation | undefined => {
-            if (!entry || typeof entry !== "object") return undefined;
-            const evalRow = entry as Record<string, unknown>;
-            const atIndex = Number(evalRow.atIndex);
-            const atTime = Number(evalRow.atTime);
-            const finalModel =
-              typeof evalRow.finalModel === "string" ? evalRow.finalModel : "";
-            const usedFallback = evalRow.usedFallback;
-            const isRanging = evalRow.isRanging;
-            const confidence = Number(evalRow.confidence);
-            const accepted = evalRow.accepted;
-            const rangeRaw = evalRow.range;
-            const reasonsRaw = evalRow.reasons;
-            const range =
-              rangeRaw && typeof rangeRaw === "object"
-                ? (rangeRaw as Record<string, unknown>)
-                : undefined;
-            const val = Number(range?.val);
-            const poc = Number(range?.poc);
-            const vah = Number(range?.vah);
-            const reasons = Array.isArray(reasonsRaw)
-              ? reasonsRaw.filter((value): value is string => typeof value === "string")
-              : [];
+  const ai =
+    rawAi && typeof rawAi === "object"
+      ? (() => {
+          const row = rawAi as Record<string, unknown>;
+          const enabled = row.enabled;
+          const lookbackCandles = Number(row.lookbackCandles);
+          const cadenceBars = Number(row.cadenceBars);
+          const maxEvaluations = Number(row.maxEvaluations);
+          const confidenceThreshold = Number(row.confidenceThreshold);
+          const modelPrimary =
+            typeof row.modelPrimary === "string" ? row.modelPrimary : "";
+          const modelFallback =
+            typeof row.modelFallback === "string" ? row.modelFallback : "";
+          const effectiveCadenceBars = Number(row.effectiveCadenceBars);
+          const plannedEvaluationsRaw = Number(row.plannedEvaluations);
+          const evaluationsRun = Number(row.evaluationsRun);
+          const evaluationsAccepted = Number(row.evaluationsAccepted);
+          const fallbackUsed = Number(row.fallbackUsed);
+          const failed = Number(row.failed);
+          const rawEvaluations = Array.isArray(row.evaluations)
+            ? row.evaluations
+            : [];
+          const evaluations = rawEvaluations
+            .map((entry): BacktestAiEvaluation | undefined => {
+              if (!entry || typeof entry !== "object") return undefined;
+              const evalRow = entry as Record<string, unknown>;
+              const atIndex = Number(evalRow.atIndex);
+              const atTime = Number(evalRow.atTime);
+              const finalModel =
+                typeof evalRow.finalModel === "string"
+                  ? evalRow.finalModel
+                  : "";
+              const usedFallback = evalRow.usedFallback;
+              const isRanging = evalRow.isRanging;
+              const confidence = Number(evalRow.confidence);
+              const accepted = evalRow.accepted;
+              const rangeRaw = evalRow.range;
+              const reasonsRaw = evalRow.reasons;
+              const range =
+                rangeRaw && typeof rangeRaw === "object"
+                  ? (rangeRaw as Record<string, unknown>)
+                  : undefined;
+              const val = Number(range?.val);
+              const poc = Number(range?.poc);
+              const vah = Number(range?.vah);
+              const reasons = Array.isArray(reasonsRaw)
+                ? reasonsRaw.filter(
+                    (value): value is string => typeof value === "string",
+                  )
+                : [];
 
-            if (!Number.isFinite(atIndex) || !Number.isFinite(atTime)) return undefined;
-            if (!finalModel) return undefined;
-            if (typeof usedFallback !== "boolean") return undefined;
-            if (typeof isRanging !== "boolean") return undefined;
-            if (!Number.isFinite(confidence)) return undefined;
-            if (typeof accepted !== "boolean") return undefined;
-            if (![val, poc, vah].every((value) => Number.isFinite(value))) return undefined;
+              if (!Number.isFinite(atIndex) || !Number.isFinite(atTime))
+                return undefined;
+              if (!finalModel) return undefined;
+              if (typeof usedFallback !== "boolean") return undefined;
+              if (typeof isRanging !== "boolean") return undefined;
+              if (!Number.isFinite(confidence)) return undefined;
+              if (typeof accepted !== "boolean") return undefined;
+              if (![val, poc, vah].every((value) => Number.isFinite(value)))
+                return undefined;
 
-            return {
-              atIndex,
-              atTime,
-              finalModel,
-              usedFallback,
-              isRanging,
-              confidence,
-              accepted,
-              range: {
-                val,
-                poc,
-                vah,
-              },
-              reasons,
-              errorMessage:
-                typeof evalRow.errorMessage === "string"
-                  ? evalRow.errorMessage
-                  : undefined,
-            };
-          })
-          .filter((entry): entry is BacktestAiEvaluation => Boolean(entry));
+              return {
+                atIndex,
+                atTime,
+                finalModel,
+                usedFallback,
+                isRanging,
+                confidence,
+                accepted,
+                range: {
+                  val,
+                  poc,
+                  vah,
+                },
+                reasons,
+                errorMessage:
+                  typeof evalRow.errorMessage === "string"
+                    ? evalRow.errorMessage
+                    : undefined,
+              };
+            })
+            .filter((entry): entry is BacktestAiEvaluation => Boolean(entry));
 
-        if (typeof enabled !== "boolean") return undefined;
-        if (!Number.isFinite(lookbackCandles)) return undefined;
-        if (!Number.isFinite(cadenceBars)) return undefined;
-        if (!Number.isFinite(maxEvaluations)) return undefined;
-        if (!Number.isFinite(confidenceThreshold)) return undefined;
-        if (!Number.isFinite(effectiveCadenceBars)) return undefined;
-        const plannedEvaluations = Number.isFinite(plannedEvaluationsRaw)
-          ? plannedEvaluationsRaw
-          : Number.isFinite(maxEvaluations)
-            ? maxEvaluations
-            : evaluations.length;
-        if (!Number.isFinite(evaluationsRun)) return undefined;
-        if (!Number.isFinite(evaluationsAccepted)) return undefined;
-        if (!Number.isFinite(fallbackUsed)) return undefined;
-        if (!Number.isFinite(failed)) return undefined;
-        if (!modelPrimary || !modelFallback) return undefined;
+          if (typeof enabled !== "boolean") return undefined;
+          if (!Number.isFinite(lookbackCandles)) return undefined;
+          if (!Number.isFinite(cadenceBars)) return undefined;
+          if (!Number.isFinite(maxEvaluations)) return undefined;
+          if (!Number.isFinite(confidenceThreshold)) return undefined;
+          if (!Number.isFinite(effectiveCadenceBars)) return undefined;
+          const plannedEvaluations = Number.isFinite(plannedEvaluationsRaw)
+            ? plannedEvaluationsRaw
+            : Number.isFinite(maxEvaluations)
+              ? maxEvaluations
+              : evaluations.length;
+          if (!Number.isFinite(evaluationsRun)) return undefined;
+          if (!Number.isFinite(evaluationsAccepted)) return undefined;
+          if (!Number.isFinite(fallbackUsed)) return undefined;
+          if (!Number.isFinite(failed)) return undefined;
+          if (!modelPrimary || !modelFallback) return undefined;
 
-        return {
-          enabled,
-          lookbackCandles,
-          cadenceBars,
-          maxEvaluations,
-          confidenceThreshold,
-          modelPrimary,
-          modelFallback,
-          effectiveCadenceBars,
-          plannedEvaluations,
-          evaluationsRun,
-          evaluationsAccepted,
-          fallbackUsed,
-          failed,
-          evaluations,
-        } satisfies BacktestAiSummary;
-      })()
-    : undefined;
+          return {
+            enabled,
+            lookbackCandles,
+            cadenceBars,
+            maxEvaluations,
+            confidenceThreshold,
+            modelPrimary,
+            modelFallback,
+            effectiveCadenceBars,
+            plannedEvaluations,
+            evaluationsRun,
+            evaluationsAccepted,
+            fallbackUsed,
+            failed,
+            evaluations,
+          } satisfies BacktestAiSummary;
+        })()
+      : undefined;
 
   return {
     id: String(item.id),
     createdAtMs: Number(item.createdAtMs),
     status,
-    botId: typeof item.botId === "string" ? item.botId : `legacy-${String(item.symbol ?? "unknown")}`,
-    botName: typeof item.botName === "string" ? item.botName : String(item.symbol ?? "unknown"),
-    strategyId: typeof item.strategyId === "string" ? item.strategyId : "range-reversal",
-    strategyVersion: typeof item.strategyVersion === "string" ? item.strategyVersion : "1",
-    exchangeId: typeof item.exchangeId === "string" ? item.exchangeId : "kucoin",
+    botId:
+      typeof item.botId === "string"
+        ? item.botId
+        : `legacy-${String(item.symbol ?? "unknown")}`,
+    botName:
+      typeof item.botName === "string"
+        ? item.botName
+        : String(item.symbol ?? "unknown"),
+    strategyId:
+      typeof item.strategyId === "string" ? item.strategyId : "range-reversal",
+    strategyVersion:
+      typeof item.strategyVersion === "string" ? item.strategyVersion : "1",
+    exchangeId:
+      typeof item.exchangeId === "string" ? item.exchangeId : "kucoin",
     accountId: typeof item.accountId === "string" ? item.accountId : "default",
     symbol: String(item.symbol),
     fromMs: Number(item.fromMs),
     toMs: Number(item.toMs),
-    executionTimeframe: String(item.executionTimeframe) as BacktestRecord["executionTimeframe"],
-    primaryRangeTimeframe: String(item.primaryRangeTimeframe) as BacktestRecord["primaryRangeTimeframe"],
-    secondaryRangeTimeframe: String(item.secondaryRangeTimeframe) as BacktestRecord["secondaryRangeTimeframe"],
+    executionTimeframe: String(
+      item.executionTimeframe,
+    ) as BacktestRecord["executionTimeframe"],
+    primaryRangeTimeframe: String(
+      item.primaryRangeTimeframe,
+    ) as BacktestRecord["primaryRangeTimeframe"],
+    secondaryRangeTimeframe: String(
+      item.secondaryRangeTimeframe,
+    ) as BacktestRecord["secondaryRangeTimeframe"],
     initialEquity: Number(item.initialEquity),
     totalTrades: Number(item.totalTrades),
     wins: Number(item.wins),
@@ -440,11 +517,14 @@ function fromBacktestItem(item: Record<string, unknown>): BacktestRecord {
     endingEquity: Number(item.endingEquity),
     klineRefs,
     ai,
-    errorMessage: typeof item.errorMessage === "string" ? item.errorMessage : undefined,
+    errorMessage:
+      typeof item.errorMessage === "string" ? item.errorMessage : undefined,
   };
 }
 
-function fromValidationItem(item: Record<string, unknown>): RangeValidationRecord {
+function fromValidationItem(
+  item: Record<string, unknown>,
+): RangeValidationRecord {
   const rawStatus = typeof item.status === "string" ? item.status : undefined;
   const status: RangeValidationRecord["status"] =
     rawStatus === "pending" ||
@@ -471,7 +551,9 @@ function fromValidationItem(item: Record<string, unknown>): RangeValidationRecor
           const poc = Number(range?.poc);
           const vah = Number(range?.vah);
           const reasons = Array.isArray(result.reasons)
-            ? result.reasons.filter((value): value is string => typeof value === "string")
+            ? result.reasons.filter(
+                (value): value is string => typeof value === "string",
+              )
             : [];
           const normalizedTimeframeDetected: NonNullable<
             RangeValidationRecord["result"]
@@ -521,9 +603,16 @@ function fromValidationItem(item: Record<string, unknown>): RangeValidationRecor
 
   return {
     id: String(item.id),
-    botId: typeof item.botId === "string" ? item.botId : `legacy-${String(item.symbol ?? "unknown")}`,
-    botName: typeof item.botName === "string" ? item.botName : String(item.symbol ?? "unknown"),
-    strategyId: typeof item.strategyId === "string" ? item.strategyId : "range-reversal",
+    botId:
+      typeof item.botId === "string"
+        ? item.botId
+        : `legacy-${String(item.symbol ?? "unknown")}`,
+    botName:
+      typeof item.botName === "string"
+        ? item.botName
+        : String(item.symbol ?? "unknown"),
+    strategyId:
+      typeof item.strategyId === "string" ? item.strategyId : "range-reversal",
     createdAtMs: Number(item.createdAtMs),
     status,
     symbol: String(item.symbol),
@@ -534,15 +623,20 @@ function fromValidationItem(item: Record<string, unknown>): RangeValidationRecor
     modelPrimary: String(item.modelPrimary),
     modelFallback: String(item.modelFallback),
     confidenceThreshold: Number(item.confidenceThreshold),
-    finalModel: typeof item.finalModel === "string" ? item.finalModel : undefined,
+    finalModel:
+      typeof item.finalModel === "string" ? item.finalModel : undefined,
     result: normalizedResult,
-    errorMessage: typeof item.errorMessage === "string" ? item.errorMessage : undefined,
+    errorMessage:
+      typeof item.errorMessage === "string" ? item.errorMessage : undefined,
   };
 }
 
-function fromCursorItem(item: Record<string, unknown>): ProcessingCursorRecord | undefined {
+function fromCursorItem(
+  item: Record<string, unknown>,
+): ProcessingCursorRecord | undefined {
   const symbol = typeof item.symbol === "string" ? item.symbol : undefined;
-  const timeframe = typeof item.timeframe === "string" ? item.timeframe : undefined;
+  const timeframe =
+    typeof item.timeframe === "string" ? item.timeframe : undefined;
   const lastProcessedCandleCloseMs = Number(item.lastProcessedCandleCloseMs);
   const updatedAtMs = Number(item.updatedAtMs);
   const lastRunGeneratedAtMsRaw = item.lastRunGeneratedAtMs;
@@ -567,30 +661,54 @@ function fromBotItem(item: Record<string, unknown>): BotRecord | undefined {
   const id = typeof item.id === "string" ? item.id : undefined;
   const name = typeof item.name === "string" ? item.name : undefined;
   const symbol = typeof item.symbol === "string" ? item.symbol : undefined;
-  const strategyId = typeof item.strategyId === "string" ? item.strategyId : undefined;
-  const strategyVersion = typeof item.strategyVersion === "string" ? item.strategyVersion : undefined;
-  const exchangeId = typeof item.exchangeId === "string" ? item.exchangeId : undefined;
-  const accountId = typeof item.accountId === "string" ? item.accountId : undefined;
+  const strategyId =
+    typeof item.strategyId === "string" ? item.strategyId : undefined;
+  const strategyVersion =
+    typeof item.strategyVersion === "string" ? item.strategyVersion : undefined;
+  const exchangeId =
+    typeof item.exchangeId === "string" ? item.exchangeId : undefined;
+  const accountId =
+    typeof item.accountId === "string" ? item.accountId : undefined;
   const status =
-    item.status === "active" || item.status === "paused" || item.status === "archived"
+    item.status === "active" ||
+    item.status === "paused" ||
+    item.status === "archived"
       ? item.status
       : undefined;
   const createdAtMs = Number(item.createdAtMs);
   const updatedAtMs = Number(item.updatedAtMs);
-  const execution = item.execution && typeof item.execution === "object"
-    ? (item.execution as Record<string, unknown>)
-    : undefined;
-  const context = item.context && typeof item.context === "object"
-    ? (item.context as Record<string, unknown>)
-    : undefined;
-  const runtime = item.runtime && typeof item.runtime === "object"
-    ? (item.runtime as Record<string, unknown>)
-    : undefined;
+  const execution =
+    item.execution && typeof item.execution === "object"
+      ? (item.execution as Record<string, unknown>)
+      : undefined;
+  const context =
+    item.context && typeof item.context === "object"
+      ? (item.context as Record<string, unknown>)
+      : undefined;
+  const runtime =
+    item.runtime && typeof item.runtime === "object"
+      ? (item.runtime as Record<string, unknown>)
+      : undefined;
 
-  if (!id || !name || !symbol || !strategyId || !strategyVersion || !exchangeId || !accountId || !status) {
+  if (
+    !id ||
+    !name ||
+    !symbol ||
+    !strategyId ||
+    !strategyVersion ||
+    !exchangeId ||
+    !accountId ||
+    !status
+  ) {
     return undefined;
   }
-  if (!Number.isFinite(createdAtMs) || !Number.isFinite(updatedAtMs) || !execution || !context || !runtime) {
+  if (
+    !Number.isFinite(createdAtMs) ||
+    !Number.isFinite(updatedAtMs) ||
+    !execution ||
+    !context ||
+    !runtime
+  ) {
     return undefined;
   }
 
@@ -603,25 +721,42 @@ function fromBotItem(item: Record<string, unknown>): BotRecord | undefined {
     accountId,
     symbol,
     marketType:
-      item.marketType === "spot" || item.marketType === "perp" || item.marketType === "futures"
+      item.marketType === "spot" ||
+      item.marketType === "perp" ||
+      item.marketType === "futures"
         ? item.marketType
         : "futures",
     status,
     execution: {
       trigger: execution.trigger === "event" ? "event" : "cron",
-      executionTimeframe: String(execution.executionTimeframe) as BotRecord["execution"]["executionTimeframe"],
+      executionTimeframe: String(
+        execution.executionTimeframe,
+      ) as BotRecord["execution"]["executionTimeframe"],
       warmupBars: Number(execution.warmupBars ?? 0),
     },
     context: {
-      primaryPriceTimeframe: String(context.primaryPriceTimeframe) as BotRecord["context"]["primaryPriceTimeframe"],
+      primaryPriceTimeframe: String(
+        context.primaryPriceTimeframe,
+      ) as BotRecord["context"]["primaryPriceTimeframe"],
       additionalTimeframes: Array.isArray(context.additionalTimeframes)
-        ? context.additionalTimeframes.filter((value): value is BotRecord["context"]["additionalTimeframes"][number] => typeof value === "string")
+        ? context.additionalTimeframes.filter(
+            (
+              value,
+            ): value is BotRecord["context"]["additionalTimeframes"][number] =>
+              typeof value === "string",
+          )
         : [],
       providers: Array.isArray(context.providers)
-        ? context.providers.filter((value): value is BotRecord["context"]["providers"][number] => Boolean(value) && typeof value === "object")
+        ? context.providers.filter(
+            (value): value is BotRecord["context"]["providers"][number] =>
+              Boolean(value) && typeof value === "object",
+          )
         : [],
     },
-    riskProfileId: typeof item.riskProfileId === "string" ? item.riskProfileId : `${id}:risk`,
+    riskProfileId:
+      typeof item.riskProfileId === "string"
+        ? item.riskProfileId
+        : `${id}:risk`,
     strategyConfig:
       item.strategyConfig && typeof item.strategyConfig === "object"
         ? (item.strategyConfig as Record<string, unknown>)
@@ -633,39 +768,57 @@ function fromBotItem(item: Record<string, unknown>): BotRecord | undefined {
     createdAtMs,
     updatedAtMs,
     runtime: {
-      executionTimeframe: String(runtime.executionTimeframe) as BotRecord["runtime"]["executionTimeframe"],
+      executionTimeframe: String(
+        runtime.executionTimeframe,
+      ) as BotRecord["runtime"]["executionTimeframe"],
       executionLimit: Number(runtime.executionLimit ?? 0),
-      primaryRangeTimeframe: String(runtime.primaryRangeTimeframe) as BotRecord["runtime"]["primaryRangeTimeframe"],
+      primaryRangeTimeframe: String(
+        runtime.primaryRangeTimeframe,
+      ) as BotRecord["runtime"]["primaryRangeTimeframe"],
       primaryRangeLimit: Number(runtime.primaryRangeLimit ?? 0),
-      secondaryRangeTimeframe: String(runtime.secondaryRangeTimeframe) as BotRecord["runtime"]["secondaryRangeTimeframe"],
+      secondaryRangeTimeframe: String(
+        runtime.secondaryRangeTimeframe,
+      ) as BotRecord["runtime"]["secondaryRangeTimeframe"],
       secondaryRangeLimit: Number(runtime.secondaryRangeLimit ?? 0),
       dryRun: typeof runtime.dryRun === "boolean" ? runtime.dryRun : undefined,
-      marginMode: runtime.marginMode === "ISOLATED" ? "ISOLATED" : runtime.marginMode === "CROSS" ? "CROSS" : undefined,
-      valueQty: typeof runtime.valueQty === "string" ? runtime.valueQty : undefined,
+      marginMode:
+        runtime.marginMode === "ISOLATED"
+          ? "ISOLATED"
+          : runtime.marginMode === "CROSS"
+            ? "CROSS"
+            : undefined,
+      valueQty:
+        typeof runtime.valueQty === "string" ? runtime.valueQty : undefined,
     },
   };
 }
 
-function fromAccountItem(item: Record<string, unknown>): AccountRecord | undefined {
+function fromAccountItem(
+  item: Record<string, unknown>,
+): AccountRecord | undefined {
   const id = typeof item.id === "string" ? item.id : undefined;
   const name = typeof item.name === "string" ? item.name : undefined;
-  const exchangeId = typeof item.exchangeId === "string" ? item.exchangeId : undefined;
+  const exchangeId =
+    typeof item.exchangeId === "string" ? item.exchangeId : undefined;
   const status =
     item.status === "active" || item.status === "archived"
       ? item.status
       : undefined;
   const createdAtMs = Number(item.createdAtMs);
   const updatedAtMs = Number(item.updatedAtMs);
-  const auth = item.auth && typeof item.auth === "object"
-    ? (item.auth as Record<string, unknown>)
-    : undefined;
+  const auth =
+    item.auth && typeof item.auth === "object"
+      ? (item.auth as Record<string, unknown>)
+      : undefined;
   const apiKey = typeof auth?.apiKey === "string" ? auth.apiKey : undefined;
-  const apiSecret = typeof auth?.apiSecret === "string" ? auth.apiSecret : undefined;
+  const apiSecret =
+    typeof auth?.apiSecret === "string" ? auth.apiSecret : undefined;
   const apiPassphrase =
     typeof auth?.apiPassphrase === "string" ? auth.apiPassphrase : undefined;
 
   if (!id || !name || !exchangeId || !status) return undefined;
-  if (!Number.isFinite(createdAtMs) || !Number.isFinite(updatedAtMs)) return undefined;
+  if (!Number.isFinite(createdAtMs) || !Number.isFinite(updatedAtMs))
+    return undefined;
   if (!apiKey || !apiSecret) return undefined;
 
   return {
@@ -683,25 +836,44 @@ function fromAccountItem(item: Record<string, unknown>): AccountRecord | undefin
   };
 }
 
-function fromPositionItem(item: Record<string, unknown>): PositionRecord | undefined {
+function fromPositionItem(
+  item: Record<string, unknown>,
+): PositionRecord | undefined {
   const id = typeof item.id === "string" ? item.id : undefined;
   const botId = typeof item.botId === "string" ? item.botId : undefined;
   const botName = typeof item.botName === "string" ? item.botName : undefined;
-  const strategyId = typeof item.strategyId === "string" ? item.strategyId : undefined;
-  const strategyVersion = typeof item.strategyVersion === "string" ? item.strategyVersion : undefined;
-  const exchangeId = typeof item.exchangeId === "string" ? item.exchangeId : undefined;
-  const accountId = typeof item.accountId === "string" ? item.accountId : undefined;
+  const strategyId =
+    typeof item.strategyId === "string" ? item.strategyId : undefined;
+  const strategyVersion =
+    typeof item.strategyVersion === "string" ? item.strategyVersion : undefined;
+  const exchangeId =
+    typeof item.exchangeId === "string" ? item.exchangeId : undefined;
+  const accountId =
+    typeof item.accountId === "string" ? item.accountId : undefined;
   const symbol = typeof item.symbol === "string" ? item.symbol : undefined;
-  const side = item.side === "long" || item.side === "short" ? item.side : undefined;
+  const side =
+    item.side === "long" || item.side === "short" ? item.side : undefined;
   const status = typeof item.status === "string" ? item.status : undefined;
   const quantity = Number(item.quantity);
   const remainingQuantity = Number(item.remainingQuantity);
   const realizedPnl = Number(item.realizedPnl);
 
-  if (!id || !botId || !botName || !strategyId || !strategyVersion || !exchangeId || !accountId || !symbol || !side || !status) {
+  if (
+    !id ||
+    !botId ||
+    !botName ||
+    !strategyId ||
+    !strategyVersion ||
+    !exchangeId ||
+    !accountId ||
+    !symbol ||
+    !side ||
+    !status
+  ) {
     return undefined;
   }
-  if (![quantity, remainingQuantity, realizedPnl].every(Number.isFinite)) return undefined;
+  if (![quantity, remainingQuantity, realizedPnl].every(Number.isFinite))
+    return undefined;
 
   return {
     id,
@@ -716,16 +888,24 @@ function fromPositionItem(item: Record<string, unknown>): PositionRecord | undef
     status: status as PositionRecord["status"],
     quantity,
     remainingQuantity,
-    avgEntryPrice: typeof item.avgEntryPrice === "number" ? item.avgEntryPrice : undefined,
+    avgEntryPrice:
+      typeof item.avgEntryPrice === "number" ? item.avgEntryPrice : undefined,
     stopPrice: typeof item.stopPrice === "number" ? item.stopPrice : undefined,
     realizedPnl,
-    unrealizedPnl: typeof item.unrealizedPnl === "number" ? item.unrealizedPnl : undefined,
-    openedAtMs: typeof item.openedAtMs === "number" ? item.openedAtMs : undefined,
-    closedAtMs: typeof item.closedAtMs === "number" ? item.closedAtMs : undefined,
+    unrealizedPnl:
+      typeof item.unrealizedPnl === "number" ? item.unrealizedPnl : undefined,
+    openedAtMs:
+      typeof item.openedAtMs === "number" ? item.openedAtMs : undefined,
+    closedAtMs:
+      typeof item.closedAtMs === "number" ? item.closedAtMs : undefined,
     lastStrategyDecisionTimeMs:
-      typeof item.lastStrategyDecisionTimeMs === "number" ? item.lastStrategyDecisionTimeMs : undefined,
+      typeof item.lastStrategyDecisionTimeMs === "number"
+        ? item.lastStrategyDecisionTimeMs
+        : undefined,
     lastExchangeSyncTimeMs:
-      typeof item.lastExchangeSyncTimeMs === "number" ? item.lastExchangeSyncTimeMs : undefined,
+      typeof item.lastExchangeSyncTimeMs === "number"
+        ? item.lastExchangeSyncTimeMs
+        : undefined,
     strategyContext:
       item.strategyContext && typeof item.strategyContext === "object"
         ? (item.strategyContext as Record<string, unknown>)
@@ -733,7 +913,9 @@ function fromPositionItem(item: Record<string, unknown>): PositionRecord | undef
   };
 }
 
-async function queryItems(input: QueryCommandInput): Promise<Record<string, unknown>[]> {
+async function queryItems(
+  input: QueryCommandInput,
+): Promise<Record<string, unknown>[]> {
   const client = getDocClient();
   const result = await client.send(new QueryCommand(input));
   return (result.Items ?? []) as Record<string, unknown>[];
@@ -747,7 +929,9 @@ async function queryRuns(input: QueryCommandInput): Promise<BotRunRecord[]> {
     .sort((a, b) => b.generatedAtMs - a.generatedAtMs);
 }
 
-async function queryBacktests(input: QueryCommandInput): Promise<BacktestRecord[]> {
+async function queryBacktests(
+  input: QueryCommandInput,
+): Promise<BacktestRecord[]> {
   const items = await queryItems(input);
 
   return items
@@ -755,7 +939,9 @@ async function queryBacktests(input: QueryCommandInput): Promise<BacktestRecord[
     .sort((a, b) => b.createdAtMs - a.createdAtMs);
 }
 
-async function queryValidations(input: QueryCommandInput): Promise<RangeValidationRecord[]> {
+async function queryValidations(
+  input: QueryCommandInput,
+): Promise<RangeValidationRecord[]> {
   const items = await queryItems(input);
 
   return items
@@ -771,7 +957,9 @@ async function queryBots(input: QueryCommandInput): Promise<BotRecord[]> {
     .sort((a, b) => a.name.localeCompare(b.name));
 }
 
-async function queryAccounts(input: QueryCommandInput): Promise<AccountRecord[]> {
+async function queryAccounts(
+  input: QueryCommandInput,
+): Promise<AccountRecord[]> {
   const items = await queryItems(input);
   return items
     .map((item) => fromAccountItem(item))
@@ -779,12 +967,18 @@ async function queryAccounts(input: QueryCommandInput): Promise<AccountRecord[]>
     .sort((a, b) => a.name.localeCompare(b.name));
 }
 
-async function queryPositions(input: QueryCommandInput): Promise<PositionRecord[]> {
+async function queryPositions(
+  input: QueryCommandInput,
+): Promise<PositionRecord[]> {
   const items = await queryItems(input);
   return items
     .map((item) => fromPositionItem(item))
     .filter((item): item is PositionRecord => Boolean(item))
-    .sort((a, b) => (b.lastExchangeSyncTimeMs ?? b.openedAtMs ?? 0) - (a.lastExchangeSyncTimeMs ?? a.openedAtMs ?? 0));
+    .sort(
+      (a, b) =>
+        (b.lastExchangeSyncTimeMs ?? b.openedAtMs ?? 0) -
+        (a.lastExchangeSyncTimeMs ?? a.openedAtMs ?? 0),
+    );
 }
 
 export async function putRunRecord(record: BotRunRecord): Promise<void> {
@@ -868,55 +1062,57 @@ export async function getProcessingCursor(
   const tableName = getTableName();
   const client = getDocClient();
 
-  const result = await client.send(new GetCommand({
-    TableName: tableName,
-    Key: {
-      PK: PK_CURSOR,
-      SK: cursorSortKey(symbol, timeframe),
-    },
-  }));
+  const result = await client.send(
+    new GetCommand({
+      TableName: tableName,
+      Key: {
+        PK: PK_CURSOR,
+        SK: cursorSortKey(symbol, timeframe),
+      },
+    }),
+  );
 
   if (!result.Item) return undefined;
   return fromCursorItem(result.Item as Record<string, unknown>);
 }
 
-export async function advanceProcessingCursor(
-  cursor: {
-    symbol: string;
-    timeframe: ProcessingCursorRecord["timeframe"];
-    nextClosedCandleMs: number;
-    generatedAtMs?: number;
-    updatedAtMs?: number;
-  },
-): Promise<boolean> {
+export async function advanceProcessingCursor(cursor: {
+  symbol: string;
+  timeframe: ProcessingCursorRecord["timeframe"];
+  nextClosedCandleMs: number;
+  generatedAtMs?: number;
+  updatedAtMs?: number;
+}): Promise<boolean> {
   const tableName = getTableName();
   const client = getDocClient();
   const updatedAtMs = cursor.updatedAtMs ?? Date.now();
 
   try {
-    await client.send(new UpdateCommand({
-      TableName: tableName,
-      Key: {
-        PK: PK_CURSOR,
-        SK: cursorSortKey(cursor.symbol, cursor.timeframe),
-      },
-      UpdateExpression: [
-        "SET symbol = :symbol",
-        "timeframe = :timeframe",
-        "lastProcessedCandleCloseMs = :next",
-        "lastRunGeneratedAtMs = :generatedAt",
-        "updatedAtMs = :updatedAt",
-      ].join(", "),
-      ConditionExpression:
-        "attribute_not_exists(lastProcessedCandleCloseMs) OR lastProcessedCandleCloseMs < :next",
-      ExpressionAttributeValues: {
-        ":symbol": cursor.symbol,
-        ":timeframe": cursor.timeframe,
-        ":next": cursor.nextClosedCandleMs,
-        ":generatedAt": cursor.generatedAtMs ?? cursor.nextClosedCandleMs,
-        ":updatedAt": updatedAtMs,
-      },
-    }));
+    await client.send(
+      new UpdateCommand({
+        TableName: tableName,
+        Key: {
+          PK: PK_CURSOR,
+          SK: cursorSortKey(cursor.symbol, cursor.timeframe),
+        },
+        UpdateExpression: [
+          "SET symbol = :symbol",
+          "timeframe = :timeframe",
+          "lastProcessedCandleCloseMs = :next",
+          "lastRunGeneratedAtMs = :generatedAt",
+          "updatedAtMs = :updatedAt",
+        ].join(", "),
+        ConditionExpression:
+          "attribute_not_exists(lastProcessedCandleCloseMs) OR lastProcessedCandleCloseMs < :next",
+        ExpressionAttributeValues: {
+          ":symbol": cursor.symbol,
+          ":timeframe": cursor.timeframe,
+          ":next": cursor.nextClosedCandleMs,
+          ":generatedAt": cursor.generatedAtMs ?? cursor.nextClosedCandleMs,
+          ":updatedAt": updatedAtMs,
+        },
+      }),
+    );
 
     return true;
   } catch (error) {
@@ -960,7 +1156,9 @@ export async function listBotRecords(limit?: number): Promise<BotRecord[]> {
   });
 }
 
-export async function listAccountRecords(limit?: number): Promise<AccountRecord[]> {
+export async function listAccountRecords(
+  limit?: number,
+): Promise<AccountRecord[]> {
   const tableName = getTableName();
   return queryAccounts({
     TableName: tableName,
@@ -974,44 +1172,57 @@ export async function listAccountRecords(limit?: number): Promise<AccountRecord[
   });
 }
 
-export async function getAccountRecordById(accountId: string): Promise<AccountRecord | undefined> {
+export async function getAccountRecordById(
+  accountId: string,
+): Promise<AccountRecord | undefined> {
   const tableName = getTableName();
   const client = getDocClient();
 
-  const result = await client.send(new GetCommand({
-    TableName: tableName,
-    Key: {
-      PK: accountPartitionKey(accountId),
-      SK: accountSortKey(accountId),
-    },
-  }));
+  const result = await client.send(
+    new GetCommand({
+      TableName: tableName,
+      Key: {
+        PK: accountPartitionKey(accountId),
+        SK: accountSortKey(accountId),
+      },
+    }),
+  );
 
   if (!result.Item) return undefined;
   return fromAccountItem(result.Item as Record<string, unknown>);
 }
 
-export async function getBotRecordById(botId: string): Promise<BotRecord | undefined> {
+export async function getBotRecordById(
+  botId: string,
+): Promise<BotRecord | undefined> {
   const tableName = getTableName();
   const client = getDocClient();
 
-  const result = await client.send(new GetCommand({
-    TableName: tableName,
-    Key: {
-      PK: botPartitionKey(botId),
-      SK: botSortKey(botId),
-    },
-  }));
+  const result = await client.send(
+    new GetCommand({
+      TableName: tableName,
+      Key: {
+        PK: botPartitionKey(botId),
+        SK: botSortKey(botId),
+      },
+    }),
+  );
 
   if (!result.Item) return undefined;
   return fromBotItem(result.Item as Record<string, unknown>);
 }
 
-export async function getBotRecordBySymbol(symbol: string): Promise<BotRecord | undefined> {
+export async function getBotRecordBySymbol(
+  symbol: string,
+): Promise<BotRecord | undefined> {
   const bots = await listBotRecords(MAX_LIMIT);
   return bots.find((bot) => bot.symbol === symbol);
 }
 
-export async function listPositionsByBot(botId: string, limit?: number): Promise<PositionRecord[]> {
+export async function listPositionsByBot(
+  botId: string,
+  limit?: number,
+): Promise<PositionRecord[]> {
   const tableName = getTableName();
   return queryPositions({
     TableName: tableName,
@@ -1025,17 +1236,23 @@ export async function listPositionsByBot(botId: string, limit?: number): Promise
   });
 }
 
-export async function getLatestOpenPositionByBot(botId: string): Promise<PositionRecord | undefined> {
+export async function getLatestOpenPositionByBot(
+  botId: string,
+): Promise<PositionRecord | undefined> {
   const positions = await listPositionsByBot(botId, MAX_LIMIT);
-  return positions.find((position) =>
-    position.status === "open" ||
-    position.status === "entry-pending" ||
-    position.status === "reducing" ||
-    position.status === "closing" ||
-    position.status === "reconciling");
+  return positions.find(
+    (position) =>
+      position.status === "open" ||
+      position.status === "entry-pending" ||
+      position.status === "reducing" ||
+      position.status === "closing" ||
+      position.status === "reconciling",
+  );
 }
 
-export async function listRecentBacktests(limit?: number): Promise<BacktestRecord[]> {
+export async function listRecentBacktests(
+  limit?: number,
+): Promise<BacktestRecord[]> {
   const tableName = getTableName();
   return queryBacktests({
     TableName: tableName,
@@ -1108,20 +1325,24 @@ function parseCreatedAtMsFromEntityId(id: string): number | undefined {
   return createdAtMs;
 }
 
-export async function getBacktestById(id: string): Promise<BacktestRecord | undefined> {
+export async function getBacktestById(
+  id: string,
+): Promise<BacktestRecord | undefined> {
   const createdAtMs = parseCreatedAtMsFromEntityId(id);
   if (!createdAtMs) return undefined;
 
   const tableName = getTableName();
   const client = getDocClient();
 
-  const result = await client.send(new GetCommand({
-    TableName: tableName,
-    Key: {
-      PK: PK_BACKTEST,
-      SK: sortKey(createdAtMs, id),
-    },
-  }));
+  const result = await client.send(
+    new GetCommand({
+      TableName: tableName,
+      Key: {
+        PK: PK_BACKTEST,
+        SK: sortKey(createdAtMs, id),
+      },
+    }),
+  );
 
   if (!result.Item) return undefined;
   return fromBacktestItem(result.Item as Record<string, unknown>);
@@ -1136,19 +1357,24 @@ export async function getRangeValidationById(
   const tableName = getTableName();
   const client = getDocClient();
 
-  const result = await client.send(new GetCommand({
-    TableName: tableName,
-    Key: {
-      PK: PK_VALIDATION,
-      SK: sortKey(createdAtMs, id),
-    },
-  }));
+  const result = await client.send(
+    new GetCommand({
+      TableName: tableName,
+      Key: {
+        PK: PK_VALIDATION,
+        SK: sortKey(createdAtMs, id),
+      },
+    }),
+  );
 
   if (!result.Item) return undefined;
   return fromValidationItem(result.Item as Record<string, unknown>);
 }
 
-export async function listRecentRunsBySymbol(symbol: string, limit?: number): Promise<BotRunRecord[]> {
+export async function listRecentRunsBySymbol(
+  symbol: string,
+  limit?: number,
+): Promise<BotRunRecord[]> {
   const tableName = getTableName();
 
   return queryRuns({
@@ -1163,8 +1389,12 @@ export async function listRecentRunsBySymbol(symbol: string, limit?: number): Pr
   });
 }
 
-export async function listLatestRunsBySymbols(symbols: string[]): Promise<BotRunRecord[]> {
-  const uniqueSymbols = [...new Set(symbols.filter((symbol) => symbol.length > 0))];
+export async function listLatestRunsBySymbols(
+  symbols: string[],
+): Promise<BotRunRecord[]> {
+  const uniqueSymbols = [
+    ...new Set(symbols.filter((symbol) => symbol.length > 0)),
+  ];
 
   const results = await Promise.all(
     uniqueSymbols.map(async (symbol) => {
@@ -1178,7 +1408,9 @@ export async function listLatestRunsBySymbols(symbols: string[]): Promise<BotRun
     .sort((a, b) => a.symbol.localeCompare(b.symbol));
 }
 
-export async function listLatestRunsByBotIds(botIds: string[]): Promise<BotRunRecord[]> {
+export async function listLatestRunsByBotIds(
+  botIds: string[],
+): Promise<BotRunRecord[]> {
   const uniqueBotIds = [...new Set(botIds.filter((botId) => botId.length > 0))];
   const recent = await listRecentRuns(MAX_LIMIT);
   const byBotId = new Map<string, BotRunRecord>();
@@ -1199,7 +1431,9 @@ export async function listRecentBacktestsByBotId(
   botId: string,
   limit?: number,
 ): Promise<BacktestRecord[]> {
-  const backtests = await listRecentBacktests(Math.max(normalizeLimit(limit), MAX_LIMIT));
+  const backtests = await listRecentBacktests(
+    Math.max(normalizeLimit(limit), MAX_LIMIT),
+  );
   return backtests
     .filter((backtest) => backtest.botId === botId)
     .slice(0, normalizeLimit(limit));
@@ -1209,7 +1443,9 @@ export async function listRecentRangeValidationsByBotId(
   botId: string,
   limit?: number,
 ): Promise<RangeValidationRecord[]> {
-  const validations = await listRecentRangeValidations(Math.max(normalizeLimit(limit), MAX_LIMIT));
+  const validations = await listRecentRangeValidations(
+    Math.max(normalizeLimit(limit), MAX_LIMIT),
+  );
   return validations
     .filter((validation) => validation.botId === botId)
     .slice(0, normalizeLimit(limit));

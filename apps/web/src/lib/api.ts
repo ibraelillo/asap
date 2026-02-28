@@ -1,6 +1,6 @@
 import { hc, type ClientRequestOptions, parseResponse } from "hono/client";
 import type { AppType } from "@repo/bots/api";
-import type { BotConfigCreate, BotConfig } from '@repo/bot-config'
+import type { BotConfigCreate, BotConfig } from "@repo/bot-config";
 
 const API_URL = (
   import.meta.env.VITE_API_URL || "http://localhost:3000"
@@ -89,6 +89,6 @@ class ApiClient {
 export const api = new ApiClient(API_URL, {
   headers: {
     "Content-Type": "application/json",
-    "Accept": "application/json",
+    Accept: "application/json",
   },
 });

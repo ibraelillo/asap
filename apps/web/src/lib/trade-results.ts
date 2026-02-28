@@ -15,7 +15,8 @@ function toNumber(value: unknown, fallback = 0): number {
 }
 
 function toSide(value: unknown): TradeSide {
-  if (typeof value === "string" && value.toLowerCase() === "short") return "short";
+  if (typeof value === "string" && value.toLowerCase() === "short")
+    return "short";
   return "long";
 }
 
@@ -39,7 +40,8 @@ function normalizeTrade(raw: unknown, index: number): TradeRecord | null {
     quantity: toNumber(item.quantity),
     netPnl: toNumber(item.netPnl),
     fees: toNumber(item.fees),
-    exitReason: typeof item.exitReason === "string" ? item.exitReason : undefined,
+    exitReason:
+      typeof item.exitReason === "string" ? item.exitReason : undefined,
   };
 }
 
@@ -68,7 +70,10 @@ function normalizeEquityCurve(raw: unknown): EquityPoint[] {
     .sort((a, b) => a.time - b.time);
 }
 
-export function buildEquityCurve(trades: TradeRecord[], initialEquity = defaultInitialEquity): EquityPoint[] {
+export function buildEquityCurve(
+  trades: TradeRecord[],
+  initialEquity = defaultInitialEquity,
+): EquityPoint[] {
   let equity = initialEquity;
 
   return trades.map((trade) => {
@@ -107,10 +112,14 @@ export function normalizePayload(raw: unknown): TradePayload {
 
   return {
     source: typeof obj.source === "string" ? obj.source : "import",
-    generatedAt: typeof obj.generatedAt === "string" ? obj.generatedAt : undefined,
+    generatedAt:
+      typeof obj.generatedAt === "string" ? obj.generatedAt : undefined,
     initialEquity,
     trades,
-    equityCurve: equityCurve.length > 0 ? equityCurve : buildEquityCurve(trades, initialEquity),
+    equityCurve:
+      equityCurve.length > 0
+        ? equityCurve
+        : buildEquityCurve(trades, initialEquity),
   };
 }
 
@@ -144,10 +153,13 @@ export function computeMetrics(payload: TradePayload): TradeMetrics {
 
   const netPnl = trades.reduce((sum, trade) => sum + trade.netPnl, 0);
   const grossProfit = wins.reduce((sum, trade) => sum + trade.netPnl, 0);
-  const grossLossAbs = Math.abs(losses.reduce((sum, trade) => sum + trade.netPnl, 0));
+  const grossLossAbs = Math.abs(
+    losses.reduce((sum, trade) => sum + trade.netPnl, 0),
+  );
 
   const endingEquity =
-    equityCurve.at(-1)?.equity ?? (payload.initialEquity ?? defaultInitialEquity) + netPnl;
+    equityCurve.at(-1)?.equity ??
+    (payload.initialEquity ?? defaultInitialEquity) + netPnl;
 
   return {
     totalTrades: trades.length,
@@ -163,7 +175,9 @@ export function computeMetrics(payload: TradePayload): TradeMetrics {
   };
 }
 
-export function computeSymbolBreakdown(trades: TradeRecord[]): SymbolBreakdown[] {
+export function computeSymbolBreakdown(
+  trades: TradeRecord[],
+): SymbolBreakdown[] {
   const map = new Map<string, SymbolBreakdown>();
 
   for (const trade of trades) {

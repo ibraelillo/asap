@@ -29,13 +29,17 @@ export * from "./config";
 /** @deprecated prefer createRangeReversalStrategy */
 export interface RangingBotApi {
   config: RangeReversalConfig;
-  buildSignalSnapshot: (input: Omit<SignalSnapshotInput, "config">) => SignalSnapshot;
+  buildSignalSnapshot: (
+    input: Omit<SignalSnapshotInput, "config">,
+  ) => SignalSnapshot;
   evaluateEntry: (snapshot: SignalSnapshot) => EntryDecision;
   runBacktest: (input: BacktestInput) => ReturnType<typeof runBacktest>;
 }
 
 /** @deprecated prefer createRangeReversalStrategy */
-export function createRangingBot(overrides?: DeepPartial<RangeReversalConfig>): RangingBotApi {
+export function createRangingBot(
+  overrides?: DeepPartial<RangeReversalConfig>,
+): RangingBotApi {
   const config = createConfig(overrides);
 
   return {
@@ -58,4 +62,8 @@ export function createConfiguredRangeReversalStrategy(
 
 export type { RangeReversalSnapshot, SignalSnapshotInput };
 export const rangingBotDefaults = defaultRangeReversalConfig;
-export { buildRangeReversalDecision, createRangeReversalStrategy, resolveTakeProfitLevels };
+export {
+  buildRangeReversalDecision,
+  createRangeReversalStrategy,
+  resolveTakeProfitLevels,
+};

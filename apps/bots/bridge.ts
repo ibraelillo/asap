@@ -39,7 +39,8 @@ export const handler: EventBridgeHandler<any, any, any> = async (e) => {
     time: e.time,
   });
 
-  try { console.log(e)
+  try {
+    console.log(e);
     // Forward event to Fargate orchestrator via HTTP
     // Resource.Orquestrator.url is automatically resolved via ECS Service Discovery
     const response = await fetch(`${Resource.Orquestrator.url}/events`, {

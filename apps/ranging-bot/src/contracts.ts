@@ -32,8 +32,10 @@ export interface OrchestratorRunInput {
   endTimeMs?: number;
 }
 
-export interface OrchestratorDependencies<TSnapshot = unknown, TMeta = unknown> {
+export interface OrchestratorDependencies<
+  TSnapshot = unknown,
+  TMeta = unknown,
+> {
   klineProvider: ExchangeKlineProvider;
   signalProcessor: SignalProcessor<TSnapshot, TMeta>;
 }
-

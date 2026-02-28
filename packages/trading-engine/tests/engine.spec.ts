@@ -52,7 +52,10 @@ const candles: Candle[] = [
 
 describe("trading engine", () => {
   it("executes a strategy with intents", () => {
-    const strategy: TradingStrategy<Record<string, never>, { price: number }> = {
+    const strategy: TradingStrategy<
+      Record<string, never>,
+      { price: number }
+    > = {
       id: "test-strategy",
       version: "1",
       buildSnapshot: ({ market }) => ({

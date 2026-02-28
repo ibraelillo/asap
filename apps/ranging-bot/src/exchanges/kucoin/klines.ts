@@ -1,6 +1,10 @@
 import type { Candle } from "@repo/trading-engine";
 import type { KucoinClient } from "@repo/kucoin";
-import type { ExchangeKlineProvider, KlineQuery, OrchestratorTimeframe } from "../../contracts";
+import type {
+  ExchangeKlineProvider,
+  KlineQuery,
+  OrchestratorTimeframe,
+} from "../../contracts";
 
 const granularityByTimeframe: Record<OrchestratorTimeframe, number> = {
   "1m": 1,
@@ -31,7 +35,12 @@ function parseTimestamp(value: string | number): number {
   return raw < 1_000_000_000_000 ? raw * 1000 : raw;
 }
 
-function parseOHLC(row: KucoinKlineRow): { open: number; high: number; low: number; close: number } {
+function parseOHLC(row: KucoinKlineRow): {
+  open: number;
+  high: number;
+  low: number;
+  close: number;
+} {
   if (row.length < 5) {
     throw new Error(`Invalid kline row length: ${row.length}`);
   }
@@ -63,7 +72,10 @@ function parseVolume(row: KucoinKlineRow): number {
   return Number(row[5] ?? 0);
 }
 
-function parseRows(rows: KucoinKlineRow[], limit = Number.MAX_SAFE_INTEGER): Candle[] {
+function parseRows(
+  rows: KucoinKlineRow[],
+  limit = Number.MAX_SAFE_INTEGER,
+): Candle[] {
   const parsed: Candle[] = [];
 
   for (const row of rows) {
@@ -126,7 +138,9 @@ export class KucoinKlineProvider implements ExchangeKlineProvider {
       }
 
       const lastSeen = parsed.at(-1)?.time;
-      const nextCursor = lastSeen ? lastSeen + granularityMs : toMs + granularityMs;
+      const nextCursor = lastSeen
+        ? lastSeen + granularityMs
+        : toMs + granularityMs;
 
       if (nextCursor <= cursor) {
         throw new Error(`Kucoin kline pagination stalled at ${cursor}`);

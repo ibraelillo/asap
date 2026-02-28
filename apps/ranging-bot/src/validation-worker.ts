@@ -1,8 +1,5 @@
 import type { EventBridgeEvent } from "aws-lambda";
-import {
-  computeVolumeProfileLevels,
-  type Candle,
-} from "@repo/ranging-core";
+import { computeVolumeProfileLevels, type Candle } from "@repo/ranging-core";
 import type { OrchestratorTimeframe } from "./contracts";
 import { fetchHistoricalKlines } from "./monitoring/kucoin-public-klines";
 import {
@@ -26,8 +23,9 @@ import {
   type ValidationIdentity,
 } from "./monitoring/validations";
 
-const OPENAI_ENDPOINT = process.env.OPENAI_RESPONSES_ENDPOINT
-  ?? "https://api.openai.com/v1/responses";
+const OPENAI_ENDPOINT =
+  process.env.OPENAI_RESPONSES_ENDPOINT ??
+  "https://api.openai.com/v1/responses";
 const PRIMARY_MODEL =
   process.env.RANGING_VALIDATION_MODEL_PRIMARY ?? "gpt-5-nano-2025-08-07";
 const FALLBACK_MODEL =
@@ -71,18 +69,25 @@ const timeframeSet = new Set<OrchestratorTimeframe>([
 ]);
 
 function isTimeframe(value: unknown): value is OrchestratorTimeframe {
-  return typeof value === "string" && timeframeSet.has(value as OrchestratorTimeframe);
+  return (
+    typeof value === "string" &&
+    timeframeSet.has(value as OrchestratorTimeframe)
+  );
 }
 
-function parseRequestedDetail(raw: unknown): RangeValidationRequestedDetail | undefined {
+function parseRequestedDetail(
+  raw: unknown,
+): RangeValidationRequestedDetail | undefined {
   if (!raw || typeof raw !== "object") return undefined;
   const detail = raw as Record<string, unknown>;
 
   const validationId =
     typeof detail.validationId === "string" ? detail.validationId.trim() : "";
   const botId = typeof detail.botId === "string" ? detail.botId.trim() : "";
-  const botName = typeof detail.botName === "string" ? detail.botName.trim() : "";
-  const strategyId = typeof detail.strategyId === "string" ? detail.strategyId.trim() : "";
+  const botName =
+    typeof detail.botName === "string" ? detail.botName.trim() : "";
+  const strategyId =
+    typeof detail.strategyId === "string" ? detail.strategyId.trim() : "";
   const symbol = typeof detail.symbol === "string" ? detail.symbol.trim() : "";
   const createdAtMs = Number(detail.createdAtMs);
   const fromMs = Number(detail.fromMs);
@@ -90,7 +95,8 @@ function parseRequestedDetail(raw: unknown): RangeValidationRequestedDetail | un
   const candlesCount = Number(detail.candlesCount);
   const timeframe = detail.timeframe;
 
-  if (!validationId || !botId || !botName || !strategyId || !symbol) return undefined;
+  if (!validationId || !botId || !botName || !strategyId || !symbol)
+    return undefined;
   if (!Number.isFinite(createdAtMs) || createdAtMs <= 0) return undefined;
   if (!Number.isFinite(fromMs) || !Number.isFinite(toMs) || fromMs >= toMs) {
     return undefined;
@@ -112,7 +118,9 @@ function parseRequestedDetail(raw: unknown): RangeValidationRequestedDetail | un
   };
 }
 
-function buildCreateInput(detail: RangeValidationRequestedDetail): CreateValidationInput {
+function buildCreateInput(
+  detail: RangeValidationRequestedDetail,
+): CreateValidationInput {
   return {
     botId: detail.botId,
     botName: detail.botName,
@@ -144,7 +152,11 @@ function clamp(value: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, value));
 }
 
-function sanitizeRange(val: number, poc: number, vah: number): {
+function sanitizeRange(
+  val: number,
+  poc: number,
+  vah: number,
+): {
   val: number;
   poc: number;
   vah: number;
@@ -161,7 +173,10 @@ function extractOutputText(payload: unknown): string | undefined {
   if (!payload || typeof payload !== "object") return undefined;
   const root = payload as Record<string, unknown>;
 
-  if (typeof root.output_text === "string" && root.output_text.trim().length > 0) {
+  if (
+    typeof root.output_text === "string" &&
+    root.output_text.trim().length > 0
+  ) {
     return root.output_text;
   }
 
@@ -189,7 +204,10 @@ function extractOutputText(payload: unknown): string | undefined {
       ) {
         parts.push((text as { value: string }).value);
       }
-      if (typeof row.output_text === "string" && row.output_text.trim().length > 0) {
+      if (
+        typeof row.output_text === "string" &&
+        row.output_text.trim().length > 0
+      ) {
         parts.push(row.output_text);
       }
       if (
@@ -250,19 +268,22 @@ function normalizeValidationResult(
   candles: Candle[],
 ): RangeValidationResult {
   const fallback = defaultRange(candles);
-  const root = raw && typeof raw === "object"
-    ? (raw as Record<string, unknown>)
-    : {};
-  const rawRange = root.range && typeof root.range === "object"
-    ? (root.range as Record<string, unknown>)
-    : {};
+  const root =
+    raw && typeof raw === "object" ? (raw as Record<string, unknown>) : {};
+  const rawRange =
+    root.range && typeof root.range === "object"
+      ? (root.range as Record<string, unknown>)
+      : {};
   const reasons = Array.isArray(root.reasons)
     ? root.reasons.filter((value): value is string => typeof value === "string")
     : [];
 
-  const isRanging = typeof root.isRanging === "boolean" ? root.isRanging : false;
+  const isRanging =
+    typeof root.isRanging === "boolean" ? root.isRanging : false;
   const confidenceRaw = Number(root.confidence);
-  const confidence = Number.isFinite(confidenceRaw) ? clamp(confidenceRaw, 0, 1) : 0;
+  const confidence = Number.isFinite(confidenceRaw)
+    ? clamp(confidenceRaw, 0, 1)
+    : 0;
   const detected = root.timeframeDetected;
   const timeframeDetected =
     typeof detected === "string" && isTimeframe(detected)
@@ -292,15 +313,21 @@ function normalizeValidationResult(
 function summarizeCandles(candles: Candle[]) {
   const first = candles[0];
   const last = candles[candles.length - 1];
-  const minLow = candles.reduce((acc, candle) => Math.min(acc, candle.low), Number.POSITIVE_INFINITY);
-  const maxHigh = candles.reduce((acc, candle) => Math.max(acc, candle.high), Number.NEGATIVE_INFINITY);
+  const minLow = candles.reduce(
+    (acc, candle) => Math.min(acc, candle.low),
+    Number.POSITIVE_INFINITY,
+  );
+  const maxHigh = candles.reduce(
+    (acc, candle) => Math.max(acc, candle.high),
+    Number.NEGATIVE_INFINITY,
+  );
   const avgVolume =
-    candles.reduce((acc, candle) => acc + candle.volume, 0) / Math.max(candles.length, 1);
+    candles.reduce((acc, candle) => acc + candle.volume, 0) /
+    Math.max(candles.length, 1);
 
   const fallbackClose = last?.close ?? first?.close ?? 1;
-  const width = Number.isFinite(maxHigh) && Number.isFinite(minLow)
-    ? maxHigh - minLow
-    : 0;
+  const width =
+    Number.isFinite(maxHigh) && Number.isFinite(minLow) ? maxHigh - minLow : 0;
   const widthPct = fallbackClose > 0 ? width / fallbackClose : 0;
 
   return {
@@ -381,7 +408,9 @@ async function callOpenAiModel(
           verbosity: "low",
         },
         max_output_tokens:
-          Number.isFinite(maxOutputTokensOverride) && maxOutputTokensOverride && maxOutputTokensOverride > 0
+          Number.isFinite(maxOutputTokensOverride) &&
+          maxOutputTokensOverride &&
+          maxOutputTokensOverride > 0
             ? Math.floor(maxOutputTokensOverride)
             : Number.isFinite(MAX_OUTPUT_TOKENS) && MAX_OUTPUT_TOKENS > 0
               ? Math.floor(MAX_OUTPUT_TOKENS)
@@ -397,11 +426,13 @@ async function callOpenAiModel(
       );
     }
 
-    const responseJson = await response.json() as unknown;
+    const responseJson = (await response.json()) as unknown;
     const outputText = extractOutputText(responseJson);
     if (!outputText) {
       const reason = detectMissingOutputReason(responseJson);
-      throw new Error(`OpenAI response did not include assistant text (${reason})`);
+      throw new Error(
+        `OpenAI response did not include assistant text (${reason})`,
+      );
     }
 
     const parsed = safeJsonParse(outputText);
@@ -487,7 +518,9 @@ async function runValidationWithFallback(
   const primaryMessage =
     primaryError instanceof Error ? primaryError.message : String(primaryError);
   const fallbackMessage =
-    fallbackError instanceof Error ? fallbackError.message : String(fallbackError);
+    fallbackError instanceof Error
+      ? fallbackError.message
+      : String(fallbackError);
   throw new Error(
     `Validation failed on both models. Primary: ${primaryMessage}. Fallback: ${fallbackMessage}`,
   );

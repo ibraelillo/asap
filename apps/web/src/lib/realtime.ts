@@ -30,8 +30,14 @@ interface ConnectOptions {
 
 function decodePayload(payload: Uint8Array): RealtimeMessage | null {
   try {
-    const parsed = JSON.parse(new TextDecoder().decode(payload)) as RealtimeMessage;
-    if (!parsed || typeof parsed !== "object" || typeof parsed.type !== "string") {
+    const parsed = JSON.parse(
+      new TextDecoder().decode(payload),
+    ) as RealtimeMessage;
+    if (
+      !parsed ||
+      typeof parsed !== "object" ||
+      typeof parsed.type !== "string"
+    ) {
       return null;
     }
 
@@ -50,7 +56,8 @@ function getRealtimeConfig() {
   const authorizer = import.meta.env.VITE_RANGING_REALTIME_AUTHORIZER;
   const token = import.meta.env.VITE_RANGING_REALTIME_TOKEN;
   const topicPrefix =
-    import.meta.env.VITE_RANGING_REALTIME_TOPIC_PREFIX || "asap/dev/ranging-bot";
+    import.meta.env.VITE_RANGING_REALTIME_TOPIC_PREFIX ||
+    "asap/dev/ranging-bot";
 
   if (!endpoint || !authorizer) {
     return null;
@@ -167,7 +174,9 @@ export function connectRealtime(options: ConnectOptions): () => void {
 
   client.on("disconnect", (packet) => {
     const reasonCode =
-      typeof packet?.reasonCode === "number" ? String(packet.reasonCode) : "unknown";
+      typeof packet?.reasonCode === "number"
+        ? String(packet.reasonCode)
+        : "unknown";
     const reasonString =
       typeof packet?.properties?.reasonString === "string"
         ? packet.properties.reasonString
@@ -187,7 +196,8 @@ export function connectRealtime(options: ConnectOptions): () => void {
 
   client.on("packetreceive", (packet) => {
     if (packet.cmd === "connack") {
-      const reasonCode = typeof packet.reasonCode === "number" ? packet.reasonCode : -1;
+      const reasonCode =
+        typeof packet.reasonCode === "number" ? packet.reasonCode : -1;
       if (reasonCode !== 0) {
         const reasonString =
           typeof packet.properties?.reasonString === "string"

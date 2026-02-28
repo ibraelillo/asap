@@ -5,7 +5,10 @@ import type {
   ExchangeAccount,
   Side,
 } from "@repo/trading-engine";
-import type { OrchestratorTimeframe, SignalProcessingResult } from "../contracts";
+import type {
+  OrchestratorTimeframe,
+  SignalProcessingResult,
+} from "../contracts";
 
 export interface BotRecord extends BotDefinition {
   runtime: {
@@ -380,7 +383,15 @@ export interface PositionRecord {
   accountId: string;
   symbol: string;
   side: Side;
-  status: "flat" | "entry-pending" | "open" | "reducing" | "closing" | "closed" | "reconciling" | "error";
+  status:
+    | "flat"
+    | "entry-pending"
+    | "open"
+    | "reducing"
+    | "closing"
+    | "closed"
+    | "reconciling"
+    | "error";
   quantity: number;
   remainingQuantity: number;
   avgEntryPrice?: number;

@@ -1,12 +1,22 @@
 import type { PositionState, PositionStatus } from "./types";
 
 export type PositionLifecycleEvent =
-  | { type: "strategy.enter"; quantity: number; stopPrice?: number; avgEntryPrice?: number; at: number }
+  | {
+      type: "strategy.enter";
+      quantity: number;
+      stopPrice?: number;
+      avgEntryPrice?: number;
+      at: number;
+    }
   | { type: "strategy.reduce"; remainingQuantity: number; at: number }
   | { type: "strategy.move-stop"; stopPrice: number; at: number }
   | { type: "strategy.close"; at: number }
   | { type: "exchange.order-rejected"; at: number }
-  | { type: "exchange.position-sync"; status: Extract<PositionStatus, "open" | "closed" | "reconciling">; at: number }
+  | {
+      type: "exchange.position-sync";
+      status: Extract<PositionStatus, "open" | "closed" | "reconciling">;
+      at: number;
+    }
   | { type: "reconcile.detected-drift"; at: number };
 
 export function transitionPositionState(

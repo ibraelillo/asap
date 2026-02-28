@@ -136,7 +136,9 @@ export function SignalChart({ runs }: SignalChartProps) {
 
     const markers: SeriesMarker<UTCTimestamp>[] = prepared
       .map((point) => markerForRun(point.run, point.value, point.time))
-      .filter((marker): marker is SeriesMarker<UTCTimestamp> => marker !== null);
+      .filter(
+        (marker): marker is SeriesMarker<UTCTimestamp> => marker !== null,
+      );
     createSeriesMarkers(lineSeries, markers);
 
     chart.timeScale().fitContent();
@@ -166,8 +168,12 @@ export function SignalChart({ runs }: SignalChartProps) {
     <div className="panel p-5">
       <div className="mb-4 flex items-center justify-between">
         <div>
-          <h3 className="text-lg font-semibold text-slate-100">Price + Signal Timeline</h3>
-          <p className="text-xs text-slate-400">Latest runs with long/short markers</p>
+          <h3 className="text-lg font-semibold text-slate-100">
+            Price + Signal Timeline
+          </h3>
+          <p className="text-xs text-slate-400">
+            Latest runs with long/short markers
+          </p>
         </div>
         <p className="text-xs text-slate-400">{sorted.length} points</p>
       </div>

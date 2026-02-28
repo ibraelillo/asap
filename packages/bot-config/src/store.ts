@@ -62,7 +62,7 @@ export function createBotStore(preloaded?: BotState, service: KucoinService) {
       }
 
       return undefined;
-    }
+    },
   );
 
   /**
@@ -83,7 +83,7 @@ export function createBotStore(preloaded?: BotState, service: KucoinService) {
       }
 
       return undefined;
-    }
+    },
   );
 
   /**
@@ -98,22 +98,20 @@ export function createBotStore(preloaded?: BotState, service: KucoinService) {
 
       await dispatch(getCurrentPosition(symbol));
 
-
-
       return {};
-    }
+    },
   );
 
   const clearPendingOrders = createAsyncThunk(
     "bot/clear",
     async (_, { getState }) => {
       const orders = await service.orders.getActiveOrders(
-        (getState() as BotState).symbol
+        (getState() as BotState).symbol,
       );
       await Promise.allSettled(
-        orders.map((o) => service.orders.cancelOrder(o.orderId))
+        orders.map((o) => service.orders.cancelOrder(o.orderId)),
       );
-    }
+    },
   );
 
   // First, create the thunk
@@ -136,7 +134,7 @@ export function createBotStore(preloaded?: BotState, service: KucoinService) {
         clientOid: crypto.randomUUID(),
         marginMode: "CROSS",
       });
-    }
+    },
   );
 
   /**
@@ -157,7 +155,7 @@ export function createBotStore(preloaded?: BotState, service: KucoinService) {
 
       const nextDcaPrice = normalizePrice(
         state.avgEntryPrice! * delta,
-        state.tickSize
+        state.tickSize,
       );
       const nextSize = base * cost.sizeMult;
 
@@ -172,7 +170,7 @@ export function createBotStore(preloaded?: BotState, service: KucoinService) {
         clientOid: crypto.randomUUID(),
         marginMode: "CROSS",
       });
-    }
+    },
   );
 
   /**
@@ -202,7 +200,7 @@ export function createBotStore(preloaded?: BotState, service: KucoinService) {
         clientOid: crypto.randomUUID(),
         marginMode: "CROSS",
       });
-    }
+    },
   );
 
   /**

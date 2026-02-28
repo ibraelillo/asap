@@ -90,4 +90,3 @@ describe("RuntimeAccountResolver", () => {
     expect(accounts[0]?.id).toBe("kucoin-main");
   });
 });
-

@@ -9,7 +9,13 @@ import type {
   Timeframe,
 } from "@repo/trading-engine";
 
-export type { BotDefinition, Candle, EquityPoint, Side, Timeframe } from "@repo/trading-engine";
+export type {
+  BotDefinition,
+  Candle,
+  EquityPoint,
+  Side,
+  Timeframe,
+} from "@repo/trading-engine";
 
 export interface ValueAreaLevels {
   val: number;
@@ -182,7 +188,8 @@ export interface RangeReversalIntentMeta {
   diagnostics: RangeReversalDecisionDiagnostics;
 }
 
-export type RangeReversalStrategyDecision = StrategyDecision<RangeReversalIntentMeta>;
+export type RangeReversalStrategyDecision =
+  StrategyDecision<RangeReversalIntentMeta>;
 
 export interface RangeReversalBotDefinitionInput {
   botId: string;

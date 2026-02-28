@@ -13,13 +13,15 @@ export interface KucoinSignalProcessorOptions {
 }
 
 function mapPositionSnapshot(
-  position: {
-    symbol: string;
-    positionSide: "LONG" | "SHORT" | "BOTH";
-    currentQty: number;
-    avgEntryPrice: number;
-    isOpen: boolean;
-  } | undefined,
+  position:
+    | {
+        symbol: string;
+        positionSide: "LONG" | "SHORT" | "BOTH";
+        currentQty: number;
+        avgEntryPrice: number;
+        isOpen: boolean;
+      }
+    | undefined,
 ): ExchangePositionSnapshot | null {
   if (!position) return null;
   const quantity = Math.abs(Number(position.currentQty ?? 0));
@@ -34,7 +36,8 @@ function mapPositionSnapshot(
 }
 
 export class KucoinSignalProcessor<TSnapshot = unknown, TMeta = unknown>
-implements SignalProcessor<TSnapshot, TMeta> {
+  implements SignalProcessor<TSnapshot, TMeta>
+{
   private readonly options: Required<KucoinSignalProcessorOptions>;
 
   constructor(
@@ -48,14 +51,22 @@ implements SignalProcessor<TSnapshot, TMeta> {
     };
   }
 
-  async process(event: StrategySignalEvent<TSnapshot, TMeta>): Promise<SignalProcessingResult> {
-    const enterIntent = event.decision.intents.find((intent) => intent.kind === "enter");
-    const closeIntent = event.decision.intents.find((intent) => intent.kind === "close");
+  async process(
+    event: StrategySignalEvent<TSnapshot, TMeta>,
+  ): Promise<SignalProcessingResult> {
+    const enterIntent = event.decision.intents.find(
+      (intent) => intent.kind === "enter",
+    );
+    const closeIntent = event.decision.intents.find(
+      (intent) => intent.kind === "close",
+    );
 
     const positions = await this.service.positions.getPosition(event.symbol);
     const snapshots = positions
       .map((position) => mapPositionSnapshot(position))
-      .filter((snapshot): snapshot is ExchangePositionSnapshot => Boolean(snapshot && snapshot.isOpen));
+      .filter((snapshot): snapshot is ExchangePositionSnapshot =>
+        Boolean(snapshot && snapshot.isOpen),
+      );
 
     const existingForEnter = enterIntent
       ? snapshots.find((snapshot) => snapshot.side === enterIntent.side)
@@ -78,21 +89,27 @@ implements SignalProcessor<TSnapshot, TMeta> {
     }
 
     if (closeIntent) {
-      const openPosition = snapshots.find((snapshot) => snapshot.side === closeIntent.side);
+      const openPosition = snapshots.find(
+        (snapshot) => snapshot.side === closeIntent.side,
+      );
       if (!openPosition) {
         return {
           status: "no-signal",
-          message: "Close intent received but no matching open exchange position was found.",
+          message:
+            "Close intent received but no matching open exchange position was found.",
         };
       }
 
       const orderSide = closeIntent.side === "long" ? "sell" : "buy";
       if (this.options.dryRun) {
-        console.log(`[kucoin-signal-processor][dry-run-close] ${event.symbol}`, {
-          botId: event.bot.id,
-          side: closeIntent.side,
-          quantity: openPosition.quantity,
-        });
+        console.log(
+          `[kucoin-signal-processor][dry-run-close] ${event.symbol}`,
+          {
+            botId: event.bot.id,
+            side: closeIntent.side,
+            quantity: openPosition.quantity,
+          },
+        );
         return {
           status: "dry-run",
           side: closeIntent.side,

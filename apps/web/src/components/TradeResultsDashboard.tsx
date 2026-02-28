@@ -43,12 +43,17 @@ function loadInitialPayload(): TradePayload {
 }
 
 export function TradeResultsDashboard() {
-  const [payload, setPayload] = useState<TradePayload>(() => loadInitialPayload());
+  const [payload, setPayload] = useState<TradePayload>(() =>
+    loadInitialPayload(),
+  );
   const [jsonInput, setJsonInput] = useState("");
   const [importError, setImportError] = useState("");
 
   const metrics = useMemo(() => computeMetrics(payload), [payload]);
-  const symbolBreakdown = useMemo(() => computeSymbolBreakdown(payload.trades), [payload.trades]);
+  const symbolBreakdown = useMemo(
+    () => computeSymbolBreakdown(payload.trades),
+    [payload.trades],
+  );
 
   const handleImportJson = () => {
     try {
@@ -57,7 +62,9 @@ export function TradeResultsDashboard() {
       window.localStorage.setItem(storageKey, JSON.stringify(next));
       setImportError("");
     } catch {
-      setImportError("Invalid JSON format. Use a trades array or a payload with trades/equityCurve.");
+      setImportError(
+        "Invalid JSON format. Use a trades array or a payload with trades/equityCurve.",
+      );
     }
   };
 
@@ -72,7 +79,9 @@ export function TradeResultsDashboard() {
       window.localStorage.setItem(storageKey, JSON.stringify(next));
       setImportError("");
     } catch {
-      setImportError("Could not parse file. Make sure it contains valid trade result JSON.");
+      setImportError(
+        "Could not parse file. Make sure it contains valid trade result JSON.",
+      );
     } finally {
       event.target.value = "";
     }
@@ -101,10 +110,15 @@ export function TradeResultsDashboard() {
         <header className="panel p-6">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
             <div>
-              <p className="text-xs uppercase tracking-[0.22em] text-cyan-300/80">Asap Analytics</p>
-              <h1 className="mt-2 text-3xl font-semibold text-slate-100">Trade Results Control Room</h1>
+              <p className="text-xs uppercase tracking-[0.22em] text-cyan-300/80">
+                Asap Analytics
+              </p>
+              <h1 className="mt-2 text-3xl font-semibold text-slate-100">
+                Trade Results Control Room
+              </h1>
               <p className="mt-2 max-w-2xl text-sm text-slate-300/90">
-                Monitor your bot execution quality, equity curve behavior, and per-symbol edge in one place.
+                Monitor your bot execution quality, equity curve behavior, and
+                per-symbol edge in one place.
               </p>
             </div>
 
@@ -145,7 +159,13 @@ export function TradeResultsDashboard() {
             label="Net PnL"
             value={formatCurrency(metrics.netPnl)}
             tone={metrics.netPnl >= 0 ? "positive" : "negative"}
-            icon={metrics.netPnl >= 0 ? <ArrowUp className="h-5 w-5" /> : <ArrowDown className="h-5 w-5" />}
+            icon={
+              metrics.netPnl >= 0 ? (
+                <ArrowUp className="h-5 w-5" />
+              ) : (
+                <ArrowDown className="h-5 w-5" />
+              )
+            }
           />
           <MetricCard
             label="Win Rate"
@@ -168,18 +188,29 @@ export function TradeResultsDashboard() {
         </section>
 
         <section className="grid grid-cols-1 gap-6 xl:grid-cols-[2fr_1fr]">
-          <EquityChart curve={payload.equityCurve ?? []} trades={payload.trades} />
+          <EquityChart
+            curve={payload.equityCurve ?? []}
+            trades={payload.trades}
+          />
 
           <div className="panel p-5">
-            <h3 className="text-lg font-semibold text-slate-100">Import Trade Data</h3>
+            <h3 className="text-lg font-semibold text-slate-100">
+              Import Trade Data
+            </h3>
             <p className="mt-1 text-xs text-slate-400">
-              Paste JSON or upload file. Supports `trades[]` array or payload with `trades` + optional `equityCurve`.
+              Paste JSON or upload file. Supports `trades[]` array or payload
+              with `trades` + optional `equityCurve`.
             </p>
 
             <label className="mt-4 inline-flex cursor-pointer items-center gap-2 rounded-xl border border-white/15 bg-white/5 px-3 py-2 text-sm text-slate-200 transition hover:bg-white/10">
               <Upload className="h-4 w-4" />
               Upload JSON
-              <input type="file" accept="application/json" className="hidden" onChange={handleFileUpload} />
+              <input
+                type="file"
+                accept="application/json"
+                className="hidden"
+                onChange={handleFileUpload}
+              />
             </label>
 
             <textarea
@@ -189,7 +220,9 @@ export function TradeResultsDashboard() {
               className="mt-4 h-44 w-full rounded-xl border border-white/10 bg-slate-950/60 p-3 text-xs text-slate-200 outline-none focus:border-cyan-400"
             />
 
-            {importError ? <p className="mt-2 text-xs text-rose-300">{importError}</p> : null}
+            {importError ? (
+              <p className="mt-2 text-xs text-rose-300">{importError}</p>
+            ) : null}
 
             <button
               onClick={handleImportJson}

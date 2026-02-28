@@ -6,7 +6,11 @@ import { candle } from "./helpers";
 const HOUR_MS = 60 * 60 * 1000;
 const START_TIME = Date.UTC(2024, 0, 1, 0, 0, 0, 0);
 
-function printBacktestSummary(label: string, result: BacktestResult, candles: number): void {
+function printBacktestSummary(
+  label: string,
+  result: BacktestResult,
+  candles: number,
+): void {
   console.info(
     `[backtest ${label}] ${JSON.stringify({
       candles,
@@ -267,7 +271,11 @@ describe("deterministic backtest", () => {
       secondaryRangeCandles: executionCandles,
     });
 
-    printBacktestSummary("baseline_signal_exit", result, executionCandles.length);
+    printBacktestSummary(
+      "baseline_signal_exit",
+      result,
+      executionCandles.length,
+    );
 
     expect(result.metrics.totalTrades).toBe(1);
     expect(result.trades[0]?.exits.at(-1)?.reason).toBe("signal");

@@ -16,7 +16,10 @@ export function TradeTable({ trades }: TradeTableProps) {
   }, [trades]);
 
   const symbolOptions = useMemo(
-    () => [{ value: "all", label: "All Symbols" }, ...symbols.map((symbol) => ({ value: symbol, label: symbol }))],
+    () => [
+      { value: "all", label: "All Symbols" },
+      ...symbols.map((symbol) => ({ value: symbol, label: symbol })),
+    ],
     [symbols],
   );
 
@@ -44,12 +47,18 @@ export function TradeTable({ trades }: TradeTableProps) {
 
         <div className="grid min-w-[320px] grid-cols-1 gap-2 sm:grid-cols-2">
           <Field>
-            <Select value={symbolFilter} onChange={setSymbolFilter} options={symbolOptions} />
+            <Select
+              value={symbolFilter}
+              onChange={setSymbolFilter}
+              options={symbolOptions}
+            />
           </Field>
           <Field>
             <Select
               value={sideFilter}
-              onChange={(value) => setSideFilter(value as "all" | "long" | "short")}
+              onChange={(value) =>
+                setSideFilter(value as "all" | "long" | "short")
+              }
               options={sideOptions}
             />
           </Field>
@@ -71,26 +80,45 @@ export function TradeTable({ trades }: TradeTableProps) {
           </thead>
           <tbody>
             {filtered.map((trade) => {
-              const pnlTone = trade.netPnl >= 0 ? "text-emerald-300" : "text-rose-300";
-              const sideBadge = trade.side === "long" ? "bg-emerald-500/20 text-emerald-200" : "bg-amber-500/20 text-amber-200";
+              const pnlTone =
+                trade.netPnl >= 0 ? "text-emerald-300" : "text-rose-300";
+              const sideBadge =
+                trade.side === "long"
+                  ? "bg-emerald-500/20 text-emerald-200"
+                  : "bg-amber-500/20 text-amber-200";
 
               return (
-                <tr key={trade.id} className="border-t border-white/5 text-slate-200">
+                <tr
+                  key={trade.id}
+                  className="border-t border-white/5 text-slate-200"
+                >
                   <td className="py-3 pr-4 font-medium">{trade.symbol}</td>
                   <td className="py-3 pr-4">
-                    <span className={`rounded-full px-2 py-1 text-xs ${sideBadge}`}>{trade.side}</span>
+                    <span
+                      className={`rounded-full px-2 py-1 text-xs ${sideBadge}`}
+                    >
+                      {trade.side}
+                    </span>
                   </td>
                   <td className="py-3 pr-4">
                     <p>{trade.entryPrice.toLocaleString()}</p>
-                    <p className="text-xs text-slate-400">{formatDateTime(trade.entryTime)}</p>
+                    <p className="text-xs text-slate-400">
+                      {formatDateTime(trade.entryTime)}
+                    </p>
                   </td>
                   <td className="py-3 pr-4">
                     <p>{trade.exitPrice.toLocaleString()}</p>
-                    <p className="text-xs text-slate-400">{formatDateTime(trade.exitTime)}</p>
+                    <p className="text-xs text-slate-400">
+                      {formatDateTime(trade.exitTime)}
+                    </p>
                   </td>
                   <td className="py-3 pr-4">{trade.quantity}</td>
-                  <td className="py-3 pr-4 text-xs text-slate-300">{trade.exitReason ?? "n/a"}</td>
-                  <td className={`py-3 text-right font-medium ${pnlTone}`}>{formatCurrency(trade.netPnl)}</td>
+                  <td className="py-3 pr-4 text-xs text-slate-300">
+                    {trade.exitReason ?? "n/a"}
+                  </td>
+                  <td className={`py-3 text-right font-medium ${pnlTone}`}>
+                    {formatCurrency(trade.netPnl)}
+                  </td>
                 </tr>
               );
             })}

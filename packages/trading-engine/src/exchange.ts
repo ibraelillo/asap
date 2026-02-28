@@ -26,14 +26,8 @@ export interface ExchangeAccount<
 export interface AccountResolver<
   TAccount extends ExchangeAccount = ExchangeAccount,
 > {
-  getAccount(
-    accountId: string,
-    exchangeId?: string,
-  ): Promise<TAccount | null>;
-  requireAccount(
-    accountId: string,
-    exchangeId?: string,
-  ): Promise<TAccount>;
+  getAccount(accountId: string, exchangeId?: string): Promise<TAccount | null>;
+  requireAccount(accountId: string, exchangeId?: string): Promise<TAccount>;
   listAccounts?(exchangeId?: string): Promise<TAccount[]>;
 }
 
@@ -97,7 +91,9 @@ export interface StrategySignalEvent<TSnapshot = unknown, TMeta = unknown> {
 }
 
 export interface SignalProcessor<TSnapshot = unknown, TMeta = unknown> {
-  process(event: StrategySignalEvent<TSnapshot, TMeta>): Promise<SignalProcessingResult>;
+  process(
+    event: StrategySignalEvent<TSnapshot, TMeta>,
+  ): Promise<SignalProcessingResult>;
 }
 
 export interface ExchangeAdapter<

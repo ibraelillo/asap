@@ -82,9 +82,11 @@ describe("kucoin signal processor", () => {
 
     const service = {
       positions: {
-        getPosition: vi.fn().mockResolvedValue([
-          { positionSide: "LONG", isOpen: true, currentQty: 1 },
-        ]),
+        getPosition: vi
+          .fn()
+          .mockResolvedValue([
+            { positionSide: "LONG", isOpen: true, currentQty: 1 },
+          ]),
       },
       market: { normalize: vi.fn().mockResolvedValue({ maxLeverage: 10 }) },
       orders: { addOrder },

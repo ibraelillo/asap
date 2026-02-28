@@ -23,6 +23,7 @@ description: Core trading insights learned from Agent Arena competition. Use whe
 ## Winning Strategies
 
 ### Zero-trade strategy in moderate bull markets prese...
+
 - **Confidence**: 95%
 - **Total samples**: 4
 - **Times confirmed**: 1
@@ -30,6 +31,7 @@ description: Core trading insights learned from Agent Arena competition. Use whe
 - **Details**: Zero-trade strategy in moderate bull markets preserves capital perfectly. Agents that made 0 trades (learning_qwen, gpt_simple, qwen3_235b, index_fund) achieved $0.00 PnL while all active traders lost money despite BNB +2.03%, ETH +1.02%, DOGE +1.07% gains.
 
 ### Zero-trade strategies preserve capital in mixed/ch...
+
 - **Confidence**: 92%
 - **Total samples**: 771
 - **Times confirmed**: 1
@@ -37,6 +39,7 @@ description: Core trading insights learned from Agent Arena competition. Use whe
 - **Details**: Zero-trade strategies preserve capital in mixed/choppy markets. learning_qwen, gpt_simple, and index_fund made 0 trades and achieved $0.00 PnL, outperforming all active traders in this low-conviction environment.
 
 ### Zero-trade strategy preserves capital in moderatel...
+
 - **Confidence**: 92%
 - **Total samples**: 4
 - **Times confirmed**: 1
@@ -44,6 +47,7 @@ description: Core trading insights learned from Agent Arena competition. Use whe
 - **Details**: Zero-trade strategy preserves capital in moderately bullish markets where active trading leads to losses. Agents holding no positions avoided the -$50 to -$264 losses seen by active traders despite market being up +0.63% to +2.15%.
 
 ### Close losing positions proactively with high confi...
+
 - **Confidence**: 90%
 - **Total samples**: 368
 - **Times confirmed**: 1
@@ -51,6 +55,7 @@ description: Core trading insights learned from Agent Arena competition. Use whe
 - **Details**: Close losing positions proactively with high confidence (0.8-0.9) to free margin and limit drawdowns. Multiple agents demonstrated this: gptoss_20b_simple closing SOL at -$4.76 loss, agentic_gptoss closing DOGE 'largest loss percentage'.
 
 ### Minimal trading with high selectivity outperforms ...
+
 - **Confidence**: 88%
 - **Total samples**: 257
 - **Times confirmed**: 1
@@ -58,6 +63,7 @@ description: Core trading insights learned from Agent Arena competition. Use whe
 - **Details**: Minimal trading with high selectivity outperforms frequent trading. qwen3_235b made only 2 trades with PnL of -$0.29, dramatically outperforming agents with 140-201 trades.
 
 ### Closing long positions with high confidence (0.92)...
+
 - **Confidence**: 88%
 - **Total samples**: 89
 - **Times confirmed**: 1
@@ -65,6 +71,7 @@ description: Core trading insights learned from Agent Arena competition. Use whe
 - **Details**: Closing long positions with high confidence (0.92) when regime shifts to 'moderate bearish' preserves capital. skill_only_oss reasoning: 'risk-management rules advise limiting exposure and closing long positions to preserve capital'.
 
 ### Minimal trading frequency (23 trades) with technic...
+
 - **Confidence**: 88%
 - **Total samples**: 1
 - **Times confirmed**: 1
@@ -72,6 +79,7 @@ description: Core trading insights learned from Agent Arena competition. Use whe
 - **Details**: Minimal trading frequency (23 trades) with technical analysis baseline outperforms high-frequency approaches. ta_baseline lost only $-28.69 vs llama4_scout's $-229.00 with 243 trades.
 
 ### Explicit risk validation with 2% equity risk and 2...
+
 - **Confidence**: 85%
 - **Total samples**: 160
 - **Times confirmed**: 1
@@ -79,6 +87,7 @@ description: Core trading insights learned from Agent Arena competition. Use whe
 - **Details**: Explicit risk validation with 2% equity risk and 2:1 reward ratio combined with position closing discipline. skill_only_oss achieved best active trader performance (-$17.96) with 160 trades, using validated risk parameters.
 
 ### Agentic approach with active position management: ...
+
 - **Confidence**: 85%
 - **Total samples**: 100
 - **Times confirmed**: 1
@@ -86,6 +95,7 @@ description: Core trading insights learned from Agent Arena competition. Use whe
 - **Details**: Agentic approach with active position management: opening shorts in bearish markets, closing positions to lock gains when technical indicators confirm trend reversal. Uses SMA crossover + MACD + Bollinger bands for entry/exit confirmation with explicit validation steps.
 
 ### Low-frequency trading (89 trades) with selective l...
+
 - **Confidence**: 85%
 - **Total samples**: 89
 - **Times confirmed**: 1
@@ -93,6 +103,7 @@ description: Core trading insights learned from Agent Arena competition. Use whe
 - **Details**: Low-frequency trading (89 trades) with selective long entries on multi-timeframe bullish alignment produces small positive returns (+$6.22) in moderately bullish markets.
 
 ### Proactive closing of losing positions with high co...
+
 - **Confidence**: 85%
 - **Total samples**: 5
 - **Times confirmed**: 1
@@ -100,6 +111,7 @@ description: Core trading insights learned from Agent Arena competition. Use whe
 - **Details**: Proactive closing of losing positions with high confidence (0.85-0.95) to free margin. skill_only_oss closed DOGEUSDT at 0.95 confidence citing 'risk-management rule recommends closing losing positions proactively' - resulted in smaller losses ($-36.63) than more active traders.
 
 ### Zero-trade or minimal-trade strategies preserve ca...
+
 - **Confidence**: 82%
 - **Total samples**: 136
 - **Times confirmed**: 1
@@ -107,6 +119,7 @@ description: Core trading insights learned from Agent Arena competition. Use whe
 - **Details**: Zero-trade or minimal-trade strategies preserve capital in bearish/declining markets. learning_qwen (0 trades, $0 PnL) and gpt_simple (1 trade, $0 PnL) avoided losses by not trading during market decline.
 
 ### Multi-timeframe bullish alignment (15m, 1h, 4h) co...
+
 - **Confidence**: 79%
 - **Total samples**: 328
 - **Times confirmed**: 2
@@ -114,6 +127,7 @@ description: Core trading insights learned from Agent Arena competition. Use whe
 - **Details**: Multi-timeframe bullish alignment (15m, 1h, 4h) combined with explicit risk validation (2% equity risk, 2:1 reward ratio) and trade validation checks produces strong positive returns in trending bull markets
 
 ### Moderate trade frequency (80-90 trades) with expli...
+
 - **Confidence**: 78%
 - **Total samples**: 88
 - **Times confirmed**: 1
@@ -121,6 +135,7 @@ description: Core trading insights learned from Agent Arena competition. Use whe
 - **Details**: Moderate trade frequency (80-90 trades) with explicit risk validation outperforms high-frequency trading. skill_only_oss (88 trades, -$9.15) significantly outperformed skill_aware_oss (103 trades, -$180.47) despite similar strategies.
 
 ### Optimal trade frequency in trending bull markets: ...
+
 - **Confidence**: 75%
 - **Total samples**: 543
 - **Times confirmed**: 1
@@ -128,6 +143,7 @@ description: Core trading insights learned from Agent Arena competition. Use whe
 - **Details**: Optimal trade frequency in trending bull markets: 120-200 trades/24h captures opportunities without excessive churn. skill_aware_oss (164 trades, +$1236.81) and agentic_gptoss (184 trades, +$697.86) demonstrate this
 
 ### Active position management with proactive closing ...
+
 - **Confidence**: 74%
 - **Total samples**: 543
 - **Times confirmed**: 1
@@ -135,6 +151,7 @@ description: Core trading insights learned from Agent Arena competition. Use whe
 - **Details**: Active position management with proactive closing of losing/breakeven positions to free margin, combined with moderate-high trade frequency (164-195 trades/24h) in trending markets
 
 ### Moderate-high trade frequency (120-200 trades/24h)...
+
 - **Confidence**: 73%
 - **Total samples**: 543
 - **Times confirmed**: 1
@@ -142,6 +159,7 @@ description: Core trading insights learned from Agent Arena competition. Use whe
 - **Details**: Moderate-high trade frequency (120-200 trades/24h) with active position management - closing small/underwater positions to free margin for higher-conviction trades
 
 ### Proactive loss management - closing losing positio...
+
 - **Confidence**: 72%
 - **Total samples**: 379
 - **Times confirmed**: 1
@@ -149,6 +167,7 @@ description: Core trading insights learned from Agent Arena competition. Use whe
 - **Details**: Proactive loss management - closing losing positions with high confidence (0.9) to preserve capital and reduce concentration risk
 
 ### SMA crossover + bullish MACD + neutral Bollinger b...
+
 - **Confidence**: 72%
 - **Total samples**: 184
 - **Times confirmed**: 1
@@ -156,6 +175,7 @@ description: Core trading insights learned from Agent Arena competition. Use whe
 - **Details**: SMA crossover + bullish MACD + neutral Bollinger bands as entry confirmation with explicit validation checks before execution
 
 ### Closing positions near breakeven or with small los...
+
 - **Confidence**: 70%
 - **Total samples**: 320
 - **Times confirmed**: 1
@@ -163,6 +183,7 @@ description: Core trading insights learned from Agent Arena competition. Use whe
 - **Details**: Closing positions near breakeven or with small losses to free margin for higher-conviction trades preserves capital and enables redeployment
 
 ### SMA crossover + bullish MACD + neutral Bollinger b...
+
 - **Confidence**: 70%
 - **Total samples**: 184
 - **Times confirmed**: 1
@@ -170,6 +191,7 @@ description: Core trading insights learned from Agent Arena competition. Use whe
 - **Details**: SMA crossover + bullish MACD + neutral Bollinger bands as entry confirmation combined with trend alignment across timeframes
 
 ### Multi-timeframe bullish alignment (15m, 1h, 4h) co...
+
 - **Confidence**: 70%
 - **Total samples**: 164
 - **Times confirmed**: 1
@@ -177,6 +199,7 @@ description: Core trading insights learned from Agent Arena competition. Use whe
 - **Details**: Multi-timeframe bullish alignment (15m, 1h, 4h) combined with explicit risk validation (2% risk, 2:1 reward ratio) and position sizing controls produces strong profits in trending markets. skill_aware_oss consistently references 'Multi-timeframe analysis shows strong aligned bullish trend' with 'trade validation passed' and achieved +$1379.66 PnL.
 
 ### Position sizing at 25% equity limit per position w...
+
 - **Confidence**: 68%
 - **Total samples**: 125
 - **Times confirmed**: 1
@@ -184,6 +207,7 @@ description: Core trading insights learned from Agent Arena competition. Use whe
 - **Details**: Position sizing at 25% equity limit per position with active monitoring and timely closes to lock profits or limit losses
 
 ### Agentic workflow with validation checks before ent...
+
 - **Confidence**: 67%
 - **Total samples**: 184
 - **Times confirmed**: 1
@@ -191,6 +215,7 @@ description: Core trading insights learned from Agent Arena competition. Use whe
 - **Details**: Agentic workflow with validation checks before entry/exit decisions. agentic_gptoss uses 'validation checks confirm', 'risk calculator suggests', and 'all validation checks passed' reasoning, achieving +$689.63 with 184 trades. Structured decision-making with explicit risk/reward assessment outperforms simpler approaches.
 
 ### Moderate trade frequency (120-200 trades/24h) in t...
+
 - **Confidence**: 65%
 - **Total samples**: 545
 - **Times confirmed**: 1
@@ -198,6 +223,7 @@ description: Core trading insights learned from Agent Arena competition. Use whe
 - **Details**: Moderate trade frequency (120-200 trades/24h) in trending bull markets captures momentum while avoiding overtrading. gptoss_120b_simple (197 trades, +$138.86) and agentic_gptoss (184 trades, +$689.63) both fall in this range and are profitable.
 
 ### Proactive position closing to manage risk and free...
+
 - **Confidence**: 63%
 - **Total samples**: 200
 - **Times confirmed**: 1
@@ -205,6 +231,7 @@ description: Core trading insights learned from Agent Arena competition. Use whe
 - **Details**: Proactive position closing to manage risk and free margin. Profitable agents close positions citing 'frees margin', 'reduces concentration risk', 'locks profit'. skill_aware_oss closes 'over-leveraged' positions; agentic_gptoss closes with 'reduces exposure and frees capital for future opportunities'.
 
 ### skill_aware_oss combines multi-timeframe analysis ...
+
 - **Confidence**: 62%
 - **Total samples**: 157
 - **Times confirmed**: 1
@@ -212,6 +239,7 @@ description: Core trading insights learned from Agent Arena competition. Use whe
 - **Details**: skill_aware_oss combines multi-timeframe analysis with strict risk validation and position scaling into existing winners. Uses 0.75-0.85 confidence threshold with explicit risk checks ('risk per trade within limits', 'validation permits proceeding'). Achieves highest PnL ($1349.11) with moderate trade frequency (157 trades).
 
 ### Asset diversification across multiple symbols rath...
+
 - **Confidence**: 60%
 - **Total samples**: 348
 - **Times confirmed**: 1
@@ -219,6 +247,7 @@ description: Core trading insights learned from Agent Arena competition. Use whe
 - **Details**: Asset diversification across multiple symbols rather than single-asset concentration. Profitable agents trade BTC, ETH, DOGE across decisions while llama4_scout's repetitive single-asset focus leads to losses despite high trade count.
 
 ### agentic_gptoss employs active loss-cutting strateg...
+
 - **Confidence**: 58%
 - **Total samples**: 182
 - **Times confirmed**: 1
@@ -226,6 +255,7 @@ description: Core trading insights learned from Agent Arena competition. Use whe
 - **Details**: agentic_gptoss employs active loss-cutting strategy with high-confidence closes (0.9) on losing positions ('Close the losing ETHUSDT long to free margin'). Combines with selective long entries. Achieves $372.23 PnL with 182 trades.
 
 ### In trending bull markets (+1.5% to +5% moves), mul...
+
 - **Confidence**: 58%
 - **Total samples**: 157
 - **Times confirmed**: 1
@@ -233,6 +263,7 @@ description: Core trading insights learned from Agent Arena competition. Use whe
 - **Details**: In trending bull markets (+1.5% to +5% moves), multi-timeframe bullish alignment DOES work when combined with proper risk validation. skill_aware_oss profits $1349 using this approach during 3-5% market moves.
 
 ### Moderate trade frequency (120-200 trades) with dis...
+
 - **Confidence**: 55%
 - **Total samples**: 535
 - **Times confirmed**: 1
@@ -240,6 +271,7 @@ description: Core trading insights learned from Agent Arena competition. Use whe
 - **Details**: Moderate trade frequency (120-200 trades) with disciplined position management outperforms both extremes. Winners trade 157-196 times vs losers at 248 trades or 2-4 trades.
 
 ### Ultra-low trade frequency (3-6 trades) with high s...
+
 - **Confidence**: 52%
 - **Total samples**: 13
 - **Times confirmed**: 1
@@ -247,6 +279,7 @@ description: Core trading insights learned from Agent Arena competition. Use whe
 - **Details**: Ultra-low trade frequency (3-6 trades) with high selectivity results in near-zero or minimal losses in flat/sideways markets - qwen3_235b and learning_qwen both achieved ~$0 PnL with only 3-4 trades vs massive losses from high-frequency traders
 
 ### Active closing of near-breakeven or small-loss pos...
+
 - **Confidence**: 52%
 - **Total samples**: 317
 - **Times confirmed**: 1
@@ -254,6 +287,7 @@ description: Core trading insights learned from Agent Arena competition. Use whe
 - **Details**: Active closing of near-breakeven or small-loss positions to free margin for higher-conviction opportunities. gptoss_120b_simple reasoning: 'closing reduces exposure and frees margin for higher-conviction opportunities'.
 
 ### Index fund strategy of equal-weight allocation ($2...
+
 - **Confidence**: 50%
 - **Total samples**: 6
 - **Times confirmed**: 1
@@ -261,6 +295,7 @@ description: Core trading insights learned from Agent Arena competition. Use whe
 - **Details**: Index fund strategy of equal-weight allocation ($2000 per asset) with confidence 1.0 and minimal rebalancing preserves capital in sideways markets - achieved $0.00 PnL while active traders lost $1395
 
 ### Passive holding without frequent position changes ...
+
 - **Confidence**: 48%
 - **Total samples**: 13
 - **Times confirmed**: 1
@@ -268,6 +303,7 @@ description: Core trading insights learned from Agent Arena competition. Use whe
 - **Details**: Passive holding without frequent position changes outperforms active trading when market moves are <0.1% - agents with <10 trades preserved capital while those with >100 trades lost $300-$580
 
 ### Index fund strategy of equal-weight allocation ($2...
+
 - **Confidence**: 40%
 - **Total samples**: 6
 - **Times confirmed**: 1
@@ -379,11 +415,11 @@ description: Core trading insights learned from Agent Arena competition. Use whe
 
 ## Confidence Guide
 
-| Confidence | Interpretation |
-|------------|----------------|
-| 90%+ | High confidence - strong historical support |
-| 70-90% | Moderate confidence - use with other signals |
-| 60-70% | Low confidence - consider as one input |
-| <60% | Experimental - needs more data |
+| Confidence | Interpretation                               |
+| ---------- | -------------------------------------------- |
+| 90%+       | High confidence - strong historical support  |
+| 70-90%     | Moderate confidence - use with other signals |
+| 60-70%     | Low confidence - consider as one input       |
+| <60%       | Experimental - needs more data               |
 
-*This skill is automatically generated and updated by the Observer Agent.*
+_This skill is automatically generated and updated by the Observer Agent._

@@ -22,7 +22,12 @@ function json(route: Route, body: unknown, status = 200) {
   });
 }
 
-function createCandles(startMs: number, count: number, stepMs: number, startPrice: number) {
+function createCandles(
+  startMs: number,
+  count: number,
+  stepMs: number,
+  startPrice: number,
+) {
   return Array.from({ length: count }, (_, index) => {
     const time = startMs + index * stepMs;
     const wave = Math.sin(index / 2) * 1.6;
@@ -43,7 +48,12 @@ function createCandles(startMs: number, count: number, stepMs: number, startPric
 }
 
 const backtestCandles = createCandles(NOW - 18 * HOUR_MS, 24, HOUR_MS, 78);
-const analysisCandles = createCandles(NOW - 6 * HOUR_MS, 32, FIFTEEN_MIN_MS, 79);
+const analysisCandles = createCandles(
+  NOW - 6 * HOUR_MS,
+  32,
+  FIFTEEN_MIN_MS,
+  79,
+);
 
 const botSummary = {
   botId: BOT_ID,

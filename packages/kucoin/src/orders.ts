@@ -1,5 +1,5 @@
 // ---------- Behaviors ----------
-import {AddOrderResponse, ApiResult, Order} from "./types.js";
+import { AddOrderResponse, ApiResult, Order } from "./types.js";
 import { createKucoinClient } from "./client";
 import {
   AddOrderParams,
@@ -71,30 +71,33 @@ export const createOrderHandler = (
     return result.data;
   },
 
-  async getActiveOrders (symbol: string, side?: 'buy'|'sell') {
-      const result = await client.request<
-          ApiResult<{ items: Order[] }>
-      >("GET", `/api/v1/orders?symbol=${symbol}&status=active${side ? `&side=${side}` : ''}`);
+  async getActiveOrders(symbol: string, side?: "buy" | "sell") {
+    const result = await client.request<ApiResult<{ items: Order[] }>>(
+      "GET",
+      `/api/v1/orders?symbol=${symbol}&status=active${side ? `&side=${side}` : ""}`,
+    );
 
-      if (result.code !== "200000") {
-          throw new Error(`Kucoin addOrder failed: ${result.msg ?? result.code}`);
-      }
-      return result.data.items || [];
+    if (result.code !== "200000") {
+      throw new Error(`Kucoin addOrder failed: ${result.msg ?? result.code}`);
+    }
+    return result.data.items || [];
   },
 
-    async getStopOrders (symbol: string, side: 'buy'|'sell') {
+  async getStopOrders(symbol: string, side: "buy" | "sell") {
+    console.log(
+      `/api/v1/stopOrders?symbol=${symbol}&status=active&side=${side}`,
+    );
 
-        console.log( `/api/v1/stopOrders?symbol=${symbol}&status=active&side=${side}`)
+    const result = await client.request<ApiResult<{ items: Order[] }>>(
+      "GET",
+      `/api/v1/stopOrders?symbol=${symbol}&status=active&side=${side}`,
+    );
 
-        const result = await client.request<
-            ApiResult<{ items: Order[] }>
-        >("GET", `/api/v1/stopOrders?symbol=${symbol}&status=active&side=${side}`);
-
-        if (result.code !== "200000") {
-            throw new Error(`Kucoin addOrder failed: ${result.msg ?? result.code}`);
-        }
-        return result.data.items || [];
-    },
+    if (result.code !== "200000") {
+      throw new Error(`Kucoin addOrder failed: ${result.msg ?? result.code}`);
+    }
+    return result.data.items || [];
+  },
 
   /**
    *

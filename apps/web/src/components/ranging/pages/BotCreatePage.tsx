@@ -1,6 +1,15 @@
 import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { Button, Checkbox, Combobox, Field, Input, PageHeader, Panel, Select } from "@repo/ui";
+import {
+  Button,
+  Checkbox,
+  Combobox,
+  Field,
+  Input,
+  PageHeader,
+  Panel,
+  Select,
+} from "@repo/ui";
 import useSWR, { useSWRConfig } from "swr";
 import {
   createAccount,
@@ -45,7 +54,8 @@ export function BotCreatePage() {
   const navigate = useNavigate();
   const { mutate } = useSWRConfig();
   const [searchParams] = useSearchParams();
-  const preselectedStrategy = searchParams.get("strategyId")?.trim() || "range-reversal";
+  const preselectedStrategy =
+    searchParams.get("strategyId")?.trim() || "range-reversal";
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | undefined>();
   const [accountMode, setAccountMode] = useState<AccountMode>("existing");
@@ -88,29 +98,36 @@ export function BotCreatePage() {
     for (const strategy of strategies ?? []) {
       ids.add(strategy.strategyId);
     }
-    return [...ids].sort().map((strategyId) => ({ value: strategyId, label: strategyId }));
+    return [...ids]
+      .sort()
+      .map((strategyId) => ({ value: strategyId, label: strategyId }));
   }, [strategies]);
 
   const exchangeOptions = useMemo(
-    () => SUPPORTED_EXCHANGES.map((exchange) => ({
-      value: exchange.id,
-      label: exchange.label,
-      description: exchange.description,
-    })),
+    () =>
+      SUPPORTED_EXCHANGES.map((exchange) => ({
+        value: exchange.id,
+        label: exchange.label,
+        description: exchange.description,
+      })),
     [],
   );
 
   const filteredAccounts = useMemo(
-    () => (accounts ?? []).filter((account) => account.exchangeId === form.exchangeId),
+    () =>
+      (accounts ?? []).filter(
+        (account) => account.exchangeId === form.exchangeId,
+      ),
     [accounts, form.exchangeId],
   );
 
   const accountOptions = useMemo(
-    () => filteredAccounts.map((account) => ({
-      value: account.id,
-      label: account.name,
-      description: `${account.id} · auth ${account.hasAuth.apiKey && account.hasAuth.apiSecret ? "configured" : "partial"}`,
-    })),
+    () =>
+      filteredAccounts.map((account) => ({
+        value: account.id,
+        label: account.name,
+        description: `${account.id} · auth ${account.hasAuth.apiKey && account.hasAuth.apiSecret ? "configured" : "partial"}`,
+      })),
     [filteredAccounts],
   );
 
@@ -152,10 +169,16 @@ export function BotCreatePage() {
         if (newAccount.name.trim().length === 0) {
           throw new Error("Missing account name");
         }
-        if (newAccount.apiKey.trim().length === 0 || newAccount.apiSecret.trim().length === 0) {
+        if (
+          newAccount.apiKey.trim().length === 0 ||
+          newAccount.apiSecret.trim().length === 0
+        ) {
           throw new Error("Missing API key or secret");
         }
-        if (form.exchangeId === "kucoin" && newAccount.apiPassphrase.trim().length === 0) {
+        if (
+          form.exchangeId === "kucoin" &&
+          newAccount.apiPassphrase.trim().length === 0
+        ) {
           throw new Error("Missing KuCoin passphrase");
         }
 
@@ -198,7 +221,11 @@ export function BotCreatePage() {
       const botId = typeof bot.id === "string" ? bot.id : undefined;
       navigate(botId ? `/bots/${encodeURIComponent(botId)}` : "/bots");
     } catch (submitError) {
-      setError(submitError instanceof Error ? submitError.message : String(submitError));
+      setError(
+        submitError instanceof Error
+          ? submitError.message
+          : String(submitError),
+      );
     } finally {
       setSubmitting(false);
     }
@@ -220,15 +247,21 @@ export function BotCreatePage() {
       <Panel as="form" className="space-y-6 p-6" onSubmit={onSubmit}>
         <section className="space-y-4">
           <div>
-            <p className="text-xs uppercase tracking-[0.18em] text-slate-400">Identity</p>
-            <h2 className="mt-1 text-lg font-semibold text-slate-100">Bot definition</h2>
+            <p className="text-xs uppercase tracking-[0.18em] text-slate-400">
+              Identity
+            </p>
+            <h2 className="mt-1 text-lg font-semibold text-slate-100">
+              Bot definition
+            </h2>
           </div>
 
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
             <Field label="Strategy">
               <Select
                 value={form.strategyId}
-                onChange={(strategyId) => setForm((current) => ({ ...current, strategyId }))}
+                onChange={(strategyId) =>
+                  setForm((current) => ({ ...current, strategyId }))
+                }
                 options={strategyOptions}
               />
             </Field>
@@ -236,7 +269,12 @@ export function BotCreatePage() {
             <Field label="Symbol">
               <Input
                 value={form.symbol}
-                onChange={(event) => setForm((current) => ({ ...current, symbol: event.target.value.toUpperCase() }))}
+                onChange={(event) =>
+                  setForm((current) => ({
+                    ...current,
+                    symbol: event.target.value.toUpperCase(),
+                  }))
+                }
                 placeholder="SUIUSDTM"
               />
             </Field>
@@ -244,7 +282,12 @@ export function BotCreatePage() {
             <Field label="Name">
               <Input
                 value={form.name}
-                onChange={(event) => setForm((current) => ({ ...current, name: event.target.value }))}
+                onChange={(event) =>
+                  setForm((current) => ({
+                    ...current,
+                    name: event.target.value,
+                  }))
+                }
                 placeholder="Optional display name"
               />
             </Field>
@@ -253,7 +296,11 @@ export function BotCreatePage() {
               <Select
                 value={form.exchangeId}
                 onChange={(exchangeId) => {
-                  setForm((current) => ({ ...current, exchangeId, accountId: "" }));
+                  setForm((current) => ({
+                    ...current,
+                    exchangeId,
+                    accountId: "",
+                  }));
                   setAccountMode("existing");
                 }}
                 options={exchangeOptions}
@@ -263,10 +310,16 @@ export function BotCreatePage() {
 
           <Panel className="p-4" tone="muted">
             <p className="font-medium text-cyan-100">
-              {SUPPORTED_EXCHANGES.find((exchange) => exchange.id === form.exchangeId)?.label ?? form.exchangeId}
+              {SUPPORTED_EXCHANGES.find(
+                (exchange) => exchange.id === form.exchangeId,
+              )?.label ?? form.exchangeId}
             </p>
             <p className="mt-1 text-sm text-slate-300/80">
-              {SUPPORTED_EXCHANGES.find((exchange) => exchange.id === form.exchangeId)?.description}
+              {
+                SUPPORTED_EXCHANGES.find(
+                  (exchange) => exchange.id === form.exchangeId,
+                )?.description
+              }
             </p>
           </Panel>
         </section>
@@ -274,8 +327,12 @@ export function BotCreatePage() {
         <section className="space-y-4 rounded-2xl border border-white/10 bg-slate-950/30 p-5">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
-              <p className="text-xs uppercase tracking-[0.18em] text-slate-400">Execution Account</p>
-              <h2 className="mt-1 text-lg font-semibold text-slate-100">Account binding</h2>
+              <p className="text-xs uppercase tracking-[0.18em] text-slate-400">
+                Execution Account
+              </p>
+              <h2 className="mt-1 text-lg font-semibold text-slate-100">
+                Account binding
+              </h2>
             </div>
             <div className="inline-flex rounded-full border border-white/10 bg-white/5 p-1 text-xs text-slate-300">
               <button
@@ -294,7 +351,9 @@ export function BotCreatePage() {
                 type="button"
                 onClick={() => setAccountMode("create")}
                 className={`rounded-full px-3 py-1.5 transition ${
-                  accountMode === "create" ? "bg-cyan-400/15 text-cyan-100" : "text-slate-300"
+                  accountMode === "create"
+                    ? "bg-cyan-400/15 text-cyan-100"
+                    : "text-slate-300"
                 }`}
               >
                 Create account
@@ -307,10 +366,17 @@ export function BotCreatePage() {
               <Field label="Stored account">
                 <Combobox
                   value={form.accountId || undefined}
-                  onChange={(accountId) => setForm((current) => ({ ...current, accountId: accountId ?? "" }))}
+                  onChange={(accountId) =>
+                    setForm((current) => ({
+                      ...current,
+                      accountId: accountId ?? "",
+                    }))
+                  }
                   options={accountOptions}
                   disabled={accountsLoading || filteredAccounts.length === 0}
-                  placeholder={accountsLoading ? "Loading accounts..." : "Search account"}
+                  placeholder={
+                    accountsLoading ? "Loading accounts..." : "Search account"
+                  }
                   emptyState="No account configured for this exchange"
                 />
               </Field>
@@ -320,10 +386,14 @@ export function BotCreatePage() {
                   <p className="text-sm text-slate-300">Loading accounts...</p>
                 ) : filteredAccounts.length === 0 ? (
                   <p className="text-sm text-slate-300">
-                    No account exists yet for this exchange. Switch to <span className="text-cyan-100">Create account</span>.
+                    No account exists yet for this exchange. Switch to{" "}
+                    <span className="text-cyan-100">Create account</span>.
                   </p>
                 ) : (
-                  <p className="text-sm text-slate-300">{filteredAccounts.length} stored account(s) available for {form.exchangeId}.</p>
+                  <p className="text-sm text-slate-300">
+                    {filteredAccounts.length} stored account(s) available for{" "}
+                    {form.exchangeId}.
+                  </p>
                 )}
               </Panel>
             </div>
@@ -332,7 +402,12 @@ export function BotCreatePage() {
               <Field label="Account name">
                 <Input
                   value={newAccount.name}
-                  onChange={(event) => setNewAccount((current) => ({ ...current, name: event.target.value }))}
+                  onChange={(event) =>
+                    setNewAccount((current) => ({
+                      ...current,
+                      name: event.target.value,
+                    }))
+                  }
                   placeholder="main-kucoin"
                 />
               </Field>
@@ -340,7 +415,12 @@ export function BotCreatePage() {
               <Field label="API key">
                 <Input
                   value={newAccount.apiKey}
-                  onChange={(event) => setNewAccount((current) => ({ ...current, apiKey: event.target.value }))}
+                  onChange={(event) =>
+                    setNewAccount((current) => ({
+                      ...current,
+                      apiKey: event.target.value,
+                    }))
+                  }
                 />
               </Field>
 
@@ -348,7 +428,12 @@ export function BotCreatePage() {
                 <Input
                   type="password"
                   value={newAccount.apiSecret}
-                  onChange={(event) => setNewAccount((current) => ({ ...current, apiSecret: event.target.value }))}
+                  onChange={(event) =>
+                    setNewAccount((current) => ({
+                      ...current,
+                      apiSecret: event.target.value,
+                    }))
+                  }
                 />
               </Field>
 
@@ -356,12 +441,22 @@ export function BotCreatePage() {
                 <Input
                   type="password"
                   value={newAccount.apiPassphrase}
-                  onChange={(event) => setNewAccount((current) => ({ ...current, apiPassphrase: event.target.value }))}
+                  onChange={(event) =>
+                    setNewAccount((current) => ({
+                      ...current,
+                      apiPassphrase: event.target.value,
+                    }))
+                  }
                 />
               </Field>
 
-              <Panel className="md:col-span-2 xl:col-span-4 px-4 py-3 text-sm text-amber-100/90" tone="warning">
-                Account auth is persisted in the bot datastore so scheduled workers can execute with that account. This is functional for now, but it should move to a dedicated secret store later.
+              <Panel
+                className="md:col-span-2 xl:col-span-4 px-4 py-3 text-sm text-amber-100/90"
+                tone="warning"
+              >
+                Account auth is persisted in the bot datastore so scheduled
+                workers can execute with that account. This is functional for
+                now, but it should move to a dedicated secret store later.
               </Panel>
             </div>
           )}
@@ -369,15 +464,21 @@ export function BotCreatePage() {
 
         <section className="space-y-4">
           <div>
-            <p className="text-xs uppercase tracking-[0.18em] text-slate-400">Execution</p>
-            <h2 className="mt-1 text-lg font-semibold text-slate-100">Runtime parameters</h2>
+            <p className="text-xs uppercase tracking-[0.18em] text-slate-400">
+              Execution
+            </p>
+            <h2 className="mt-1 text-lg font-semibold text-slate-100">
+              Runtime parameters
+            </h2>
           </div>
 
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
             <Field label="Execution TF">
               <Select
                 value={form.executionTimeframe}
-                onChange={(executionTimeframe) => setForm((current) => ({ ...current, executionTimeframe }))}
+                onChange={(executionTimeframe) =>
+                  setForm((current) => ({ ...current, executionTimeframe }))
+                }
                 options={EXECUTION_TIMEFRAME_OPTIONS}
               />
             </Field>
@@ -385,7 +486,9 @@ export function BotCreatePage() {
             <Field label="Primary Range TF">
               <Select
                 value={form.primaryRangeTimeframe}
-                onChange={(primaryRangeTimeframe) => setForm((current) => ({ ...current, primaryRangeTimeframe }))}
+                onChange={(primaryRangeTimeframe) =>
+                  setForm((current) => ({ ...current, primaryRangeTimeframe }))
+                }
                 options={PRIMARY_RANGE_OPTIONS}
               />
             </Field>
@@ -393,7 +496,12 @@ export function BotCreatePage() {
             <Field label="Secondary Range TF">
               <Select
                 value={form.secondaryRangeTimeframe}
-                onChange={(secondaryRangeTimeframe) => setForm((current) => ({ ...current, secondaryRangeTimeframe }))}
+                onChange={(secondaryRangeTimeframe) =>
+                  setForm((current) => ({
+                    ...current,
+                    secondaryRangeTimeframe,
+                  }))
+                }
                 options={SECONDARY_RANGE_OPTIONS}
               />
             </Field>
@@ -401,7 +509,9 @@ export function BotCreatePage() {
             <Field label="Margin Mode">
               <Select
                 value={form.marginMode}
-                onChange={(marginMode) => setForm((current) => ({ ...current, marginMode }))}
+                onChange={(marginMode) =>
+                  setForm((current) => ({ ...current, marginMode }))
+                }
                 options={MARGIN_MODE_OPTIONS}
               />
             </Field>
@@ -411,7 +521,15 @@ export function BotCreatePage() {
                 type="number"
                 min={50}
                 value={form.executionLimit}
-                onChange={(event) => setForm((current) => ({ ...current, executionLimit: Math.max(50, Number(event.target.value) || 240) }))}
+                onChange={(event) =>
+                  setForm((current) => ({
+                    ...current,
+                    executionLimit: Math.max(
+                      50,
+                      Number(event.target.value) || 240,
+                    ),
+                  }))
+                }
               />
             </Field>
 
@@ -420,7 +538,15 @@ export function BotCreatePage() {
                 type="number"
                 min={30}
                 value={form.primaryRangeLimit}
-                onChange={(event) => setForm((current) => ({ ...current, primaryRangeLimit: Math.max(30, Number(event.target.value) || 90) }))}
+                onChange={(event) =>
+                  setForm((current) => ({
+                    ...current,
+                    primaryRangeLimit: Math.max(
+                      30,
+                      Number(event.target.value) || 90,
+                    ),
+                  }))
+                }
               />
             </Field>
 
@@ -429,14 +555,27 @@ export function BotCreatePage() {
                 type="number"
                 min={30}
                 value={form.secondaryRangeLimit}
-                onChange={(event) => setForm((current) => ({ ...current, secondaryRangeLimit: Math.max(30, Number(event.target.value) || 180) }))}
+                onChange={(event) =>
+                  setForm((current) => ({
+                    ...current,
+                    secondaryRangeLimit: Math.max(
+                      30,
+                      Number(event.target.value) || 180,
+                    ),
+                  }))
+                }
               />
             </Field>
 
             <Field label="Value Qty">
               <Input
                 value={form.valueQty}
-                onChange={(event) => setForm((current) => ({ ...current, valueQty: event.target.value }))}
+                onChange={(event) =>
+                  setForm((current) => ({
+                    ...current,
+                    valueQty: event.target.value,
+                  }))
+                }
               />
             </Field>
           </div>
@@ -444,12 +583,22 @@ export function BotCreatePage() {
           <div className="flex flex-wrap items-center gap-4 text-sm text-slate-300">
             <Checkbox
               checked={form.enabled}
-              onChange={(event) => setForm((current) => ({ ...current, enabled: event.target.checked }))}
+              onChange={(event) =>
+                setForm((current) => ({
+                  ...current,
+                  enabled: event.target.checked,
+                }))
+              }
               label="Enabled"
             />
             <Checkbox
               checked={form.dryRun}
-              onChange={(event) => setForm((current) => ({ ...current, dryRun: event.target.checked }))}
+              onChange={(event) =>
+                setForm((current) => ({
+                  ...current,
+                  dryRun: event.target.checked,
+                }))
+              }
               label="Dry Run"
             />
           </div>
@@ -462,10 +611,18 @@ export function BotCreatePage() {
         ) : null}
 
         <div className="flex gap-3">
-          <Button type="submit" disabled={submitting || !canSubmit} variant="primary">
+          <Button
+            type="submit"
+            disabled={submitting || !canSubmit}
+            variant="primary"
+          >
             {submitting ? "Creating..." : "Create Bot"}
           </Button>
-          <Button type="button" variant="secondary" onClick={() => navigate("/bots")}>
+          <Button
+            type="button"
+            variant="secondary"
+            onClick={() => navigate("/bots")}
+          >
             Cancel
           </Button>
         </div>

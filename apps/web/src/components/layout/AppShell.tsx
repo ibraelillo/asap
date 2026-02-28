@@ -1,11 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import useSWR from "swr";
-import {
-  BarChart3,
-  Bot,
-  CandlestickChart,
-  Layers3,
-} from "lucide-react";
+import { BarChart3, Bot, CandlestickChart, Layers3 } from "lucide-react";
 import { NavLink, Outlet, useOutletContext } from "react-router-dom";
 import {
   connectRealtime,
@@ -51,12 +46,7 @@ export function AppShell() {
     import.meta.env.DEV &&
     import.meta.env.VITE_RANGING_REALTIME_DEBUG === "true";
 
-  const {
-    data,
-    error,
-    isLoading,
-    mutate,
-  } = useDashboardData();
+  const { data, error, isLoading, mutate } = useDashboardData();
   const mutateRef = useRef(mutate);
 
   useEffect(() => {
@@ -98,7 +88,10 @@ export function AppShell() {
         setRealtimeDetails(details);
 
         const dedupeKey = `${context.source}|${context.details}`;
-        if (realtimeDebugEnabled && dedupeKey !== lastRealtimeErrorRef.current) {
+        if (
+          realtimeDebugEnabled &&
+          dedupeKey !== lastRealtimeErrorRef.current
+        ) {
           lastRealtimeErrorRef.current = dedupeKey;
           console.error(`[realtime] ${details}`);
         }

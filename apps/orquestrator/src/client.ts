@@ -62,7 +62,6 @@ export const client = new DefaultClient(clientOption);
  */
 export const ws = client.wsService();
 
-
 /**
  * Futures Private WebSocket
  *

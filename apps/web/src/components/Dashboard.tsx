@@ -10,15 +10,22 @@ export function Dashboard() {
   const [showForm, setShowForm] = useState(false);
   const [editingBot, setEditingBot] = useState<BotConfig | undefined>();
 
-
-  const { data: bots = [], isLoading, mutate } = useSWR("bots", async () => {
+  const {
+    data: bots = [],
+    isLoading,
+    mutate,
+  } = useSWR(
+    "bots",
+    async () => {
       return await api.getBots();
-  }, { fallbackData: []})
+    },
+    { fallbackData: [] },
+  );
 
   const handleCreateBot = async (botData: BotConfigCreate) => {
     try {
       const newBot = await api.createBot(botData);
-      await  mutate([...bots, newBot])
+      await mutate([...bots, newBot]);
       setShowForm(false);
     } catch (error) {
       console.error("Failed to create bot:", error);
@@ -30,7 +37,7 @@ export function Dashboard() {
 
     try {
       await api.updateBot(editingBot.PK, botData);
-      await mutate()
+      await mutate();
       setEditingBot(undefined);
       setShowForm(false);
     } catch (error) {
@@ -41,7 +48,7 @@ export function Dashboard() {
   const handleToggleBot = async (id: string) => {
     try {
       await api.toggleBot(id);
-      await mutate()
+      await mutate();
     } catch (error) {
       console.error("Failed to toggle bot:", error);
     }

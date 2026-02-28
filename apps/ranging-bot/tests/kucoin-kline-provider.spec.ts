@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 import type { KucoinClient } from "@repo/kucoin";
-import { KucoinKlineProvider, kucoinKlineInternals } from "../src/exchanges/kucoin/klines";
+import {
+  KucoinKlineProvider,
+  kucoinKlineInternals,
+} from "../src/exchanges/kucoin/klines";
 
 describe("kucoin kline parsing", () => {
   it("parses and sorts rows deterministically", () => {
@@ -18,8 +21,22 @@ describe("kucoin kline parsing", () => {
   });
 
   it("supports alternate ohlc row format", () => {
-    const formatA = kucoinKlineInternals.parseOHLC([1700000000, "100", "101", "103", "99", "10"]);
-    const formatB = kucoinKlineInternals.parseOHLC([1700000000, "100", "103", "99", "101", "10"]);
+    const formatA = kucoinKlineInternals.parseOHLC([
+      1700000000,
+      "100",
+      "101",
+      "103",
+      "99",
+      "10",
+    ]);
+    const formatB = kucoinKlineInternals.parseOHLC([
+      1700000000,
+      "100",
+      "103",
+      "99",
+      "101",
+      "10",
+    ]);
 
     expect(formatA.open).toBe(100);
     expect(formatA.high).toBeGreaterThanOrEqual(formatA.close);
@@ -29,7 +46,12 @@ describe("kucoin kline parsing", () => {
   });
 
   it("uses millisecond from/to query params", async () => {
-    const requests: Array<{ from: number; to: number; symbol: string; granularity: number }> = [];
+    const requests: Array<{
+      from: number;
+      to: number;
+      symbol: string;
+      granularity: number;
+    }> = [];
 
     const provider = new KucoinKlineProvider({
       getKlines: async (query) => {
@@ -52,7 +74,12 @@ describe("kucoin kline parsing", () => {
   });
 
   it("paginates when exchange caps rows per response", async () => {
-    const requests: Array<{ from: number; to: number; symbol: string; granularity: number }> = [];
+    const requests: Array<{
+      from: number;
+      to: number;
+      symbol: string;
+      granularity: number;
+    }> = [];
     const hourMs = 60 * 60 * 1000;
 
     const provider = new KucoinKlineProvider({

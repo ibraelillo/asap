@@ -58,7 +58,12 @@ export function Select<T extends string = string>({
             buttonClassName,
           )}
         >
-          <span className={cn("block truncate", !selectedOption && "text-slate-500")}>
+          <span
+            className={cn(
+              "block truncate",
+              !selectedOption && "text-slate-500",
+            )}
+          >
             {selectedOption?.label ?? placeholder}
           </span>
           <ChevronDownIcon className="h-4 w-4 text-slate-400" />

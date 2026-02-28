@@ -1,8 +1,5 @@
 import type { OrchestratorTimeframe } from "../contracts";
-import type {
-  RangeValidationRecord,
-  RangeValidationResult,
-} from "./types";
+import type { RangeValidationRecord, RangeValidationResult } from "./types";
 
 export interface ValidationIdentity {
   validationId: string;

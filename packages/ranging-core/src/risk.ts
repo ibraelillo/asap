@@ -48,10 +48,12 @@ export function sizePosition(input: PositionSizingInput): PositionSizingResult {
   }
 
   const riskAmount = equity * risk.riskPctPerTrade;
-  const quantityFromRisk = riskAmount / (stopDistance * risk.contractMultiplier);
+  const quantityFromRisk =
+    riskAmount / (stopDistance * risk.contractMultiplier);
 
   const maxNotional = equity * risk.leverage * risk.maxNotionalPctEquity;
-  const quantityFromNotionalCap = maxNotional / (entryPrice * risk.contractMultiplier);
+  const quantityFromNotionalCap =
+    maxNotional / (entryPrice * risk.contractMultiplier);
 
   const rawQty = Math.min(quantityFromRisk, quantityFromNotionalCap);
   const quantity = Math.max(0, floorToStep(rawQty, risk.lotStep));

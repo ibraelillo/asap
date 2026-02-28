@@ -36,12 +36,14 @@ Compatibility routes can remain temporarily for old ranging flows, but the web a
 ### Strategies
 
 `/strategies`
+
 - list available strategies
 - summary cards per strategy
 - number of bots using each strategy
 - aggregate stats per strategy
 
 `/strategies/:strategyId`
+
 - strategy metadata and version
 - aggregate stats for all bots using it
 - bot list filtered to that strategy
@@ -50,17 +52,20 @@ Compatibility routes can remain temporarily for old ranging flows, but the web a
 ### Bots
 
 `/bots`
+
 - bot directory only
 - search/filter by strategy, exchange, account, symbol, status
 - no inline backtest creation
 - no validations table
 
 `/bots/create`
+
 - creation form only
 - strategy selection first
 - then exchange/account/symbol/runtime/risk fields
 
 `/bots/:botId`
+
 - bot overview only
 - latest signal state
 - operational stats
@@ -73,11 +78,13 @@ Compatibility routes can remain temporarily for old ranging flows, but the web a
   - analysis
 
 `/bots/:botId/backtests`
+
 - backtest creation form
 - backtest list/history
 - async status/progress
 
 `/bots/:botId/backtests/:backtestId`
+
 - single backtest replay and diagnostics
 
 ## Page Split Required

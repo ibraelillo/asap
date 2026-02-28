@@ -9,18 +9,22 @@ import type { OrchestratorRunInput } from "./contracts";
 import { BotRuntimeOrchestrator } from "./orchestrator";
 import { strategyRegistry } from "./strategy-registry";
 
-export interface CreateBotRuntimeInput<TAccount extends ExchangeAccount = ExchangeAccount> {
+export interface CreateBotRuntimeInput<
+  TAccount extends ExchangeAccount = ExchangeAccount,
+> {
   bot: BotRecord;
   adapter: ExchangeAdapter<TAccount>;
   executionContext: ExecutionContext<TAccount>;
   signalProcessorOptions?: unknown;
 }
 
-export function createBotRuntime<TAccount extends ExchangeAccount = ExchangeAccount>(
-  input: CreateBotRuntimeInput<TAccount>,
-) {
+export function createBotRuntime<
+  TAccount extends ExchangeAccount = ExchangeAccount,
+>(input: CreateBotRuntimeInput<TAccount>) {
   const resolved = strategyRegistry.get(input.bot);
-  const klineProvider = input.adapter.createKlineProvider(input.executionContext);
+  const klineProvider = input.adapter.createKlineProvider(
+    input.executionContext,
+  );
   const signalProcessor = input.adapter.createSignalProcessor(
     input.executionContext,
     input.signalProcessorOptions,

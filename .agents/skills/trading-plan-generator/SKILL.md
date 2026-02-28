@@ -10,6 +10,7 @@ A comprehensive skill for creating disciplined, rule-based trading plans that he
 ## What This Skill Does
 
 Helps you create professional trading plans for:
+
 - **Day Trading** - Intraday positions, quick scalps
 - **Swing Trading** - Multi-day to multi-week positions
 - **Position Trading** - Long-term trend following
@@ -19,6 +20,7 @@ Helps you create professional trading plans for:
 ## Why You Need a Trading Plan
 
 **Without a plan:**
+
 - Emotional, impulsive decisions
 - Inconsistent position sizing
 - No clear entry/exit rules
@@ -27,6 +29,7 @@ Helps you create professional trading plans for:
 - Can't identify what works
 
 **With a plan:**
+
 - Disciplined, rule-based trading
 - Consistent risk management
 - Clear decision framework
@@ -35,6 +38,7 @@ Helps you create professional trading plans for:
 - Measurable improvement
 
 **The Stats:**
+
 - 90% of traders fail (most have no plan)
 - Professional traders ALL have written plans
 - Plan + discipline = edge
@@ -42,6 +46,7 @@ Helps you create professional trading plans for:
 ## Core Components of a Trading Plan
 
 ### 1. Trading Goals & Mindset
+
 - Financial goals (realistic)
 - Time commitment
 - Risk tolerance
@@ -49,6 +54,7 @@ Helps you create professional trading plans for:
 - Success definition
 
 ### 2. Risk Management (MOST IMPORTANT)
+
 - Maximum risk per trade (1-2% recommended)
 - Maximum daily loss limit
 - Maximum drawdown tolerance
@@ -57,6 +63,7 @@ Helps you create professional trading plans for:
 - Risk/reward minimums
 
 ### 3. Market Selection
+
 - What markets you trade (stocks, forex, crypto, options)
 - Liquidity requirements
 - Price range preferences
@@ -64,6 +71,7 @@ Helps you create professional trading plans for:
 - What you DON'T trade
 
 ### 4. Trading Setup Criteria
+
 - Entry signals (technical/fundamental)
 - Confirmation requirements
 - Timeframes used
@@ -71,6 +79,7 @@ Helps you create professional trading plans for:
 - Market condition filters
 
 ### 5. Entry Rules
+
 - Exact entry triggers
 - Order types (market, limit, stop)
 - Position sizing calculation
@@ -78,6 +87,7 @@ Helps you create professional trading plans for:
 - Time-of-day restrictions
 
 ### 6. Exit Rules
+
 - Stop-loss placement (hard rules)
 - Take-profit targets
 - Trailing stop strategies
@@ -86,6 +96,7 @@ Helps you create professional trading plans for:
 - Break-even stops
 
 ### 7. Trade Management
+
 - When to adjust stops
 - When to add to position
 - When to reduce size
@@ -93,6 +104,7 @@ Helps you create professional trading plans for:
 - Never scenarios (what you never do)
 
 ### 8. Psychology & Discipline
+
 - Pre-market routine
 - Emotional state check
 - Tilt recognition
@@ -101,6 +113,7 @@ Helps you create professional trading plans for:
 - Accountability measures
 
 ### 9. Performance Tracking
+
 - Trade journal requirements
 - Metrics to track
 - Review frequency
@@ -110,9 +123,11 @@ Helps you create professional trading plans for:
 ## Risk Management Frameworks
 
 ### The 1% Rule (Recommended for Most Traders)
+
 **Never risk more than 1% of account on single trade**
 
 **Example:**
+
 - Account size: $50,000
 - Maximum risk per trade: $500 (1%)
 - Stock entry: $100
@@ -123,34 +138,41 @@ Helps you create professional trading plans for:
 - Actual risk: $500 (1% of account)
 
 **Benefits:**
+
 - Can survive 20+ consecutive losses
 - Removes emotion from sizing
 - Consistent risk across trades
 - Protects capital
 
 ### The 2R Minimum Rule
+
 **Only take trades with 2:1 reward-to-risk or better**
 
 **Example:**
+
 - Entry: $100
 - Stop: $98 (risk = $2)
 - Target: $104 (reward = $4)
 - R:R = 2:1 ✅
 
 **Why it matters:**
+
 - Can be profitable with 40% win rate
 - Forces selective trading
 - Improves overall edge
 
 ### Maximum Drawdown Limit
+
 **Hard stop trading if down X% from peak**
 
 **Recommendations:**
+
 - Conservative: 10% drawdown → stop trading
 - Moderate: 15% drawdown → stop trading
 - Aggressive: 20% drawdown → stop trading
 
 **When hit:**
+
 1. Stop trading immediately
 2. Review all trades
 3. Identify mistakes
@@ -160,9 +182,11 @@ Helps you create professional trading plans for:
 ## Trading Styles
 
 ### Day Trading
+
 **Definition:** Open and close all positions same day
 
 **Characteristics:**
+
 - Multiple trades per day
 - No overnight risk
 - Pattern Day Trader rules ($25K minimum)
@@ -170,54 +194,64 @@ Helps you create professional trading plans for:
 - Quick decisions
 
 **Best for:**
+
 - Full-time traders
 - High risk tolerance
 - Quick decision makers
 - Pattern recognition skills
 
 **Key rules:**
+
 - Never hold overnight
 - Reduce size near close
 - Stop trading after daily loss limit
 - First 30 min often volatile
 
 ### Swing Trading
+
 **Definition:** Hold positions 2-10 days
 
 **Characteristics:**
+
 - 2-5 trades per week
 - Overnight risk acceptable
 - Part-time friendly
 - Technical + fundamental mix
 
 **Best for:**
+
 - Part-time traders
 - Day job professionals
 - Trend followers
 - Patient traders
 
 **Key rules:**
+
 - Always use stop-losses
 - Check positions before/after market
 - Respect earnings dates
 - Weekend gap risk consideration
 
 ### Position Trading
+
 **Definition:** Hold positions weeks to months
 
 **Characteristics:**
+
 - Long-term trend following
 - Fundamental focus
 - Low trade frequency
 - Larger position sizes
 
 **Best for:**
+
 - Investors with edge
 - Low time availability
 - Fundamental analysts
 - Macro trend followers
 
 **Key rules:**
+
 - Wide stops (volatility-based)
 - Focus on major trends
 - Ignore daily noise
@@ -228,24 +262,28 @@ Helps you create professional trading plans for:
 ### Technical Entry Methods
 
 **1. Breakout Entry**
+
 - Price breaks above resistance
 - Increased volume confirmation
 - Wait for pullback or buy breakout
 - Stop below breakout level
 
 **2. Pullback Entry**
+
 - Wait for trend pullback
 - Enter at support/moving average
 - Continuation confirmation
 - Stop below support
 
 **3. Reversal Entry**
+
 - Identify overextended move
 - Look for reversal signals
 - Multiple confirmations required
 - Wider stops needed
 
 **4. Pattern Completion**
+
 - Specific pattern (flag, triangle, etc.)
 - Pattern completion signal
 - Volume confirmation
@@ -254,6 +292,7 @@ Helps you create professional trading plans for:
 ### Fundamental Entry Triggers
 
 **For Stocks:**
+
 - Earnings surprise
 - Guidance raise
 - Product launch
@@ -262,6 +301,7 @@ Helps you create professional trading plans for:
 - Short squeeze setup
 
 **For Macro:**
+
 - Fed policy change
 - Economic data surprise
 - Geopolitical event
@@ -272,21 +312,25 @@ Helps you create professional trading plans for:
 ### Stop-Loss Methods
 
 **1. Percentage Stop**
+
 - Fixed % below entry
 - Simple and clear
 - Example: 2% below entry
 
 **2. Support/Resistance Stop**
+
 - Below key technical level
 - Makes technical sense
 - Varies by setup
 
 **3. ATR-Based Stop**
+
 - 1.5-2x Average True Range
 - Adapts to volatility
 - Prevents whipsaw
 
 **4. Time Stop**
+
 - Exit if no progress in X days
 - Frees up capital
 - Prevents dead money
@@ -294,22 +338,26 @@ Helps you create professional trading plans for:
 ### Take-Profit Methods
 
 **1. Fixed R Multiple**
+
 - 2R, 3R, 4R targets
 - Predetermined exit
 - Consistent methodology
 
 **2. Technical Target**
+
 - Previous resistance
 - Fibonacci extension
 - Measured move
 - Pattern target
 
 **3. Trailing Stop**
+
 - Move stop as profit grows
 - Lock in gains
 - Ride trends longer
 
 **4. Partial Profits**
+
 - Take 50% at 2R
 - Trail remaining 50%
 - Reduces regret
@@ -318,6 +366,7 @@ Helps you create professional trading plans for:
 ## Position Sizing Formulas
 
 ### Fixed Dollar Risk
+
 ```
 Position Size = Account Risk $ / (Entry - Stop)
 
@@ -331,6 +380,7 @@ Example:
 ```
 
 ### Fixed Percentage Risk
+
 ```
 Position Size = (Account × Risk %) / (Entry - Stop)
 
@@ -344,6 +394,7 @@ Example:
 ```
 
 ### Kelly Criterion (Advanced)
+
 ```
 Position Size % = (Win Rate × Avg Win - Loss Rate × Avg Loss) / Avg Win
 
@@ -361,6 +412,7 @@ Example:
 ## Trading Psychology
 
 ### Pre-Market Routine
+
 - [ ] Review previous day's trades
 - [ ] Check overnight news
 - [ ] Identify key levels
@@ -369,7 +421,9 @@ Example:
 - [ ] Confirm risk limits
 
 ### Emotional State Check
+
 **Don't trade if:**
+
 - Angry or frustrated
 - Desperate for money
 - Revenge mindset
@@ -378,6 +432,7 @@ Example:
 - Fearful
 
 **Green light to trade:**
+
 - Calm and focused
 - Following plan
 - Accepting of losses
@@ -385,7 +440,9 @@ Example:
 - Clear-headed
 
 ### Tilt Recognition
+
 **Warning signs:**
+
 - Increasing position size
 - Abandoning stops
 - Taking marginal setups
@@ -394,6 +451,7 @@ Example:
 - Breaking rules
 
 **When tilting:**
+
 1. Stop trading immediately
 2. Close all positions
 3. Take a break (hour/day/week)
@@ -401,14 +459,17 @@ Example:
 5. Return when calm
 
 ### Daily Loss Limit
+
 **Critical rule:** Stop trading at daily loss limit
 
 **Example:**
+
 - Daily limit: -2% of account
 - Account: $50,000
 - Stop at: -$1,000 loss
 
 **Why it matters:**
+
 - Prevents blowup days
 - Forces you to stop tilting
 - Tomorrow is another day
@@ -417,6 +478,7 @@ Example:
 ## Market Conditions & Filters
 
 ### When to Trade
+
 - [ ] Market trending clearly
 - [ ] Volatility in normal range
 - [ ] Volume above average
@@ -425,6 +487,7 @@ Example:
 - [ ] Emotional state good
 
 ### When NOT to Trade
+
 - [ ] Choppy, rangebound market
 - [ ] Major news pending (FOMC, etc.)
 - [ ] Low volume (holidays)
@@ -435,18 +498,21 @@ Example:
 ### Market Regime Recognition
 
 **Bull Market:**
+
 - Buy dips
 - Longer holds
 - Reduce short exposure
 - Follow momentum
 
 **Bear Market:**
+
 - Sell rips
 - Shorter holds
 - Reduce long exposure
 - Focus on defense
 
 **Sideways/Choppy:**
+
 - Reduce size
 - Take quick profits
 - Avoid breakout trades
@@ -457,33 +523,40 @@ Example:
 ### Metrics to Track
 
 **Win Rate:**
+
 - % of trades profitable
 - Target: >50% for day trading, >40% for swing
 
 **Average Win vs Average Loss:**
+
 - Avg $ won on winners
 - Avg $ lost on losers
 - Should be 1.5:1 or better
 
 **Profit Factor:**
+
 - Gross profit / Gross loss
-- >1.5 is good, >2.0 is excellent
+- > 1.5 is good, >2.0 is excellent
 
 **Expectancy:**
+
 - (Win Rate × Avg Win) - (Loss Rate × Avg Loss)
 - Must be positive to be profitable
 
 **Maximum Drawdown:**
+
 - Largest peak-to-trough decline
 - Track and improve over time
 
 **Sharpe Ratio:**
+
 - Return / Volatility
-- >1.0 is good
+- > 1.0 is good
 
 ### Trade Journal Requirements
 
 **For each trade log:**
+
 - Date and time
 - Ticker/instrument
 - Entry price and size
@@ -500,18 +573,21 @@ Example:
 ### Review Schedule
 
 **Daily:**
+
 - Review all trades
 - Calculate P&L
 - Note mistakes
 - Plan next day
 
 **Weekly:**
+
 - Calculate weekly metrics
 - Identify patterns
 - Best/worst trades
 - Rule compliance %
 
 **Monthly:**
+
 - Full performance review
 - Strategy adjustments
 - Goal progress
@@ -522,31 +598,37 @@ Example:
 ### ❌ Fatal Errors
 
 **1. No Stop-Loss**
+
 - One bad trade can wipe account
 - ALWAYS use stops
 - No exceptions
 
 **2. Overleveraging**
+
 - Position size too large
 - Can't handle normal volatility
 - Forced exits at worst time
 
 **3. Revenge Trading**
+
 - Trading to "get back" losses
 - Emotional decisions
 - Breaks all rules
 
 **4. Moving Stops**
+
 - Moving stop to avoid loss
 - Invalidates risk management
 - Path to blowup
 
 **5. Averaging Down Losers**
+
 - Adding to losing position
 - Doubles down on mistake
 - Increases risk dramatically
 
 **6. No Plan**
+
 - Winging it
 - Inconsistent decisions
 - Can't improve
@@ -554,26 +636,31 @@ Example:
 ### ✅ Best Practices
 
 **1. Risk < Reward**
+
 - Always 2:1 R:R minimum
 - Selective trading
 - Math works in your favor
 
 **2. Consistent Sizing**
+
 - Same risk each trade
 - Removes emotion
 - Sustainable growth
 
 **3. Follow Your Plan**
+
 - Even when uncomfortable
 - Trust the process
 - Track compliance
 
 **4. Take Breaks**
+
 - After losses
 - When tilting
 - Regularly
 
 **5. Keep Learning**
+
 - Review trades
 - Study markets
 - Adapt and improve
@@ -587,6 +674,7 @@ Example:
 ```
 
 Interactive workflow guides you through:
+
 1. Trading style and goals
 2. Risk management rules
 3. Market and setup selection
@@ -601,6 +689,7 @@ Interactive workflow guides you through:
 ```
 
 Checks for:
+
 - Risk management defined
 - Position sizing rules
 - Entry/exit criteria
@@ -615,6 +704,7 @@ Checks for:
 ```
 
 Quick calculator for:
+
 - Shares based on risk
 - Risk amount
 - R:R ratio
@@ -648,6 +738,7 @@ references/performance_metrics.md - Tracking and improvement
 ## Quick Start
 
 ### Beginner Trader Template
+
 - Risk: 0.5% per trade
 - Style: Swing trading
 - Daily loss: -1.5%
@@ -656,6 +747,7 @@ references/performance_metrics.md - Tracking and improvement
 - Conservative sizing
 
 ### Experienced Trader Template
+
 - Risk: 1-2% per trade
 - Style: Your preference
 - Daily loss: -3%
@@ -676,6 +768,7 @@ references/performance_metrics.md - Tracking and improvement
 - You are responsible for your decisions
 
 **Risk Warning:**
+
 - You can lose all your capital
 - Leverage amplifies losses
 - Emotional control is critical
@@ -685,29 +778,34 @@ references/performance_metrics.md - Tracking and improvement
 ## Best Practices
 
 ### 1. Start Small
+
 - Paper trade first
 - Then micro positions
 - Prove profitability
 - Then scale up
 
 ### 2. Focus on Process
+
 - Not on money
 - Follow rules
 - Track metrics
 - Improve systematically
 
 ### 3. Protect Capital
+
 - Risk management first
 - Survive to trade tomorrow
 - Slow and steady wins
 
 ### 4. Stay Disciplined
+
 - Plan your trades
 - Trade your plan
 - No exceptions
 - Review constantly
 
 ### 5. Keep Learning
+
 - Markets evolve
 - Adapt strategies
 - Learn from mistakes
@@ -716,6 +814,7 @@ references/performance_metrics.md - Tracking and improvement
 ## Summary
 
 A trading plan is your blueprint for success. It:
+
 - **Protects** your capital with risk management
 - **Guides** decisions with clear rules
 - **Controls** emotions through discipline

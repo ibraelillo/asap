@@ -17,7 +17,9 @@ import type {
 } from "./types";
 import { createRangeReversalBotDefinition } from "./types";
 
-function toTradeExits(trade: ReturnType<typeof toTradeFromPosition>["exits"]): BacktestExit[] {
+function toTradeExits(
+  trade: ReturnType<typeof toTradeFromPosition>["exits"],
+): BacktestExit[] {
   return trade;
 }
 
@@ -49,7 +51,8 @@ function toTradeFromPosition(
 
   const grossPnl = exits.reduce((sum, exit) => sum + exit.grossPnl, 0);
   const exitFees = exits.reduce((sum, exit) => sum + exit.fee, 0);
-  const netPnl = exits.reduce((sum, exit) => sum + exit.netPnl, 0) - position.entryFee;
+  const netPnl =
+    exits.reduce((sum, exit) => sum + exit.netPnl, 0) - position.entryFee;
 
   return {
     id,
@@ -60,8 +63,16 @@ function toTradeFromPosition(
     quantity: position.quantity,
     entryFee: position.entryFee,
     exits: toTradeExits(exits),
-    closeTime: position.closedAtMs ?? exits[exits.length - 1]?.time ?? position.openedAtMs ?? 0,
-    closePrice: position.closePrice ?? exits[exits.length - 1]?.price ?? position.avgEntryPrice ?? 0,
+    closeTime:
+      position.closedAtMs ??
+      exits[exits.length - 1]?.time ??
+      position.openedAtMs ??
+      0,
+    closePrice:
+      position.closePrice ??
+      exits[exits.length - 1]?.price ??
+      position.avgEntryPrice ??
+      0,
     grossPnl,
     fees: position.entryFee + exitFees,
     netPnl,
@@ -117,7 +128,9 @@ export function runBacktest(
     },
   });
 
-  const trades = engine.positions.map((position, index) => toTradeFromPosition(position, index + 1));
+  const trades = engine.positions.map((position, index) =>
+    toTradeFromPosition(position, index + 1),
+  );
 
   return {
     config,

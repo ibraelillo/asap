@@ -20,29 +20,32 @@ export class BotRuntimeOrchestrator<TConfig, TSnapshot, TMeta = unknown> {
     input: OrchestratorRunInput,
     position: PositionState | null,
   ): Promise<StrategySignalEvent<TSnapshot, TMeta>> {
-    const [executionCandles, primaryRangeCandles, secondaryRangeCandles] = await Promise.all([
-      this.deps.klineProvider.fetchKlines({
-        symbol: input.bot.symbol,
-        timeframe: input.executionTimeframe,
-        limit: input.executionLimit,
-        endTimeMs: input.endTimeMs,
-      }),
-      this.deps.klineProvider.fetchKlines({
-        symbol: input.bot.symbol,
-        timeframe: input.primaryRangeTimeframe,
-        limit: input.primaryRangeLimit,
-        endTimeMs: input.endTimeMs,
-      }),
-      this.deps.klineProvider.fetchKlines({
-        symbol: input.bot.symbol,
-        timeframe: input.secondaryRangeTimeframe,
-        limit: input.secondaryRangeLimit,
-        endTimeMs: input.endTimeMs,
-      }),
-    ]);
+    const [executionCandles, primaryRangeCandles, secondaryRangeCandles] =
+      await Promise.all([
+        this.deps.klineProvider.fetchKlines({
+          symbol: input.bot.symbol,
+          timeframe: input.executionTimeframe,
+          limit: input.executionLimit,
+          endTimeMs: input.endTimeMs,
+        }),
+        this.deps.klineProvider.fetchKlines({
+          symbol: input.bot.symbol,
+          timeframe: input.primaryRangeTimeframe,
+          limit: input.primaryRangeLimit,
+          endTimeMs: input.endTimeMs,
+        }),
+        this.deps.klineProvider.fetchKlines({
+          symbol: input.bot.symbol,
+          timeframe: input.secondaryRangeTimeframe,
+          limit: input.secondaryRangeLimit,
+          endTimeMs: input.endTimeMs,
+        }),
+      ]);
 
     if (executionCandles.length === 0) {
-      throw new Error(`No execution candles for ${input.bot.symbol} ${input.executionTimeframe}`);
+      throw new Error(
+        `No execution candles for ${input.bot.symbol} ${input.executionTimeframe}`,
+      );
     }
 
     const market = {
@@ -72,7 +75,8 @@ export class BotRuntimeOrchestrator<TConfig, TSnapshot, TMeta = unknown> {
     const event: StrategySignalEvent<TSnapshot, TMeta> = {
       bot: input.bot,
       symbol: input.bot.symbol,
-      generatedAtMs: executionCandles[executionCandles.length - 1]?.time ?? Date.now(),
+      generatedAtMs:
+        executionCandles[executionCandles.length - 1]?.time ?? Date.now(),
       decision,
       snapshot,
       position,
@@ -88,8 +92,12 @@ export class BotRuntimeOrchestrator<TConfig, TSnapshot, TMeta = unknown> {
 
 export class NoopSignalProcessor<TSnapshot = unknown, TMeta = unknown> {
   async process(event: StrategySignalEvent<TSnapshot, TMeta>) {
-    const enterIntent = event.decision.intents.find((intent) => intent.kind === "enter");
-    return enterIntent ? { status: "dry-run" as const, side: enterIntent.side } : { status: "no-signal" as const };
+    const enterIntent = event.decision.intents.find(
+      (intent) => intent.kind === "enter",
+    );
+    return enterIntent
+      ? { status: "dry-run" as const, side: enterIntent.side }
+      : { status: "no-signal" as const };
   }
 }
 
@@ -101,7 +109,9 @@ export class ConsoleSignalProcessor<TSnapshot = unknown, TMeta = unknown> {
       generatedAtMs: event.generatedAtMs,
     });
 
-    const enterIntent = event.decision.intents.find((intent) => intent.kind === "enter");
+    const enterIntent = event.decision.intents.find(
+      (intent) => intent.kind === "enter",
+    );
     return enterIntent
       ? { status: "dry-run" as const, side: enterIntent.side }
       : { status: "no-signal" as const };

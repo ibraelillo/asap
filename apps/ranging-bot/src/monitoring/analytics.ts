@@ -7,7 +7,9 @@ import type {
 } from "./types";
 import { encodeTradeId } from "./trades";
 
-export function computeDashboardMetrics(runs: BotRunRecord[]): BotOperationalStats {
+export function computeDashboardMetrics(
+  runs: BotRunRecord[],
+): BotOperationalStats {
   let noSignalRuns = 0;
   let longSignals = 0;
   let shortSignals = 0;

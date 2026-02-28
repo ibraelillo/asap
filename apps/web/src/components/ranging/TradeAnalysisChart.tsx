@@ -9,7 +9,10 @@ import {
   type CandlestickData,
   type UTCTimestamp,
 } from "lightweight-charts";
-import type { KlineCandle, TradeAnalysisPayload } from "../../types/ranging-dashboard";
+import type {
+  KlineCandle,
+  TradeAnalysisPayload,
+} from "../../types/ranging-dashboard";
 
 interface TradeAnalysisChartProps {
   analysis: TradeAnalysisPayload;
@@ -21,7 +24,10 @@ function toTimestamp(ms: number): UTCTimestamp {
   return Math.floor(ms / 1000) as UTCTimestamp;
 }
 
-function findClosestCandle(klines: KlineCandle[], entryTimeMs: number): KlineCandle | undefined {
+function findClosestCandle(
+  klines: KlineCandle[],
+  entryTimeMs: number,
+): KlineCandle | undefined {
   if (klines.length === 0) return undefined;
 
   let closest = klines[0];
@@ -144,7 +150,10 @@ export function TradeAnalysisChart({ analysis }: TradeAnalysisChartProps) {
     if (typeof entryPrice === "number") {
       candleSeries.createPriceLine({
         price: entryPrice,
-        color: analysis.trade.side === "long" ? "rgba(34,197,94,0.9)" : "rgba(245,158,11,0.9)",
+        color:
+          analysis.trade.side === "long"
+            ? "rgba(34,197,94,0.9)"
+            : "rgba(245,158,11,0.9)",
         lineWidth: 2,
         lineStyle: LineStyle.Dotted,
         axisLabelVisible: true,
@@ -152,7 +161,10 @@ export function TradeAnalysisChart({ analysis }: TradeAnalysisChartProps) {
       });
     }
 
-    const entryCandle = findClosestCandle(candles, analysis.trade.generatedAtMs);
+    const entryCandle = findClosestCandle(
+      candles,
+      analysis.trade.generatedAtMs,
+    );
     if (entryCandle) {
       createSeriesMarkers(candleSeries, [
         {
@@ -183,7 +195,9 @@ export function TradeAnalysisChart({ analysis }: TradeAnalysisChartProps) {
   if (candles.length === 0) {
     return (
       <div className="panel flex h-[460px] items-center justify-center">
-        <p className="text-sm text-slate-400">No klines available for this trade context</p>
+        <p className="text-sm text-slate-400">
+          No klines available for this trade context
+        </p>
       </div>
     );
   }
@@ -192,9 +206,12 @@ export function TradeAnalysisChart({ analysis }: TradeAnalysisChartProps) {
     <div className="panel p-5">
       <div className="mb-4 flex items-center justify-between">
         <div>
-          <h3 className="text-lg font-semibold text-slate-100">Trade Candlestick Context</h3>
+          <h3 className="text-lg font-semibold text-slate-100">
+            Trade Candlestick Context
+          </h3>
           <p className="text-xs text-slate-400">
-            {analysis.timeframe} candles | {analysis.barsBefore} bars before / {analysis.barsAfter} bars after
+            {analysis.timeframe} candles | {analysis.barsBefore} bars before /{" "}
+            {analysis.barsAfter} bars after
           </p>
         </div>
         <p className="text-xs text-slate-400">{candleCount} candles</p>

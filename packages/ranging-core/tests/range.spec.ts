@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { computeOverlapRatio, computeVolumeProfileLevels } from "../src/analysis/range";
+import {
+  computeOverlapRatio,
+  computeVolumeProfileLevels,
+} from "../src/analysis/range";
 import { candle } from "./helpers";
 
 describe("volume profile range", () => {

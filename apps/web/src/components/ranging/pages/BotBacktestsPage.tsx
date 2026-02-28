@@ -37,58 +37,88 @@ function dateInputDaysAgo(days: number): string {
 
 function parseDateStartMs(value: string): number | undefined {
   const parts = value.split("-").map((part) => Number(part));
-  if (parts.length !== 3 || parts.some((part) => !Number.isFinite(part))) return undefined;
+  if (parts.length !== 3 || parts.some((part) => !Number.isFinite(part)))
+    return undefined;
   const [year, month, day] = parts;
-  if (year === undefined || month === undefined || day === undefined) return undefined;
+  if (year === undefined || month === undefined || day === undefined)
+    return undefined;
   const parsed = new Date(year, month - 1, day, 0, 0, 0, 0).getTime();
   return Number.isFinite(parsed) ? parsed : undefined;
 }
 
 function parseDateEndMs(value: string): number | undefined {
   const parts = value.split("-").map((part) => Number(part));
-  if (parts.length !== 3 || parts.some((part) => !Number.isFinite(part))) return undefined;
+  if (parts.length !== 3 || parts.some((part) => !Number.isFinite(part)))
+    return undefined;
   const [year, month, day] = parts;
-  if (year === undefined || month === undefined || day === undefined) return undefined;
+  if (year === undefined || month === undefined || day === undefined)
+    return undefined;
   const parsed = new Date(year, month - 1, day, 23, 59, 59, 999).getTime();
   return Number.isFinite(parsed) ? parsed : undefined;
 }
 
 export function BotBacktestsPage() {
   const { botId } = useParams<{ botId: string }>();
-  const [backtestFromDate, setBacktestFromDate] = useState<string>(() => dateInputDaysAgo(30));
-  const [backtestToDate, setBacktestToDate] = useState<string>(() => dateInputDaysAgo(0));
-  const [backtestInitialEquity, setBacktestInitialEquity] = useState<number>(1000);
+  const [backtestFromDate, setBacktestFromDate] = useState<string>(() =>
+    dateInputDaysAgo(30),
+  );
+  const [backtestToDate, setBacktestToDate] = useState<string>(() =>
+    dateInputDaysAgo(0),
+  );
+  const [backtestInitialEquity, setBacktestInitialEquity] =
+    useState<number>(1000);
   const [backtestUseAi, setBacktestUseAi] = useState<boolean>(false);
-  const [backtestAiLookbackCandles, setBacktestAiLookbackCandles] = useState<number>(240);
+  const [backtestAiLookbackCandles, setBacktestAiLookbackCandles] =
+    useState<number>(240);
   const [backtestAiCadenceBars, setBacktestAiCadenceBars] = useState<number>(1);
-  const [backtestAiMaxEvaluations, setBacktestAiMaxEvaluations] = useState<number>(50);
-  const [backtestAiConfidenceThreshold, setBacktestAiConfidenceThreshold] = useState<number>(0.72);
+  const [backtestAiMaxEvaluations, setBacktestAiMaxEvaluations] =
+    useState<number>(50);
+  const [backtestAiConfidenceThreshold, setBacktestAiConfidenceThreshold] =
+    useState<number>(0.72);
   const [creatingBacktest, setCreatingBacktest] = useState(false);
-  const [backtestFeedback, setBacktestFeedback] = useState<string | undefined>();
+  const [backtestFeedback, setBacktestFeedback] = useState<
+    string | undefined
+  >();
   const [validationTimeframe, setValidationTimeframe] = useState<string>("15m");
-  const [validationFromDate, setValidationFromDate] = useState<string>(() => dateInputDaysAgo(30));
-  const [validationToDate, setValidationToDate] = useState<string>(() => dateInputDaysAgo(0));
-  const [validationCandlesCount, setValidationCandlesCount] = useState<number>(240);
+  const [validationFromDate, setValidationFromDate] = useState<string>(() =>
+    dateInputDaysAgo(30),
+  );
+  const [validationToDate, setValidationToDate] = useState<string>(() =>
+    dateInputDaysAgo(0),
+  );
+  const [validationCandlesCount, setValidationCandlesCount] =
+    useState<number>(240);
   const [creatingValidation, setCreatingValidation] = useState(false);
-  const [validationFeedback, setValidationFeedback] = useState<string | undefined>();
+  const [validationFeedback, setValidationFeedback] = useState<
+    string | undefined
+  >();
 
   const { data: botDetails } = useSWR(
     botId ? ["bot-details", botId] : null,
     ([, id]) => fetchBotDetails(String(id)),
     { revalidateOnFocus: false },
   );
-  const { data: backtests, isLoading: backtestsLoading, mutate: mutateBacktests } = useSWR(
+  const {
+    data: backtests,
+    isLoading: backtestsLoading,
+    mutate: mutateBacktests,
+  } = useSWR(
     botId ? ["bot-backtests", botId] : null,
     ([, id]) => fetchBacktests(80, String(id)),
     {
       refreshInterval: (latestData) =>
-        Array.isArray(latestData) && latestData.some((entry) => entry.status === "running")
+        Array.isArray(latestData) &&
+        latestData.some((entry) => entry.status === "running")
           ? 8_000
           : 60_000,
       revalidateOnFocus: false,
     },
   );
-  const { data: validations, isLoading: validationsLoading, mutate: mutateValidations } = useSWR(
+  const {
+    data: validations,
+    isLoading: validationsLoading,
+    mutate: mutateValidations,
+  } = useSWR(
     botId ? ["bot-validations", botId] : null,
     ([, id]) => fetchRangeValidations(80, String(id)),
     { refreshInterval: 20_000, revalidateOnFocus: false },
@@ -103,11 +133,12 @@ export function BotBacktestsPage() {
     return <Navigate to="/bots" replace />;
   }
 
-  const symbol = botDetails?.summary && "symbol" in botDetails.summary
-    ? botDetails.summary.symbol
-    : botDetails?.bot && typeof botDetails.bot.symbol === "string"
-      ? botDetails.bot.symbol
-      : botId;
+  const symbol =
+    botDetails?.summary && "symbol" in botDetails.summary
+      ? botDetails.summary.symbol
+      : botDetails?.bot && typeof botDetails.bot.symbol === "string"
+        ? botDetails.bot.symbol
+        : botId;
 
   async function onCreateBacktest() {
     if (creatingBacktest) return;
@@ -208,10 +239,15 @@ export function BotBacktestsPage() {
       <header className="panel p-6">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
-            <p className="text-xs uppercase tracking-[0.2em] text-cyan-300/80">Bot Backtests</p>
-            <h1 className="mt-2 text-3xl font-semibold text-slate-100">{symbol}</h1>
+            <p className="text-xs uppercase tracking-[0.2em] text-cyan-300/80">
+              Bot Backtests
+            </p>
+            <h1 className="mt-2 text-3xl font-semibold text-slate-100">
+              {symbol}
+            </h1>
             <p className="mt-2 text-sm text-slate-300/90">
-              Backtest queue, historical results, and bot-scoped validation jobs.
+              Backtest queue, historical results, and bot-scoped validation
+              jobs.
             </p>
           </div>
           <div className="flex gap-2">
@@ -226,12 +262,22 @@ export function BotBacktestsPage() {
       </header>
 
       <section className="grid grid-cols-1 gap-4 md:grid-cols-3">
-        <MetricCard label="Backtests" value={String(stats?.backtests.total ?? backtests?.length ?? 0)} icon={<History className="h-5 w-5" />} />
-        <MetricCard label="Running" value={String(stats?.backtests.running ?? 0)} icon={<Loader2 className="h-5 w-5" />} />
+        <MetricCard
+          label="Backtests"
+          value={String(stats?.backtests.total ?? backtests?.length ?? 0)}
+          icon={<History className="h-5 w-5" />}
+        />
+        <MetricCard
+          label="Running"
+          value={String(stats?.backtests.running ?? 0)}
+          icon={<Loader2 className="h-5 w-5" />}
+        />
         <MetricCard
           label="Latest Net PnL"
           value={formatCurrency(stats?.backtests.latestNetPnl ?? 0)}
-          tone={(stats?.backtests.latestNetPnl ?? 0) >= 0 ? "positive" : "negative"}
+          tone={
+            (stats?.backtests.latestNetPnl ?? 0) >= 0 ? "positive" : "negative"
+          }
           icon={<History className="h-5 w-5" />}
         />
       </section>
@@ -240,12 +286,17 @@ export function BotBacktestsPage() {
         <SectionHeader
           title="Backtests"
           description="Run historical backtests in backend and track performance for this bot."
-          aside={backtestFeedback ? <p className="text-xs text-cyan-200">{backtestFeedback}</p> : undefined}
+          aside={
+            backtestFeedback ? (
+              <p className="text-xs text-cyan-200">{backtestFeedback}</p>
+            ) : undefined
+          }
         />
 
         <div className="mb-5 flex flex-wrap items-end gap-2 rounded-lg border border-white/10 bg-slate-900/45 p-3">
           <div className="inline-flex h-[54px] items-end pb-1 text-xs text-slate-300">
-            Symbol: <span className="ml-1 font-medium text-cyan-200">{symbol}</span>
+            Symbol:{" "}
+            <span className="ml-1 font-medium text-cyan-200">{symbol}</span>
           </div>
 
           <label className="inline-flex flex-col gap-1 text-xs text-slate-300">
@@ -274,7 +325,11 @@ export function BotBacktestsPage() {
               type="number"
               min={100}
               value={backtestInitialEquity}
-              onChange={(event) => setBacktestInitialEquity(Math.max(100, Number(event.target.value) || 1000))}
+              onChange={(event) =>
+                setBacktestInitialEquity(
+                  Math.max(100, Number(event.target.value) || 1000),
+                )
+              }
               className="w-28 rounded bg-slate-950/60 px-2 py-1 text-right text-slate-100 outline-none"
             />
           </label>
@@ -298,7 +353,14 @@ export function BotBacktestsPage() {
                   min={60}
                   max={600}
                   value={backtestAiLookbackCandles}
-                  onChange={(event) => setBacktestAiLookbackCandles(Math.max(60, Math.min(600, Number(event.target.value) || 240)))}
+                  onChange={(event) =>
+                    setBacktestAiLookbackCandles(
+                      Math.max(
+                        60,
+                        Math.min(600, Number(event.target.value) || 240),
+                      ),
+                    )
+                  }
                   className="w-24 rounded bg-slate-950/60 px-2 py-1 text-right text-slate-100 outline-none"
                 />
               </label>
@@ -309,7 +371,14 @@ export function BotBacktestsPage() {
                   min={1}
                   max={24}
                   value={backtestAiCadenceBars}
-                  onChange={(event) => setBacktestAiCadenceBars(Math.max(1, Math.min(24, Number(event.target.value) || 1)))}
+                  onChange={(event) =>
+                    setBacktestAiCadenceBars(
+                      Math.max(
+                        1,
+                        Math.min(24, Number(event.target.value) || 1),
+                      ),
+                    )
+                  }
                   className="w-20 rounded bg-slate-950/60 px-2 py-1 text-right text-slate-100 outline-none"
                 />
               </label>
@@ -320,7 +389,14 @@ export function BotBacktestsPage() {
                   min={1}
                   max={400}
                   value={backtestAiMaxEvaluations}
-                  onChange={(event) => setBacktestAiMaxEvaluations(Math.max(1, Math.min(400, Number(event.target.value) || 50)))}
+                  onChange={(event) =>
+                    setBacktestAiMaxEvaluations(
+                      Math.max(
+                        1,
+                        Math.min(400, Number(event.target.value) || 50),
+                      ),
+                    )
+                  }
                   className="w-24 rounded bg-slate-950/60 px-2 py-1 text-right text-slate-100 outline-none"
                 />
               </label>
@@ -332,7 +408,14 @@ export function BotBacktestsPage() {
                   max={1}
                   step={0.01}
                   value={backtestAiConfidenceThreshold}
-                  onChange={(event) => setBacktestAiConfidenceThreshold(Math.max(0, Math.min(1, Number(event.target.value) || 0.72)))}
+                  onChange={(event) =>
+                    setBacktestAiConfidenceThreshold(
+                      Math.max(
+                        0,
+                        Math.min(1, Number(event.target.value) || 0.72),
+                      ),
+                    )
+                  }
                   className="w-24 rounded bg-slate-950/60 px-2 py-1 text-right text-slate-100 outline-none"
                 />
               </label>
@@ -347,7 +430,9 @@ export function BotBacktestsPage() {
             className="inline-flex items-center gap-2 rounded-lg border border-cyan-300/30 bg-cyan-400/15 px-3 py-2 text-xs text-cyan-100 transition hover:bg-cyan-400/20 disabled:cursor-not-allowed disabled:opacity-60"
           >
             <Play className="h-3.5 w-3.5" />
-            {creatingBacktest ? "Running... (it will appear shortly)" : "Run Backtest"}
+            {creatingBacktest
+              ? "Running... (it will appear shortly)"
+              : "Run Backtest"}
           </button>
         </div>
 
@@ -370,7 +455,14 @@ export function BotBacktestsPage() {
                 const detailHref = `/bots/${encodeURIComponent(botId)}/backtests/${encodeURIComponent(backtest.id)}`;
                 const aiProgress =
                   backtest.ai?.enabled && backtest.ai.plannedEvaluations > 0
-                    ? Math.min(100, Math.round((backtest.ai.evaluationsRun / backtest.ai.plannedEvaluations) * 100))
+                    ? Math.min(
+                        100,
+                        Math.round(
+                          (backtest.ai.evaluationsRun /
+                            backtest.ai.plannedEvaluations) *
+                            100,
+                        ),
+                      )
                     : undefined;
                 const progressLabel =
                   backtest.status === "running"
@@ -384,9 +476,15 @@ export function BotBacktestsPage() {
                         : "-";
 
                 return (
-                  <tr key={backtest.id} className="border-t border-white/5 text-slate-200">
+                  <tr
+                    key={backtest.id}
+                    className="border-t border-white/5 text-slate-200"
+                  >
                     <td className="py-3 pr-4 text-xs text-slate-300">
-                      <Link to={detailHref} className="text-cyan-200 transition hover:text-cyan-100">
+                      <Link
+                        to={detailHref}
+                        className="text-cyan-200 transition hover:text-cyan-100"
+                      >
                         {formatDateTime(backtest.createdAtMs)}
                       </Link>
                     </td>
@@ -402,17 +500,28 @@ export function BotBacktestsPage() {
                       )}
                     </td>
                     <td className="py-3 pr-4">{backtest.status}</td>
-                    <td className="py-3 pr-4 text-xs text-slate-300">{progressLabel}</td>
+                    <td className="py-3 pr-4 text-xs text-slate-300">
+                      {progressLabel}
+                    </td>
                     <td className="py-3 pr-4">{backtest.totalTrades}</td>
-                    <td className="py-3 pr-4">{(backtest.winRate * 100).toFixed(1)}%</td>
-                    <td className="py-3 pr-4">{formatCurrency(backtest.netPnl)}</td>
-                    <td className="py-3">{formatCurrency(backtest.endingEquity)}</td>
+                    <td className="py-3 pr-4">
+                      {(backtest.winRate * 100).toFixed(1)}%
+                    </td>
+                    <td className="py-3 pr-4">
+                      {formatCurrency(backtest.netPnl)}
+                    </td>
+                    <td className="py-3">
+                      {formatCurrency(backtest.endingEquity)}
+                    </td>
                   </tr>
                 );
               })}
               {backtestsLoading && (backtests?.length ?? 0) === 0 ? (
                 <tr>
-                  <td colSpan={8} className="py-4 text-center text-xs text-slate-400">
+                  <td
+                    colSpan={8}
+                    className="py-4 text-center text-xs text-slate-400"
+                  >
                     Loading backtests...
                   </td>
                 </tr>
@@ -426,12 +535,17 @@ export function BotBacktestsPage() {
         <SectionHeader
           title="Range Validation (LLM)"
           description="Queue async range checks powered by the validation worker."
-          aside={validationFeedback ? <p className="text-xs text-cyan-200">{validationFeedback}</p> : undefined}
+          aside={
+            validationFeedback ? (
+              <p className="text-xs text-cyan-200">{validationFeedback}</p>
+            ) : undefined
+          }
         />
 
         <div className="mb-5 flex flex-wrap items-end gap-2 rounded-lg border border-white/10 bg-slate-900/45 p-3">
           <div className="inline-flex h-[54px] items-end pb-1 text-xs text-slate-300">
-            Symbol: <span className="ml-1 font-medium text-cyan-200">{symbol}</span>
+            Symbol:{" "}
+            <span className="ml-1 font-medium text-cyan-200">{symbol}</span>
           </div>
 
           <label className="inline-flex min-w-[120px] flex-col gap-1 text-xs text-slate-300">
@@ -457,7 +571,14 @@ export function BotBacktestsPage() {
               min={60}
               max={600}
               value={validationCandlesCount}
-              onChange={(event) => setValidationCandlesCount(Math.max(60, Math.min(600, Number(event.target.value) || 240)))}
+              onChange={(event) =>
+                setValidationCandlesCount(
+                  Math.max(
+                    60,
+                    Math.min(600, Number(event.target.value) || 240),
+                  ),
+                )
+              }
               className="w-24 rounded bg-slate-950/60 px-2 py-1 text-right text-slate-100 outline-none"
             />
           </label>
@@ -494,7 +615,9 @@ export function BotBacktestsPage() {
             ) : (
               <WandSparkles className="h-3.5 w-3.5" />
             )}
-            {creatingValidation ? "Running... (result appears shortly)" : "Run Validation"}
+            {creatingValidation
+              ? "Running... (result appears shortly)"
+              : "Run Validation"}
           </button>
         </div>
 
@@ -518,8 +641,13 @@ export function BotBacktestsPage() {
                 const model = validation.finalModel ?? validation.modelPrimary;
 
                 return (
-                  <tr key={validation.id} className="border-t border-white/5 text-slate-200">
-                    <td className="py-3 pr-4 text-xs text-slate-300">{formatDateTime(validation.createdAtMs)}</td>
+                  <tr
+                    key={validation.id}
+                    className="border-t border-white/5 text-slate-200"
+                  >
+                    <td className="py-3 pr-4 text-xs text-slate-300">
+                      {formatDateTime(validation.createdAtMs)}
+                    </td>
                     <td className="py-3 pr-4">{validation.timeframe}</td>
                     <td className="py-3 pr-4 text-xs">
                       <span className="inline-flex items-center gap-1.5">
@@ -534,12 +662,18 @@ export function BotBacktestsPage() {
                       </span>
                     </td>
                     <td className="py-3 pr-4 text-xs text-slate-300">
-                      {range ? `VAL ${range.val.toFixed(2)} / POC ${range.poc.toFixed(2)} / VAH ${range.vah.toFixed(2)}` : "-"}
+                      {range
+                        ? `VAL ${range.val.toFixed(2)} / POC ${range.poc.toFixed(2)} / VAH ${range.vah.toFixed(2)}`
+                        : "-"}
                     </td>
                     <td className="py-3 pr-4">
-                      {typeof confidence === "number" ? `${(confidence * 100).toFixed(1)}%` : "-"}
+                      {typeof confidence === "number"
+                        ? `${(confidence * 100).toFixed(1)}%`
+                        : "-"}
                     </td>
-                    <td className="py-3 pr-4 text-xs text-slate-300">{model}</td>
+                    <td className="py-3 pr-4 text-xs text-slate-300">
+                      {model}
+                    </td>
                     <td className="py-3 text-xs text-slate-300">
                       {validation.errorMessage
                         ? validation.errorMessage
@@ -552,7 +686,10 @@ export function BotBacktestsPage() {
               })}
               {validationsLoading && (validations?.length ?? 0) === 0 ? (
                 <tr>
-                  <td colSpan={7} className="py-4 text-center text-xs text-slate-400">
+                  <td
+                    colSpan={7}
+                    className="py-4 text-center text-xs text-slate-400"
+                  >
                     Loading validations...
                   </td>
                 </tr>

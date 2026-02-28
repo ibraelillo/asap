@@ -7,8 +7,16 @@ import {
   PutEventsCommand,
 } from "@aws-sdk/client-eventbridge";
 import type { Candle, EquityPoint } from "@repo/ranging-core";
-import { buildBotSummaries, computeDashboardMetrics, mapRunsToTrades } from "./monitoring/analytics";
-import { getRuntimeBotById, getRuntimeBotBySymbol, listActiveRuntimeBots } from "./bot-registry";
+import {
+  buildBotSummaries,
+  computeDashboardMetrics,
+  mapRunsToTrades,
+} from "./monitoring/analytics";
+import {
+  getRuntimeBotById,
+  getRuntimeBotBySymbol,
+  listActiveRuntimeBots,
+} from "./bot-registry";
 import {
   createBacktestIdentity,
   createFailedBacktestRecord,
@@ -203,7 +211,9 @@ function getBacktestBusName(): string {
   );
 }
 
-async function publishBacktestRequested(detail: BacktestRequestedDetail): Promise<void> {
+async function publishBacktestRequested(
+  detail: BacktestRequestedDetail,
+): Promise<void> {
   const busName = getBacktestBusName();
   const result = await getEventBridgeClient().send(
     new PutEventsCommand({
@@ -263,32 +273,41 @@ function parseLimit(raw: string | undefined): number {
 function parseSymbols(raw: string | undefined): string[] {
   if (!raw) return [];
 
-  return [...new Set(raw
-    .split(",")
-    .map((symbol) => symbol.trim())
-    .filter((symbol) => symbol.length > 0))];
+  return [
+    ...new Set(
+      raw
+        .split(",")
+        .map((symbol) => symbol.trim())
+        .filter((symbol) => symbol.length > 0),
+    ),
+  ];
 }
 
 function parseIds(raw: string | undefined): string[] {
   if (!raw) return [];
 
-  return [...new Set(raw
-    .split(",")
-    .map((value) => value.trim())
-    .filter((value) => value.length > 0))];
+  return [
+    ...new Set(
+      raw
+        .split(",")
+        .map((value) => value.trim())
+        .filter((value) => value.length > 0),
+    ),
+  ];
 }
 
-function parsePositiveInt(raw: string | undefined, fallback: number, max: number): number {
+function parsePositiveInt(
+  raw: string | undefined,
+  fallback: number,
+  max: number,
+): number {
   if (!raw) return fallback;
   const parsed = Number(raw);
   if (!Number.isFinite(parsed) || parsed <= 0) return fallback;
   return Math.min(Math.floor(parsed), max);
 }
 
-function parseConfidence(
-  raw: unknown,
-  fallback: number,
-): number {
+function parseConfidence(raw: unknown, fallback: number): number {
   const parsed = Number(raw);
   if (!Number.isFinite(parsed)) return fallback;
   if (parsed <= 0) return 0;
@@ -296,7 +315,11 @@ function parseConfidence(
   return parsed;
 }
 
-function normalizePositiveNumber(raw: unknown, fallback: number, max: number): number {
+function normalizePositiveNumber(
+  raw: unknown,
+  fallback: number,
+  max: number,
+): number {
   if (raw === undefined || raw === null) return fallback;
   const parsed = Number(raw);
   if (!Number.isFinite(parsed) || parsed <= 0) return fallback;
@@ -304,11 +327,13 @@ function normalizePositiveNumber(raw: unknown, fallback: number, max: number): n
 }
 
 function sanitizeSegment(value: string): string {
-  return value
-    .trim()
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "") || "default";
+  return (
+    value
+      .trim()
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "") || "default"
+  );
 }
 
 function buildAccountId(exchangeId: string, name: string): string {
@@ -347,7 +372,9 @@ function isSupportedExchangeId(exchangeId: string): boolean {
   return SUPPORTED_EXCHANGE_IDS.has(exchangeId);
 }
 
-function isTimeframe(value: string | undefined): value is OrchestratorTimeframe {
+function isTimeframe(
+  value: string | undefined,
+): value is OrchestratorTimeframe {
   return Boolean(value && value in timeframeMs);
 }
 
@@ -380,11 +407,15 @@ function parseJsonBody<T>(event: APIGatewayProxyEventV2): T | null {
 
 function parseBacktestStaleMs(): number {
   const raw = Number(process.env.RANGING_BACKTEST_RUNNING_STALE_MS);
-  if (!Number.isFinite(raw) || raw <= 0) return DEFAULT_BACKTEST_RUNNING_STALE_MS;
+  if (!Number.isFinite(raw) || raw <= 0)
+    return DEFAULT_BACKTEST_RUNNING_STALE_MS;
   return Math.floor(raw);
 }
 
-function isStaleRunningBacktest(backtest: BacktestRecord, nowMs = Date.now()): boolean {
+function isStaleRunningBacktest(
+  backtest: BacktestRecord,
+  nowMs = Date.now(),
+): boolean {
   return (
     backtest.status === "running" &&
     nowMs - backtest.createdAtMs > parseBacktestStaleMs()
@@ -498,13 +529,22 @@ function buildStrategyPerformanceStats(backtests: BacktestRecord[]) {
 
   return {
     netPnl: completed.reduce((sum, backtest) => sum + backtest.netPnl, 0),
-    grossProfit: completed.reduce((sum, backtest) => sum + backtest.grossProfit, 0),
+    grossProfit: completed.reduce(
+      (sum, backtest) => sum + backtest.grossProfit,
+      0,
+    ),
     grossLoss: completed.reduce((sum, backtest) => sum + backtest.grossLoss, 0),
-    winRate: completed.length > 0
-      ? completed.reduce((sum, backtest) => sum + backtest.winRate, 0) / completed.length
-      : 0,
-    totalTrades: backtests.reduce((sum, backtest) => sum + backtest.totalTrades, 0),
-    profitableBacktests: completed.filter((backtest) => backtest.netPnl > 0).length,
+    winRate:
+      completed.length > 0
+        ? completed.reduce((sum, backtest) => sum + backtest.winRate, 0) /
+          completed.length
+        : 0,
+    totalTrades: backtests.reduce(
+      (sum, backtest) => sum + backtest.totalTrades,
+      0,
+    ),
+    profitableBacktests: completed.filter((backtest) => backtest.netPnl > 0)
+      .length,
     latestNetPnl: latestCompleted?.netPnl,
     maxDrawdownPct: latestCompleted?.maxDrawdownPct,
   };
@@ -512,10 +552,17 @@ function buildStrategyPerformanceStats(backtests: BacktestRecord[]) {
 
 function buildPositionLifecycleStats(positions: PositionRecord[]) {
   return {
-    openPositions: positions.filter((position) => position.status === "open").length,
-    reducingPositions: positions.filter((position) => position.status === "reducing").length,
-    closingPositions: positions.filter((position) => position.status === "closing").length,
-    reconciliationsPending: positions.filter((position) => position.status === "reconciling").length,
+    openPositions: positions.filter((position) => position.status === "open")
+      .length,
+    reducingPositions: positions.filter(
+      (position) => position.status === "reducing",
+    ).length,
+    closingPositions: positions.filter(
+      (position) => position.status === "closing",
+    ).length,
+    reconciliationsPending: positions.filter(
+      (position) => position.status === "reconciling",
+    ).length,
     forcedCloseCount: 0,
     breakevenMoves: 0,
   };
@@ -527,7 +574,8 @@ function buildBacktestStats(backtests: BacktestRecord[]) {
 
   return {
     total: backtests.length,
-    running: backtests.filter((backtest) => backtest.status === "running").length,
+    running: backtests.filter((backtest) => backtest.status === "running")
+      .length,
     completed: completed.length,
     failed: backtests.filter((backtest) => backtest.status === "failed").length,
     profitable: completed.filter((backtest) => backtest.netPnl > 0).length,
@@ -558,30 +606,45 @@ async function loadStrategySummaries(
   const positions = positionsByBot.flat();
   const strategyIds = [...new Set(bots.map((bot) => bot.strategyId))];
 
-  return strategyIds.map((strategyId) => {
-    const strategyBots = bots.filter((bot) => bot.strategyId === strategyId);
-    const strategyBotIds = new Set(strategyBots.map((bot) => bot.id));
-    const strategyRuns = runs.filter((run) => strategyBotIds.has(run.botId));
-    const strategyRunsInWindow = strategyRuns.filter((run) => run.generatedAtMs >= windowStartMs);
-    const strategyBacktests = backtests.filter((backtest) => strategyBotIds.has(backtest.botId));
-    const strategyPositions = positions.filter((position) => strategyBotIds.has(position.botId));
+  return strategyIds
+    .map((strategyId) => {
+      const strategyBots = bots.filter((bot) => bot.strategyId === strategyId);
+      const strategyBotIds = new Set(strategyBots.map((bot) => bot.id));
+      const strategyRuns = runs.filter((run) => strategyBotIds.has(run.botId));
+      const strategyRunsInWindow = strategyRuns.filter(
+        (run) => run.generatedAtMs >= windowStartMs,
+      );
+      const strategyBacktests = backtests.filter((backtest) =>
+        strategyBotIds.has(backtest.botId),
+      );
+      const strategyPositions = positions.filter((position) =>
+        strategyBotIds.has(position.botId),
+      );
 
-    return {
-      strategyId,
-      versions: [...new Set(strategyBots.map((bot) => bot.strategyVersion))].sort(),
-      configuredBots: strategyBots.length,
-      activeBots: strategyBots.filter((bot) => bot.status === "active").length,
-      symbols: [...new Set(strategyBots.map((bot) => bot.symbol))].sort(),
-      operations: computeDashboardMetrics(strategyRunsInWindow),
-      strategy: buildStrategyPerformanceStats(strategyBacktests),
-      positions: buildPositionLifecycleStats(strategyPositions),
-      backtests: buildBacktestStats(strategyBacktests),
-      bots: strategyBots
-        .map((bot) => summaryByBotId.get(bot.id))
-        .filter((bot): bot is NonNullable<typeof bot> => Boolean(bot)),
-    };
-  }).map(({ bots: _bots, ...summary }) => summary)
-    .sort((a, b) => b.configuredBots - a.configuredBots || a.strategyId.localeCompare(b.strategyId));
+      return {
+        strategyId,
+        versions: [
+          ...new Set(strategyBots.map((bot) => bot.strategyVersion)),
+        ].sort(),
+        configuredBots: strategyBots.length,
+        activeBots: strategyBots.filter((bot) => bot.status === "active")
+          .length,
+        symbols: [...new Set(strategyBots.map((bot) => bot.symbol))].sort(),
+        operations: computeDashboardMetrics(strategyRunsInWindow),
+        strategy: buildStrategyPerformanceStats(strategyBacktests),
+        positions: buildPositionLifecycleStats(strategyPositions),
+        backtests: buildBacktestStats(strategyBacktests),
+        bots: strategyBots
+          .map((bot) => summaryByBotId.get(bot.id))
+          .filter((bot): bot is NonNullable<typeof bot> => Boolean(bot)),
+      };
+    })
+    .map(({ bots: _bots, ...summary }) => summary)
+    .sort(
+      (a, b) =>
+        b.configuredBots - a.configuredBots ||
+        a.strategyId.localeCompare(b.strategyId),
+    );
 }
 
 async function resolveBotById(botId: string): Promise<BotRecord | undefined> {
@@ -595,7 +658,9 @@ async function resolveBotById(botId: string): Promise<BotRecord | undefined> {
   return runtime;
 }
 
-async function resolveBotBySymbol(symbol: string): Promise<BotRecord | undefined> {
+async function resolveBotBySymbol(
+  symbol: string,
+): Promise<BotRecord | undefined> {
   const stored = await getBotRecordBySymbol(symbol);
   if (stored) return stored;
 
@@ -612,7 +677,9 @@ async function loadStrategyDetails(
   runsLimit: number,
   backtestLimit: number,
 ): Promise<StrategyDetailsPayload | undefined> {
-  const bots = (await syncConfiguredBots()).filter((bot) => bot.strategyId === strategyId);
+  const bots = (await syncConfiguredBots()).filter(
+    (bot) => bot.strategyId === strategyId,
+  );
   if (bots.length === 0) return undefined;
 
   const botIds = new Set(bots.map((bot) => bot.id));
@@ -628,7 +695,9 @@ async function loadStrategyDetails(
   const strategyRunsInWindow = strategyRuns.filter(
     (run) => run.generatedAtMs >= Date.now() - windowHours * 60 * 60_000,
   );
-  const strategyBacktests = backtests.filter((backtest) => botIds.has(backtest.botId));
+  const strategyBacktests = backtests.filter((backtest) =>
+    botIds.has(backtest.botId),
+  );
   const strategyPositions = positionsByBot.flat();
 
   return {
@@ -706,12 +775,16 @@ function buildDemoKlines(
   return candles;
 }
 
-async function loadDashboard(limit: number, botIds?: string[]): Promise<DashboardPayload> {
+async function loadDashboard(
+  limit: number,
+  botIds?: string[],
+): Promise<DashboardPayload> {
   const recentRuns = await listRecentRuns(limit);
   const configuredBots = await syncConfiguredBots();
-  const selectedBots = botIds && botIds.length > 0
-    ? configuredBots.filter((bot) => botIds.includes(bot.id))
-    : configuredBots;
+  const selectedBots =
+    botIds && botIds.length > 0
+      ? configuredBots.filter((bot) => botIds.includes(bot.id))
+      : configuredBots;
 
   const latestRunsByBotId =
     selectedBots.length > 0
@@ -792,7 +865,9 @@ export async function botRunsHandler(
   try {
     const limit = parseLimit(event.queryStringParameters?.limit);
     const botId = decodeURIComponent(rawBotId);
-    const runs = (await listRecentRuns(limit)).filter((run) => run.botId === botId);
+    const runs = (await listRecentRuns(limit)).filter(
+      (run) => run.botId === botId,
+    );
 
     return json(200, {
       generatedAt: new Date().toISOString(),
@@ -842,7 +917,9 @@ export async function accountsHandler(
 ): Promise<APIGatewayProxyResultV2> {
   try {
     const limit = parseLimit(event.queryStringParameters?.limit);
-    const exchangeId = normalizeExchangeId(event.queryStringParameters?.exchangeId);
+    const exchangeId = normalizeExchangeId(
+      event.queryStringParameters?.exchangeId,
+    );
     const accounts = (await listAccountRecords(limit))
       .filter((account) => !exchangeId || account.exchangeId === exchangeId)
       .map((account) => toAccountSummary(account));
@@ -1010,7 +1087,11 @@ export async function strategiesHandler(
       MAX_LIMIT,
     );
 
-    const strategies = await loadStrategySummaries(windowHours, runsLimit, backtestLimit);
+    const strategies = await loadStrategySummaries(
+      windowHours,
+      runsLimit,
+      backtestLimit,
+    );
     return json(200, {
       generatedAt: new Date().toISOString(),
       count: strategies.length,
@@ -1080,12 +1161,13 @@ export async function botDetailsHandler(
       return json(404, { error: "bot_not_found" });
     }
 
-    const [latestRun, openPosition, recentBacktests, recentValidations] = await Promise.all([
-      listLatestRunsByBotIds([bot.id]).then((runs) => runs[0]),
-      getLatestOpenPositionByBot(bot.id),
-      listRecentBacktestsByBotId(bot.id, 10),
-      listRecentRangeValidationsByBotId(bot.id, 10),
-    ]);
+    const [latestRun, openPosition, recentBacktests, recentValidations] =
+      await Promise.all([
+        listLatestRunsByBotIds([bot.id]).then((runs) => runs[0]),
+        getLatestOpenPositionByBot(bot.id),
+        listRecentBacktestsByBotId(bot.id, 10),
+        listRecentRangeValidationsByBotId(bot.id, 10),
+      ]);
 
     const summary = buildBotSummaries([bot], latestRun ? [latestRun] : [])[0];
 
@@ -1112,7 +1194,10 @@ export async function botPositionsHandler(
   }
 
   try {
-    const positions = await listPositionsByBot(decodeURIComponent(rawBotId), 50);
+    const positions = await listPositionsByBot(
+      decodeURIComponent(rawBotId),
+      50,
+    );
     return json(200, {
       generatedAt: new Date().toISOString(),
       count: positions.length,
@@ -1152,11 +1237,15 @@ export async function botStatsHandler(
     ]);
 
     const windowStartMs = Date.now() - windowHours * 60 * 60_000;
-    const runsInWindow = runs.filter((run) => run.generatedAtMs >= windowStartMs);
+    const runsInWindow = runs.filter(
+      (run) => run.generatedAtMs >= windowStartMs,
+    );
     const profitableBacktests = backtests.filter(
       (backtest) => backtest.status === "completed" && backtest.netPnl > 0,
     ).length;
-    const latestCompleted = backtests.find((backtest) => backtest.status === "completed");
+    const latestCompleted = backtests.find(
+      (backtest) => backtest.status === "completed",
+    );
     const operations = computeDashboardMetrics(runsInWindow);
     const flatPositions = positionsByBot.flat();
 
@@ -1177,27 +1266,44 @@ export async function botStatsHandler(
         grossLoss: backtests
           .filter((backtest) => backtest.status === "completed")
           .reduce((sum, backtest) => sum + backtest.grossLoss, 0),
-        winRate: backtests.length > 0
-          ? backtests.reduce((sum, backtest) => sum + backtest.winRate, 0) / backtests.length
-          : 0,
-        totalTrades: backtests.reduce((sum, backtest) => sum + backtest.totalTrades, 0),
+        winRate:
+          backtests.length > 0
+            ? backtests.reduce((sum, backtest) => sum + backtest.winRate, 0) /
+              backtests.length
+            : 0,
+        totalTrades: backtests.reduce(
+          (sum, backtest) => sum + backtest.totalTrades,
+          0,
+        ),
         profitableBacktests,
         latestNetPnl: latestCompleted?.netPnl,
         maxDrawdownPct: latestCompleted?.maxDrawdownPct,
       },
       positions: {
-        openPositions: flatPositions.filter((position) => position.status === "open").length,
-        reducingPositions: flatPositions.filter((position) => position.status === "reducing").length,
-        closingPositions: flatPositions.filter((position) => position.status === "closing").length,
-        reconciliationsPending: flatPositions.filter((position) => position.status === "reconciling").length,
+        openPositions: flatPositions.filter(
+          (position) => position.status === "open",
+        ).length,
+        reducingPositions: flatPositions.filter(
+          (position) => position.status === "reducing",
+        ).length,
+        closingPositions: flatPositions.filter(
+          (position) => position.status === "closing",
+        ).length,
+        reconciliationsPending: flatPositions.filter(
+          (position) => position.status === "reconciling",
+        ).length,
         forcedCloseCount: 0,
         breakevenMoves: 0,
       },
       backtests: {
         total: backtests.length,
-        running: backtests.filter((backtest) => backtest.status === "running").length,
-        completed: backtests.filter((backtest) => backtest.status === "completed").length,
-        failed: backtests.filter((backtest) => backtest.status === "failed").length,
+        running: backtests.filter((backtest) => backtest.status === "running")
+          .length,
+        completed: backtests.filter(
+          (backtest) => backtest.status === "completed",
+        ).length,
+        failed: backtests.filter((backtest) => backtest.status === "failed")
+          .length,
         profitable: profitableBacktests,
         latestNetPnl: latestCompleted?.netPnl,
       },
@@ -1233,15 +1339,21 @@ export async function botDetailsStatsHandler(
       MAX_STATS_WINDOW_HOURS,
     );
     const [runs, backtests, positions] = await Promise.all([
-      listRecentRunsBySymbol(bot.symbol, MAX_LIMIT).then((all) => all.filter((run) => run.botId === botId)),
+      listRecentRunsBySymbol(bot.symbol, MAX_LIMIT).then((all) =>
+        all.filter((run) => run.botId === botId),
+      ),
       listRecentBacktestsByBotId(botId, MAX_LIMIT),
       listPositionsByBot(botId, MAX_LIMIT),
     ]);
 
     const windowStartMs = Date.now() - windowHours * 60 * 60_000;
-    const runsInWindow = runs.filter((run) => run.generatedAtMs >= windowStartMs);
+    const runsInWindow = runs.filter(
+      (run) => run.generatedAtMs >= windowStartMs,
+    );
     const operations = computeDashboardMetrics(runsInWindow);
-    const latestCompleted = backtests.find((backtest) => backtest.status === "completed");
+    const latestCompleted = backtests.find(
+      (backtest) => backtest.status === "completed",
+    );
 
     const summary: BotStatsSummary = {
       generatedAt: new Date().toISOString(),
@@ -1260,28 +1372,49 @@ export async function botDetailsStatsHandler(
         grossLoss: backtests
           .filter((backtest) => backtest.status === "completed")
           .reduce((sum, backtest) => sum + backtest.grossLoss, 0),
-        winRate: backtests.length > 0
-          ? backtests.reduce((sum, backtest) => sum + backtest.winRate, 0) / backtests.length
-          : 0,
-        totalTrades: backtests.reduce((sum, backtest) => sum + backtest.totalTrades, 0),
-        profitableBacktests: backtests.filter((backtest) => backtest.status === "completed" && backtest.netPnl > 0).length,
+        winRate:
+          backtests.length > 0
+            ? backtests.reduce((sum, backtest) => sum + backtest.winRate, 0) /
+              backtests.length
+            : 0,
+        totalTrades: backtests.reduce(
+          (sum, backtest) => sum + backtest.totalTrades,
+          0,
+        ),
+        profitableBacktests: backtests.filter(
+          (backtest) => backtest.status === "completed" && backtest.netPnl > 0,
+        ).length,
         latestNetPnl: latestCompleted?.netPnl,
         maxDrawdownPct: latestCompleted?.maxDrawdownPct,
       },
       positions: {
-        openPositions: positions.filter((position) => position.status === "open").length,
-        reducingPositions: positions.filter((position) => position.status === "reducing").length,
-        closingPositions: positions.filter((position) => position.status === "closing").length,
-        reconciliationsPending: positions.filter((position) => position.status === "reconciling").length,
+        openPositions: positions.filter(
+          (position) => position.status === "open",
+        ).length,
+        reducingPositions: positions.filter(
+          (position) => position.status === "reducing",
+        ).length,
+        closingPositions: positions.filter(
+          (position) => position.status === "closing",
+        ).length,
+        reconciliationsPending: positions.filter(
+          (position) => position.status === "reconciling",
+        ).length,
         forcedCloseCount: 0,
         breakevenMoves: 0,
       },
       backtests: {
         total: backtests.length,
-        running: backtests.filter((backtest) => backtest.status === "running").length,
-        completed: backtests.filter((backtest) => backtest.status === "completed").length,
-        failed: backtests.filter((backtest) => backtest.status === "failed").length,
-        profitable: backtests.filter((backtest) => backtest.status === "completed" && backtest.netPnl > 0).length,
+        running: backtests.filter((backtest) => backtest.status === "running")
+          .length,
+        completed: backtests.filter(
+          (backtest) => backtest.status === "completed",
+        ).length,
+        failed: backtests.filter((backtest) => backtest.status === "failed")
+          .length,
+        profitable: backtests.filter(
+          (backtest) => backtest.status === "completed" && backtest.netPnl > 0,
+        ).length,
         latestNetPnl: latestCompleted?.netPnl,
       },
     };
@@ -1399,10 +1532,15 @@ async function enqueueBacktestForBot(
       : nowMs;
   const periodDays =
     typeof body.periodDays === "number" && Number.isFinite(body.periodDays)
-      ? Math.max(1, Math.min(Math.floor(body.periodDays), MAX_BACKTEST_PERIOD_DAYS))
+      ? Math.max(
+          1,
+          Math.min(Math.floor(body.periodDays), MAX_BACKTEST_PERIOD_DAYS),
+        )
       : DEFAULT_BACKTEST_PERIOD_DAYS;
   const fromMs =
-    typeof body.fromMs === "number" && Number.isFinite(body.fromMs) && body.fromMs > 0
+    typeof body.fromMs === "number" &&
+    Number.isFinite(body.fromMs) &&
+    body.fromMs > 0
       ? Math.floor(body.fromMs)
       : toMs - periodDays * 24 * 60 * 60_000;
 
@@ -1429,10 +1567,7 @@ async function enqueueBacktestForBot(
     return json(400, { error: "invalid_ai_config" });
   }
 
-  const input: Omit<
-    BacktestRequestedDetail,
-    "backtestId" | "createdAtMs"
-  > = {
+  const input: Omit<BacktestRequestedDetail, "backtestId" | "createdAtMs"> = {
     botId: bot.id,
     botName: bot.name,
     strategyId: bot.strategyId,
@@ -1450,10 +1585,7 @@ async function enqueueBacktestForBot(
   };
 
   const identity = createBacktestIdentity(bot.symbol);
-  const backtest = createRunningBacktestRecord(
-    input,
-    identity,
-  );
+  const backtest = createRunningBacktestRecord(input, identity);
 
   try {
     await putBacktestRecord(backtest);
@@ -1577,12 +1709,14 @@ function getValidationModels(): { primary: string; fallback: string } {
   const fallback = process.env.RANGING_VALIDATION_MODEL_FALLBACK?.trim();
 
   return {
-    primary: primary && primary.length > 0
-      ? primary
-      : DEFAULT_VALIDATION_MODEL_PRIMARY,
-    fallback: fallback && fallback.length > 0
-      ? fallback
-      : DEFAULT_VALIDATION_MODEL_FALLBACK,
+    primary:
+      primary && primary.length > 0
+        ? primary
+        : DEFAULT_VALIDATION_MODEL_PRIMARY,
+    fallback:
+      fallback && fallback.length > 0
+        ? fallback
+        : DEFAULT_VALIDATION_MODEL_FALLBACK,
   };
 }
 
@@ -1595,7 +1729,9 @@ async function enqueueValidationForBot(
     ? body.timeframe
     : defaults.executionTimeframe || DEFAULT_VALIDATION_TIMEFRAME;
   const candleCount = parsePositiveInt(
-    typeof body.candlesCount === "number" ? String(body.candlesCount) : undefined,
+    typeof body.candlesCount === "number"
+      ? String(body.candlesCount)
+      : undefined,
     DEFAULT_VALIDATION_CANDLE_COUNT,
     MAX_VALIDATION_CANDLE_COUNT,
   );
@@ -1606,7 +1742,9 @@ async function enqueueValidationForBot(
       ? Math.floor(body.toMs)
       : nowMs;
   const fromMs =
-    typeof body.fromMs === "number" && Number.isFinite(body.fromMs) && body.fromMs > 0
+    typeof body.fromMs === "number" &&
+    Number.isFinite(body.fromMs) &&
+    body.fromMs > 0
       ? Math.floor(body.fromMs)
       : toMs - candleCount * timeframeDurationMs(timeframe);
 
@@ -1683,13 +1821,16 @@ async function enqueueValidationForBot(
     try {
       await putRangeValidationRecord(failedRecord);
     } catch (storeError) {
-      console.error("[ranging-api] failed to persist validation enqueue failure", {
-        botId: bot.id,
-        symbol: bot.symbol,
-        validationId: validation.id,
-        queueError,
-        storeError,
-      });
+      console.error(
+        "[ranging-api] failed to persist validation enqueue failure",
+        {
+          botId: bot.id,
+          symbol: bot.symbol,
+          validationId: validation.id,
+          queueError,
+          storeError,
+        },
+      );
     }
 
     return json(500, {
@@ -1885,7 +2026,10 @@ export async function botBacktestsHandler(
 
   try {
     const limit = parseLimit(event.queryStringParameters?.limit);
-    const backtests = await listRecentBacktestsByBotId(decodeURIComponent(rawBotId), limit);
+    const backtests = await listRecentBacktestsByBotId(
+      decodeURIComponent(rawBotId),
+      limit,
+    );
     const normalizedBacktests = await markStaleBacktests(backtests);
 
     return json(200, {
@@ -1918,11 +2062,14 @@ async function loadBacktestDetails(
           "Backtest timed out while running. Retry with lower AI max calls or wider cadence.",
         );
       } catch (error) {
-        console.error("[ranging-api] failed to mark stale backtest in details", {
-          backtestId: backtest.id,
-          symbol: backtest.symbol,
-          error,
-        });
+        console.error(
+          "[ranging-api] failed to mark stale backtest in details",
+          {
+            backtestId: backtest.id,
+            symbol: backtest.symbol,
+            error,
+          },
+        );
       }
     }
 
@@ -1961,8 +2108,7 @@ async function loadBacktestDetails(
       equityCurve = replay.result.equityCurve;
       backtest = await persistBacktestRefsIfNeeded(backtest, replay.klineRefs);
     } catch (error) {
-      replayError =
-        error instanceof Error ? error.message : String(error);
+      replayError = error instanceof Error ? error.message : String(error);
       console.error("[ranging-api] backtest replay failed", {
         backtestId: backtest.id,
         symbol: backtest.symbol,

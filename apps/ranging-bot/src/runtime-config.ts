@@ -65,7 +65,10 @@ const defaultBotConfig = {
   accountId: string;
 };
 
-export function toBoolean(value: string | undefined, defaultValue: boolean): boolean {
+export function toBoolean(
+  value: string | undefined,
+  defaultValue: boolean,
+): boolean {
   if (value === undefined) return defaultValue;
   return value.trim().toLowerCase() === "true";
 }
@@ -88,11 +91,13 @@ function toPositiveInt(value: unknown, fallback: number): number {
 }
 
 function sanitizeSegment(value: string): string {
-  return value
-    .trim()
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "") || "default";
+  return (
+    value
+      .trim()
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "") || "default"
+  );
 }
 
 export function buildBotId(input: {
@@ -119,37 +124,47 @@ export function normalizeBotConfig(raw: unknown): RuntimeBotConfig | null {
     ? item.executionTimeframe
     : defaultBotConfig.executionTimeframe;
   const primaryRangeTimeframe =
-    isTimeframe(item.primaryRangeTimeframe) && isRangeTimeframe(item.primaryRangeTimeframe)
+    isTimeframe(item.primaryRangeTimeframe) &&
+    isRangeTimeframe(item.primaryRangeTimeframe)
       ? item.primaryRangeTimeframe
       : defaultBotConfig.primaryRangeTimeframe;
   const secondaryRangeTimeframe =
-    isTimeframe(item.secondaryRangeTimeframe) && isRangeTimeframe(item.secondaryRangeTimeframe)
+    isTimeframe(item.secondaryRangeTimeframe) &&
+    isRangeTimeframe(item.secondaryRangeTimeframe)
       ? item.secondaryRangeTimeframe
       : defaultBotConfig.secondaryRangeTimeframe;
 
-  const strategyId = typeof item.strategyId === "string" && item.strategyId.length > 0
-    ? item.strategyId
-    : defaultBotConfig.strategyId;
-  const strategyVersion = typeof item.strategyVersion === "string" && item.strategyVersion.length > 0
-    ? item.strategyVersion
-    : defaultBotConfig.strategyVersion;
-  const exchangeId = typeof item.exchangeId === "string" && item.exchangeId.length > 0
-    ? item.exchangeId
-    : defaultBotConfig.exchangeId;
-  const accountId = typeof item.accountId === "string" && item.accountId.length > 0
-    ? item.accountId
-    : defaultBotConfig.accountId;
+  const strategyId =
+    typeof item.strategyId === "string" && item.strategyId.length > 0
+      ? item.strategyId
+      : defaultBotConfig.strategyId;
+  const strategyVersion =
+    typeof item.strategyVersion === "string" && item.strategyVersion.length > 0
+      ? item.strategyVersion
+      : defaultBotConfig.strategyVersion;
+  const exchangeId =
+    typeof item.exchangeId === "string" && item.exchangeId.length > 0
+      ? item.exchangeId
+      : defaultBotConfig.exchangeId;
+  const accountId =
+    typeof item.accountId === "string" && item.accountId.length > 0
+      ? item.accountId
+      : defaultBotConfig.accountId;
 
   return {
-    id: typeof item.id === "string" && item.id.length > 0
-      ? item.id
-      : buildBotId({
-          exchangeId,
-          accountId,
-          strategyId,
-          symbol: item.symbol,
-        }),
-    name: typeof item.name === "string" && item.name.length > 0 ? item.name : item.symbol,
+    id:
+      typeof item.id === "string" && item.id.length > 0
+        ? item.id
+        : buildBotId({
+            exchangeId,
+            accountId,
+            strategyId,
+            symbol: item.symbol,
+          }),
+    name:
+      typeof item.name === "string" && item.name.length > 0
+        ? item.name
+        : item.symbol,
     strategyId,
     strategyVersion,
     exchangeId,
@@ -159,9 +174,18 @@ export function normalizeBotConfig(raw: unknown): RuntimeBotConfig | null {
     executionTimeframe,
     primaryRangeTimeframe,
     secondaryRangeTimeframe,
-    executionLimit: toPositiveInt(item.executionLimit, defaultBotConfig.executionLimit),
-    primaryRangeLimit: toPositiveInt(item.primaryRangeLimit, defaultBotConfig.primaryRangeLimit),
-    secondaryRangeLimit: toPositiveInt(item.secondaryRangeLimit, defaultBotConfig.secondaryRangeLimit),
+    executionLimit: toPositiveInt(
+      item.executionLimit,
+      defaultBotConfig.executionLimit,
+    ),
+    primaryRangeLimit: toPositiveInt(
+      item.primaryRangeLimit,
+      defaultBotConfig.primaryRangeLimit,
+    ),
+    secondaryRangeLimit: toPositiveInt(
+      item.secondaryRangeLimit,
+      defaultBotConfig.secondaryRangeLimit,
+    ),
     strategyConfig: item.strategyConfig,
     dryRun: item.dryRun,
     marginMode: item.marginMode,
@@ -188,15 +212,19 @@ export function parseBotConfigs(raw: string | undefined): RuntimeBotConfig[] {
 export function toBotDefinition(config: RuntimeBotConfig): BotDefinition {
   const nowMs = Date.now();
   return {
-    id: config.id ?? buildBotId({
-      exchangeId: config.exchangeId ?? defaultBotConfig.exchangeId,
-      accountId: config.accountId ?? defaultBotConfig.accountId,
-      strategyId: config.strategyId ?? defaultBotConfig.strategyId,
-      symbol: config.symbol,
-    }),
+    id:
+      config.id ??
+      buildBotId({
+        exchangeId: config.exchangeId ?? defaultBotConfig.exchangeId,
+        accountId: config.accountId ?? defaultBotConfig.accountId,
+        strategyId: config.strategyId ?? defaultBotConfig.strategyId,
+        symbol: config.symbol,
+      }),
     name: config.name ?? config.symbol,
-    strategyId: config.strategyId ?? defaultBotConfig.strategyId ?? "range-reversal",
-    strategyVersion: config.strategyVersion ?? defaultBotConfig.strategyVersion ?? "1",
+    strategyId:
+      config.strategyId ?? defaultBotConfig.strategyId ?? "range-reversal",
+    strategyVersion:
+      config.strategyVersion ?? defaultBotConfig.strategyVersion ?? "1",
     exchangeId: config.exchangeId ?? defaultBotConfig.exchangeId ?? "kucoin",
     accountId: config.accountId ?? defaultBotConfig.accountId ?? "default",
     symbol: config.symbol,
@@ -209,7 +237,10 @@ export function toBotDefinition(config: RuntimeBotConfig): BotDefinition {
     },
     context: {
       primaryPriceTimeframe: config.executionTimeframe,
-      additionalTimeframes: [config.primaryRangeTimeframe, config.secondaryRangeTimeframe],
+      additionalTimeframes: [
+        config.primaryRangeTimeframe,
+        config.secondaryRangeTimeframe,
+      ],
       providers: [],
     },
     riskProfileId: `${config.id ?? config.symbol}:risk`,
@@ -233,15 +264,22 @@ export function parseBotDefinitions(raw: string | undefined): BotDefinition[] {
   return parseBotConfigs(raw).map(toBotDefinition);
 }
 
-export function getClosedCandleEndTime(nowMs: number, timeframe: OrchestratorTimeframe): number {
+export function getClosedCandleEndTime(
+  nowMs: number,
+  timeframe: OrchestratorTimeframe,
+): number {
   const frameMs = timeframeMs[timeframe];
   return Math.floor(nowMs / frameMs) * frameMs - 1;
 }
 
-export function getTimeframeDurationMs(timeframe: OrchestratorTimeframe): number {
+export function getTimeframeDurationMs(
+  timeframe: OrchestratorTimeframe,
+): number {
   return timeframeMs[timeframe];
 }
 
-export function isRangeTimeframeAtLeast2h(timeframe: OrchestratorTimeframe): boolean {
+export function isRangeTimeframeAtLeast2h(
+  timeframe: OrchestratorTimeframe,
+): boolean {
   return isRangeTimeframe(timeframe);
 }

@@ -9,10 +9,12 @@ export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
 }
 
 const variantClasses: Record<NonNullable<ButtonProps["variant"]>, string> = {
-  primary: "border-cyan-300/30 bg-cyan-400/15 text-cyan-100 hover:bg-cyan-400/20",
+  primary:
+    "border-cyan-300/30 bg-cyan-400/15 text-cyan-100 hover:bg-cyan-400/20",
   secondary: "border-white/15 bg-white/5 text-slate-200 hover:bg-white/10",
   ghost: "border-transparent bg-transparent text-slate-200 hover:bg-white/5",
-  danger: "border-rose-300/30 bg-rose-400/15 text-rose-100 hover:bg-rose-400/20",
+  danger:
+    "border-rose-300/30 bg-rose-400/15 text-rose-100 hover:bg-rose-400/20",
 };
 
 const sizeClasses: Record<NonNullable<ButtonProps["size"]>, string> = {
@@ -20,34 +22,36 @@ const sizeClasses: Record<NonNullable<ButtonProps["size"]>, string> = {
   md: "gap-2 px-4 py-2.5 text-sm",
 };
 
-export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button(
-  {
-    className,
-    variant = "secondary",
-    size = "md",
-    type = "button",
-    leadingIcon,
-    trailingIcon,
-    children,
-    ...props
+export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
+  function Button(
+    {
+      className,
+      variant = "secondary",
+      size = "md",
+      type = "button",
+      leadingIcon,
+      trailingIcon,
+      children,
+      ...props
+    },
+    ref,
+  ) {
+    return (
+      <button
+        ref={ref}
+        type={type}
+        className={cn(
+          "inline-flex items-center justify-center rounded-lg border font-medium transition disabled:cursor-not-allowed disabled:opacity-60",
+          variantClasses[variant],
+          sizeClasses[size],
+          className,
+        )}
+        {...props}
+      >
+        {leadingIcon}
+        {children}
+        {trailingIcon}
+      </button>
+    );
   },
-  ref,
-) {
-  return (
-    <button
-      ref={ref}
-      type={type}
-      className={cn(
-        "inline-flex items-center justify-center rounded-lg border font-medium transition disabled:cursor-not-allowed disabled:opacity-60",
-        variantClasses[variant],
-        sizeClasses[size],
-        className,
-      )}
-      {...props}
-    >
-      {leadingIcon}
-      {children}
-      {trailingIcon}
-    </button>
-  );
-});
+);

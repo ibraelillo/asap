@@ -1,8 +1,5 @@
 import type { AccountResolver } from "@repo/trading-engine";
-import {
-  getAccountRecordById,
-  listAccountRecords,
-} from "./monitoring/store";
+import { getAccountRecordById, listAccountRecords } from "./monitoring/store";
 import type { AccountRecord } from "./monitoring/types";
 
 function buildEnvKucoinAccount(
@@ -38,9 +35,7 @@ function buildEnvKucoinAccount(
   };
 }
 
-export class RuntimeAccountResolver
-  implements AccountResolver<AccountRecord>
-{
+export class RuntimeAccountResolver implements AccountResolver<AccountRecord> {
   async getAccount(
     accountId: string,
     exchangeId?: string,
@@ -82,4 +77,3 @@ export class RuntimeAccountResolver
 }
 
 export const runtimeAccountResolver = new RuntimeAccountResolver();
-

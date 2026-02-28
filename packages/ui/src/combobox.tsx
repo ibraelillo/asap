@@ -35,12 +35,16 @@ export function Combobox<T extends string = string>({
   emptyState = "No matches found",
 }: ComboboxProps<T>) {
   const [query, setQuery] = useState("");
-  const selectedOption = options.find((option) => option.value === value) ?? null;
+  const selectedOption =
+    options.find((option) => option.value === value) ?? null;
   const normalizedQuery = normalizeSearch(query);
   const filteredOptions = useMemo(() => {
     if (!normalizedQuery) return options;
     return options.filter((option) => {
-      const haystack = [option.label, option.description].filter(Boolean).join(" ").toLowerCase();
+      const haystack = [option.label, option.description]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase();
       return haystack.includes(normalizedQuery);
     });
   }, [normalizedQuery, options]);
@@ -67,7 +71,9 @@ export function Combobox<T extends string = string>({
           <ComboboxInput
             className="w-full bg-transparent text-sm text-slate-100 outline-none placeholder:text-slate-500"
             placeholder={placeholder}
-            displayValue={(option: SelectOption<T> | null) => option?.label ?? ""}
+            displayValue={(option: SelectOption<T> | null) =>
+              option?.label ?? ""
+            }
             onChange={(event) => setQuery(event.target.value)}
           />
           <ComboboxButton className="rounded p-0.5 text-slate-400 transition hover:text-slate-200">

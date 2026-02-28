@@ -33,7 +33,9 @@ function isTimeframe(value: unknown): value is OrchestratorTimeframe {
   );
 }
 
-function parseRequestedDetail(raw: unknown): BacktestRequestedDetail | undefined {
+function parseRequestedDetail(
+  raw: unknown,
+): BacktestRequestedDetail | undefined {
   const detail =
     typeof raw === "string"
       ? (() => {
@@ -54,11 +56,18 @@ function parseRequestedDetail(raw: unknown): BacktestRequestedDetail | undefined
   const backtestId =
     typeof detail.backtestId === "string" ? detail.backtestId.trim() : "";
   const botId = typeof detail.botId === "string" ? detail.botId.trim() : "";
-  const botName = typeof detail.botName === "string" ? detail.botName.trim() : "";
-  const strategyId = typeof detail.strategyId === "string" ? detail.strategyId.trim() : "";
-  const strategyVersion = typeof detail.strategyVersion === "string" ? detail.strategyVersion.trim() : "";
-  const exchangeId = typeof detail.exchangeId === "string" ? detail.exchangeId.trim() : "";
-  const accountId = typeof detail.accountId === "string" ? detail.accountId.trim() : "";
+  const botName =
+    typeof detail.botName === "string" ? detail.botName.trim() : "";
+  const strategyId =
+    typeof detail.strategyId === "string" ? detail.strategyId.trim() : "";
+  const strategyVersion =
+    typeof detail.strategyVersion === "string"
+      ? detail.strategyVersion.trim()
+      : "";
+  const exchangeId =
+    typeof detail.exchangeId === "string" ? detail.exchangeId.trim() : "";
+  const accountId =
+    typeof detail.accountId === "string" ? detail.accountId.trim() : "";
   const symbol = typeof detail.symbol === "string" ? detail.symbol.trim() : "";
   const createdAtMs = Number(detail.createdAtMs);
   const fromMs = Number(detail.fromMs);
@@ -70,7 +79,17 @@ function parseRequestedDetail(raw: unknown): BacktestRequestedDetail | undefined
   const secondaryRangeTimeframe = detail.secondaryRangeTimeframe;
   const aiRaw = detail.ai;
 
-  if (!backtestId || !botId || !botName || !strategyId || !strategyVersion || !exchangeId || !accountId || !symbol) return undefined;
+  if (
+    !backtestId ||
+    !botId ||
+    !botName ||
+    !strategyId ||
+    !strategyVersion ||
+    !exchangeId ||
+    !accountId ||
+    !symbol
+  )
+    return undefined;
   if (!Number.isFinite(createdAtMs) || createdAtMs <= 0) return undefined;
   if (!Number.isFinite(fromMs) || !Number.isFinite(toMs) || fromMs >= toMs) {
     return undefined;
@@ -97,19 +116,27 @@ function parseRequestedDetail(raw: unknown): BacktestRequestedDetail | undefined
 
     if (typeof enabled !== "boolean") return undefined;
     if (enabled) {
-      if (!Number.isFinite(lookbackCandles) || lookbackCandles <= 0) return undefined;
+      if (!Number.isFinite(lookbackCandles) || lookbackCandles <= 0)
+        return undefined;
       if (!Number.isFinite(cadenceBars) || cadenceBars <= 0) return undefined;
-      if (!Number.isFinite(maxEvaluations) || maxEvaluations <= 0) return undefined;
+      if (!Number.isFinite(maxEvaluations) || maxEvaluations <= 0)
+        return undefined;
       if (!Number.isFinite(confidenceThreshold)) return undefined;
       if (!modelPrimary || !modelFallback) return undefined;
     }
 
     ai = {
       enabled,
-      lookbackCandles: Number.isFinite(lookbackCandles) ? Math.floor(lookbackCandles) : 240,
+      lookbackCandles: Number.isFinite(lookbackCandles)
+        ? Math.floor(lookbackCandles)
+        : 240,
       cadenceBars: Number.isFinite(cadenceBars) ? Math.floor(cadenceBars) : 1,
-      maxEvaluations: Number.isFinite(maxEvaluations) ? Math.floor(maxEvaluations) : 50,
-      confidenceThreshold: Number.isFinite(confidenceThreshold) ? confidenceThreshold : 0.72,
+      maxEvaluations: Number.isFinite(maxEvaluations)
+        ? Math.floor(maxEvaluations)
+        : 50,
+      confidenceThreshold: Number.isFinite(confidenceThreshold)
+        ? confidenceThreshold
+        : 0.72,
       modelPrimary: modelPrimary || "gpt-5-nano-2025-08-07",
       modelFallback: modelFallback || "gpt-5-mini-2025-08-07",
     };
@@ -144,7 +171,9 @@ function extractBacktestId(raw: unknown): string | undefined {
   return typeof id === "string" && id.trim().length > 0 ? id.trim() : undefined;
 }
 
-function toCreateBacktestInput(detail: BacktestRequestedDetail): CreateBacktestInput {
+function toCreateBacktestInput(
+  detail: BacktestRequestedDetail,
+): CreateBacktestInput {
   return {
     botId: detail.botId,
     botName: detail.botName,
@@ -202,10 +231,13 @@ export async function handler(
           });
         }
       } catch (error) {
-        console.error("[backtest-worker] failed to persist invalid payload failure", {
-          fallbackBacktestId,
-          error,
-        });
+        console.error(
+          "[backtest-worker] failed to persist invalid payload failure",
+          {
+            fallbackBacktestId,
+            error,
+          },
+        );
       }
     }
 
@@ -236,9 +268,10 @@ export async function handler(
       return;
     }
 
-    let runningRecord = existing && existing.status === "running"
-      ? existing
-      : createRunningBacktestRecord(input, identity);
+    let runningRecord =
+      existing && existing.status === "running"
+        ? existing
+        : createRunningBacktestRecord(input, identity);
 
     if (!existing || existing.status !== "running") {
       await putBacktestRecord(runningRecord);
@@ -265,8 +298,7 @@ export async function handler(
       aiEvaluations: result.ai?.evaluationsRun,
     });
   } catch (error) {
-    const message =
-      error instanceof Error ? error.message : String(error);
+    const message = error instanceof Error ? error.message : String(error);
 
     console.error("[backtest-worker] execution failed", {
       backtestId: detail.backtestId,

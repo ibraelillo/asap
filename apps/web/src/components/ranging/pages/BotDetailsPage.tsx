@@ -1,5 +1,12 @@
 import useSWR from "swr";
-import { Activity, ArrowRight, Bot, History, Layers3, Shield } from "lucide-react";
+import {
+  Activity,
+  ArrowRight,
+  Bot,
+  History,
+  Layers3,
+  Shield,
+} from "lucide-react";
 import { Link, Navigate, useParams } from "react-router-dom";
 import { MetricCard } from "../../trade-results/MetricCard";
 import {
@@ -8,12 +15,21 @@ import {
   fetchBotStats,
   fetchRuns,
 } from "../../../lib/ranging-api";
-import { ReasonBadges, SectionHeader, formatCurrency, formatDateTime } from "../BotUi";
+import {
+  ReasonBadges,
+  SectionHeader,
+  formatCurrency,
+  formatDateTime,
+} from "../BotUi";
 
 export function BotDetailsPage() {
   const { botId } = useParams<{ botId: string }>();
 
-  const { data: botDetails, error: botError, isLoading: botLoading } = useSWR(
+  const {
+    data: botDetails,
+    error: botError,
+    isLoading: botLoading,
+  } = useSWR(
     botId ? ["bot-details", botId] : null,
     ([, id]) => fetchBotDetails(String(id)),
     { revalidateOnFocus: false },
@@ -39,7 +55,9 @@ export function BotDetailsPage() {
   }
 
   if (!botDetails && botLoading) {
-    return <div className="panel p-6 text-sm text-slate-300">Loading bot...</div>;
+    return (
+      <div className="panel p-6 text-sm text-slate-300">Loading bot...</div>
+    );
   }
 
   if (!botDetails || botError) {
@@ -53,10 +71,13 @@ export function BotDetailsPage() {
     );
   }
 
-  const summary = botDetails.summary && "botId" in botDetails.summary
-    ? botDetails.summary
-    : undefined;
-  const openPosition = botDetails.openPosition ?? positions?.find((position) => position.status !== "closed");
+  const summary =
+    botDetails.summary && "botId" in botDetails.summary
+      ? botDetails.summary
+      : undefined;
+  const openPosition =
+    botDetails.openPosition ??
+    positions?.find((position) => position.status !== "closed");
   const recentBacktests = botDetails.backtests.slice(0, 6);
   const recentValidations = botDetails.validations.slice(0, 6);
 
@@ -65,14 +86,30 @@ export function BotDetailsPage() {
       <header className="panel p-6">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
-            <p className="text-xs uppercase tracking-[0.2em] text-cyan-300/80">Bot</p>
+            <p className="text-xs uppercase tracking-[0.2em] text-cyan-300/80">
+              Bot
+            </p>
             <h1 className="mt-2 text-3xl font-semibold text-slate-100">
-              {summary?.symbol ?? (typeof botDetails.bot.name === "string" ? botDetails.bot.name : botId)}
+              {summary?.symbol ??
+                (typeof botDetails.bot.name === "string"
+                  ? botDetails.bot.name
+                  : botId)}
             </h1>
             <p className="mt-2 text-sm text-slate-300/90">
-              {summary?.strategyId ?? (typeof botDetails.bot.strategyId === "string" ? botDetails.bot.strategyId : "-")} /{" "}
-              {summary?.exchangeId ?? (typeof botDetails.bot.exchangeId === "string" ? botDetails.bot.exchangeId : "-")} /{" "}
-              {summary?.accountId ?? (typeof botDetails.bot.accountId === "string" ? botDetails.bot.accountId : "-")}
+              {summary?.strategyId ??
+                (typeof botDetails.bot.strategyId === "string"
+                  ? botDetails.bot.strategyId
+                  : "-")}{" "}
+              /{" "}
+              {summary?.exchangeId ??
+                (typeof botDetails.bot.exchangeId === "string"
+                  ? botDetails.bot.exchangeId
+                  : "-")}{" "}
+              /{" "}
+              {summary?.accountId ??
+                (typeof botDetails.bot.accountId === "string"
+                  ? botDetails.bot.accountId
+                  : "-")}
             </p>
             <p className="mt-2 text-xs text-slate-400 mono">ID: {botId}</p>
           </div>
@@ -101,7 +138,11 @@ export function BotDetailsPage() {
       </header>
 
       <section className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-5">
-        <MetricCard label="Runs (24h)" value={String(stats?.operations.totalRuns ?? 0)} icon={<Activity className="h-5 w-5" />} />
+        <MetricCard
+          label="Runs (24h)"
+          value={String(stats?.operations.totalRuns ?? 0)}
+          icon={<Activity className="h-5 w-5" />}
+        />
         <MetricCard
           label="Signal Rate"
           value={`${((stats?.operations.signalRate ?? 0) * 100).toFixed(1)}%`}
@@ -126,42 +167,61 @@ export function BotDetailsPage() {
       </section>
 
       <section className="panel p-5">
-        <SectionHeader title="Latest Bot Analysis" description="Most recent runtime summary for this bot." />
+        <SectionHeader
+          title="Latest Bot Analysis"
+          description="Most recent runtime summary for this bot."
+        />
         <div className="grid grid-cols-1 gap-4 xl:grid-cols-4">
           <div className="rounded-xl border border-white/10 bg-slate-950/40 p-4">
             <p className="text-xs text-slate-400">Signal</p>
-            <p className="mt-2 text-lg font-semibold text-slate-100">{summary?.signal ?? "none"}</p>
+            <p className="mt-2 text-lg font-semibold text-slate-100">
+              {summary?.signal ?? "none"}
+            </p>
           </div>
           <div className="rounded-xl border border-white/10 bg-slate-950/40 p-4">
             <p className="text-xs text-slate-400">Processing</p>
-            <p className="mt-2 text-lg font-semibold text-slate-100">{summary?.processingStatus ?? "idle"}</p>
+            <p className="mt-2 text-lg font-semibold text-slate-100">
+              {summary?.processingStatus ?? "idle"}
+            </p>
           </div>
           <div className="rounded-xl border border-white/10 bg-slate-950/40 p-4">
             <p className="text-xs text-slate-400">Price</p>
-            <p className="mt-2 text-lg font-semibold text-slate-100">{summary?.price?.toLocaleString() ?? "-"}</p>
+            <p className="mt-2 text-lg font-semibold text-slate-100">
+              {summary?.price?.toLocaleString() ?? "-"}
+            </p>
           </div>
           <div className="rounded-xl border border-white/10 bg-slate-950/40 p-4">
             <p className="text-xs text-slate-400">Updated</p>
-            <p className="mt-2 text-lg font-semibold text-slate-100">{formatDateTime(summary?.generatedAtMs)}</p>
+            <p className="mt-2 text-lg font-semibold text-slate-100">
+              {formatDateTime(summary?.generatedAtMs)}
+            </p>
           </div>
         </div>
 
         <div className="mt-4 grid grid-cols-1 gap-4 xl:grid-cols-4">
           <div className="rounded-xl border border-white/10 bg-slate-950/40 p-4">
             <p className="text-xs text-slate-400">VAL</p>
-            <p className="mt-2 text-sm font-semibold text-slate-100">{summary?.rangeVal?.toLocaleString() ?? "-"}</p>
+            <p className="mt-2 text-sm font-semibold text-slate-100">
+              {summary?.rangeVal?.toLocaleString() ?? "-"}
+            </p>
           </div>
           <div className="rounded-xl border border-white/10 bg-slate-950/40 p-4">
             <p className="text-xs text-slate-400">POC</p>
-            <p className="mt-2 text-sm font-semibold text-slate-100">{summary?.rangePoc?.toLocaleString() ?? "-"}</p>
+            <p className="mt-2 text-sm font-semibold text-slate-100">
+              {summary?.rangePoc?.toLocaleString() ?? "-"}
+            </p>
           </div>
           <div className="rounded-xl border border-white/10 bg-slate-950/40 p-4">
             <p className="text-xs text-slate-400">VAH</p>
-            <p className="mt-2 text-sm font-semibold text-slate-100">{summary?.rangeVah?.toLocaleString() ?? "-"}</p>
+            <p className="mt-2 text-sm font-semibold text-slate-100">
+              {summary?.rangeVah?.toLocaleString() ?? "-"}
+            </p>
           </div>
           <div className="rounded-xl border border-white/10 bg-slate-950/40 p-4">
             <p className="text-xs text-slate-400">Money Flow Slope</p>
-            <p className="mt-2 text-sm font-semibold text-slate-100">{summary?.moneyFlowSlope?.toFixed(4) ?? "-"}</p>
+            <p className="mt-2 text-sm font-semibold text-slate-100">
+              {summary?.moneyFlowSlope?.toFixed(4) ?? "-"}
+            </p>
           </div>
         </div>
 
@@ -172,7 +232,10 @@ export function BotDetailsPage() {
 
       <section className="grid grid-cols-1 gap-4 xl:grid-cols-2">
         <div className="panel p-5">
-          <SectionHeader title="Position" description="Locally persisted lifecycle state." />
+          <SectionHeader
+            title="Position"
+            description="Locally persisted lifecycle state."
+          />
           {openPosition ? (
             <div className="grid grid-cols-2 gap-4 text-sm text-slate-200">
               <div>
@@ -193,32 +256,54 @@ export function BotDetailsPage() {
               </div>
               <div>
                 <p className="text-xs text-slate-400">Avg Entry</p>
-                <p className="mt-1">{openPosition.avgEntryPrice?.toLocaleString() ?? "-"}</p>
+                <p className="mt-1">
+                  {openPosition.avgEntryPrice?.toLocaleString() ?? "-"}
+                </p>
               </div>
               <div>
                 <p className="text-xs text-slate-400">Stop</p>
-                <p className="mt-1">{openPosition.stopPrice?.toLocaleString() ?? "-"}</p>
+                <p className="mt-1">
+                  {openPosition.stopPrice?.toLocaleString() ?? "-"}
+                </p>
               </div>
             </div>
           ) : (
-            <p className="text-sm text-slate-400">No open position recorded for this bot.</p>
+            <p className="text-sm text-slate-400">
+              No open position recorded for this bot.
+            </p>
           )}
         </div>
 
         <div className="panel p-5">
-          <SectionHeader title="Recent Validations" description="Latest AI range validations for this bot." />
+          <SectionHeader
+            title="Recent Validations"
+            description="Latest AI range validations for this bot."
+          />
           <div className="space-y-3">
             {recentValidations.length === 0 ? (
-              <p className="text-sm text-slate-400">No validations recorded yet.</p>
-            ) : recentValidations.map((validation) => (
-              <div key={validation.id} className="rounded-xl border border-white/10 bg-slate-950/40 p-3">
-                <div className="flex items-center justify-between gap-3">
-                  <p className="text-sm font-medium text-slate-100">{validation.timeframe}</p>
-                  <span className="text-xs text-slate-300">{validation.status}</span>
+              <p className="text-sm text-slate-400">
+                No validations recorded yet.
+              </p>
+            ) : (
+              recentValidations.map((validation) => (
+                <div
+                  key={validation.id}
+                  className="rounded-xl border border-white/10 bg-slate-950/40 p-3"
+                >
+                  <div className="flex items-center justify-between gap-3">
+                    <p className="text-sm font-medium text-slate-100">
+                      {validation.timeframe}
+                    </p>
+                    <span className="text-xs text-slate-300">
+                      {validation.status}
+                    </span>
+                  </div>
+                  <p className="mt-1 text-xs text-slate-400">
+                    {formatDateTime(validation.createdAtMs)}
+                  </p>
                 </div>
-                <p className="mt-1 text-xs text-slate-400">{formatDateTime(validation.createdAtMs)}</p>
-              </div>
-            ))}
+              ))
+            )}
           </div>
         </div>
       </section>
@@ -258,11 +343,18 @@ export function BotDetailsPage() {
             </thead>
             <tbody>
               {recentBacktests.map((backtest) => (
-                <tr key={backtest.id} className="border-t border-white/5 text-slate-200">
-                  <td className="py-3 pr-4 text-xs text-slate-300">{formatDateTime(backtest.createdAtMs)}</td>
+                <tr
+                  key={backtest.id}
+                  className="border-t border-white/5 text-slate-200"
+                >
+                  <td className="py-3 pr-4 text-xs text-slate-300">
+                    {formatDateTime(backtest.createdAtMs)}
+                  </td>
                   <td className="py-3 pr-4">{backtest.status}</td>
                   <td className="py-3 pr-4">{backtest.totalTrades}</td>
-                  <td className="py-3 pr-4">{formatCurrency(backtest.netPnl)}</td>
+                  <td className="py-3 pr-4">
+                    {formatCurrency(backtest.netPnl)}
+                  </td>
                   <td className="py-3">
                     <Link
                       to={`/bots/${encodeURIComponent(botId)}/backtests/${encodeURIComponent(backtest.id)}`}
@@ -279,7 +371,10 @@ export function BotDetailsPage() {
       </section>
 
       <section className="panel p-5">
-        <SectionHeader title="Recent Analysis Feed" description="Per-run decision output from the orchestrator." />
+        <SectionHeader
+          title="Recent Analysis Feed"
+          description="Per-run decision output from the orchestrator."
+        />
         <div className="overflow-x-auto">
           <table className="min-w-full text-left text-sm">
             <thead>
@@ -293,12 +388,23 @@ export function BotDetailsPage() {
             </thead>
             <tbody>
               {(runs ?? []).slice(0, 80).map((run) => (
-                <tr key={run.id} className="border-t border-white/5 text-slate-200">
-                  <td className="py-3 pr-4 text-xs text-slate-300">{formatDateTime(run.generatedAtMs)}</td>
+                <tr
+                  key={run.id}
+                  className="border-t border-white/5 text-slate-200"
+                >
+                  <td className="py-3 pr-4 text-xs text-slate-300">
+                    {formatDateTime(run.generatedAtMs)}
+                  </td>
                   <td className="py-3 pr-4">{run.signal ?? "none"}</td>
-                  <td className="py-3 pr-4 text-xs text-slate-300">{run.processing.status}</td>
-                  <td className="py-3 pr-4">{run.price?.toLocaleString() ?? "-"}</td>
-                  <td className="py-3 text-xs text-slate-300">{run.reasons.join(", ")}</td>
+                  <td className="py-3 pr-4 text-xs text-slate-300">
+                    {run.processing.status}
+                  </td>
+                  <td className="py-3 pr-4">
+                    {run.price?.toLocaleString() ?? "-"}
+                  </td>
+                  <td className="py-3 text-xs text-slate-300">
+                    {run.reasons.join(", ")}
+                  </td>
                 </tr>
               ))}
             </tbody>

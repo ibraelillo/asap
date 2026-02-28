@@ -20,7 +20,12 @@ function feeFor(price: number, quantity: number, feeRate: number): number {
   return Math.abs(price * quantity) * feeRate;
 }
 
-function applySlippage(price: number, side: Side, kind: "entry" | "exit", bps: number): number {
+function applySlippage(
+  price: number,
+  side: Side,
+  kind: "entry" | "exit",
+  bps: number,
+): number {
   if (!Number.isFinite(bps) || bps <= 0) return price;
   const move = price * (bps / 10_000);
   if (kind === "entry") {
@@ -29,12 +34,23 @@ function applySlippage(price: number, side: Side, kind: "entry" | "exit", bps: n
   return side === "long" ? price - move : price + move;
 }
 
-function grossPnlFor(side: Side, entry: number, exit: number, qty: number): number {
+function grossPnlFor(
+  side: Side,
+  entry: number,
+  exit: number,
+  qty: number,
+): number {
   return side === "long" ? (exit - entry) * qty : (entry - exit) * qty;
 }
 
-function targetTouched(side: Side, candle: Candle, targetPrice: number): boolean {
-  return side === "long" ? candle.high >= targetPrice : candle.low <= targetPrice;
+function targetTouched(
+  side: Side,
+  candle: Candle,
+  targetPrice: number,
+): boolean {
+  return side === "long"
+    ? candle.high >= targetPrice
+    : candle.low <= targetPrice;
 }
 
 function stopTouched(side: Side, candle: Candle, stopPrice: number): boolean {
@@ -54,12 +70,25 @@ function computeMaxDrawdownPct(equityCurve: EquityPoint[]): number {
   return maxDd;
 }
 
-function buildMetrics<TMeta>(positions: SimulatedPosition<TMeta>[], endingEquity: number, maxDrawdownPct: number): BacktestMetrics {
-  const closed = positions.filter((position) => position.closedAtMs !== undefined);
+function buildMetrics<TMeta>(
+  positions: SimulatedPosition<TMeta>[],
+  endingEquity: number,
+  maxDrawdownPct: number,
+): BacktestMetrics {
+  const closed = positions.filter(
+    (position) => position.closedAtMs !== undefined,
+  );
   const totalTrades = closed.length;
-  const netPnl = closed.reduce((acc, position) => acc + position.realizedPnl - position.entryFee, 0);
-  const wins = closed.filter((position) => position.realizedPnl - position.entryFee > 0).length;
-  const losses = closed.filter((position) => position.realizedPnl - position.entryFee < 0).length;
+  const netPnl = closed.reduce(
+    (acc, position) => acc + position.realizedPnl - position.entryFee,
+    0,
+  );
+  const wins = closed.filter(
+    (position) => position.realizedPnl - position.entryFee > 0,
+  ).length;
+  const losses = closed.filter(
+    (position) => position.realizedPnl - position.entryFee < 0,
+  ).length;
   const grossProfit = closed
     .map((position) => position.realizedPnl - position.entryFee)
     .filter((pnl) => pnl > 0)
@@ -89,15 +118,21 @@ interface ActivePosition<TMeta> extends SimulatedPosition<TMeta> {
   management?: PositionManagementPlan;
 }
 
-function clonePosition<TMeta>(position: ActivePosition<TMeta>): SimulatedPosition<TMeta> {
+function clonePosition<TMeta>(
+  position: ActivePosition<TMeta>,
+): SimulatedPosition<TMeta> {
   return {
     ...position,
     fills: [...position.fills],
-    strategyContext: position.strategyContext ? { ...position.strategyContext } : undefined,
+    strategyContext: position.strategyContext
+      ? { ...position.strategyContext }
+      : undefined,
     management: position.management
       ? {
           ...position.management,
-          takeProfits: position.management.takeProfits?.map((item) => ({ ...item })),
+          takeProfits: position.management.takeProfits?.map((item) => ({
+            ...item,
+          })),
         }
       : undefined,
   };
@@ -118,9 +153,10 @@ export function runBacktestEngine<TConfig, TSnapshot, TMeta = unknown>(
 ): BacktestResult<TMeta> {
   const executionCandles = input.market.executionCandles;
   const feeRate = input.request.feeModel.rate;
-  const slippageBps = input.request.slippageModel.type === "fixed-bps"
-    ? input.request.slippageModel.bps ?? 0
-    : 0;
+  const slippageBps =
+    input.request.slippageModel.type === "fixed-bps"
+      ? (input.request.slippageModel.bps ?? 0)
+      : 0;
 
   let equity = input.request.initialEquity;
   let cooldownUntilIndex = -1;
@@ -130,9 +166,12 @@ export function runBacktestEngine<TConfig, TSnapshot, TMeta = unknown>(
 
   let activePosition: ActivePosition<TMeta> | null = input.initialPosition
     ? (() => {
-        const strategyEntryPrice = input.initialPosition?.strategyContext?.["entryPrice"];
+        const strategyEntryPrice =
+          input.initialPosition?.strategyContext?.["entryPrice"];
         const normalizedStrategyEntryPrice =
-          typeof strategyEntryPrice === "number" ? strategyEntryPrice : undefined;
+          typeof strategyEntryPrice === "number"
+            ? strategyEntryPrice
+            : undefined;
 
         return {
           ...input.initialPosition,
@@ -161,9 +200,19 @@ export function runBacktestEngine<TConfig, TSnapshot, TMeta = unknown>(
     const qty = Math.min(quantity, activePosition.remainingQuantity);
     if (qty <= 0) return;
 
-    const exitPrice = applySlippage(rawPrice, activePosition.side, "exit", slippageBps);
+    const exitPrice = applySlippage(
+      rawPrice,
+      activePosition.side,
+      "exit",
+      slippageBps,
+    );
     const fee = feeFor(exitPrice, qty, feeRate);
-    const grossPnl = grossPnlFor(activePosition.side, activePosition.entryPrice, exitPrice, qty);
+    const grossPnl = grossPnlFor(
+      activePosition.side,
+      activePosition.entryPrice,
+      exitPrice,
+      qty,
+    );
     const netPnl = grossPnl - fee;
 
     equity += netPnl;
@@ -178,7 +227,12 @@ export function runBacktestEngine<TConfig, TSnapshot, TMeta = unknown>(
       botId: input.bot.id,
       positionId: activePosition.positionId,
       side: activePosition.side,
-      purpose: label === "stop" ? "stop" : label === "signal" || label === "end" ? "close" : "take-profit",
+      purpose:
+        label === "stop"
+          ? "stop"
+          : label === "signal" || label === "end"
+            ? "close"
+            : "take-profit",
       status: "filled",
       requestedPrice: rawPrice,
       executedPrice: exitPrice,
@@ -245,7 +299,9 @@ export function runBacktestEngine<TConfig, TSnapshot, TMeta = unknown>(
     });
 
     const activeTargets = targets.filter((target) => {
-      return !activePosition?.fills.some((fill) => fill.reason === "tp" && fill.price === target.price);
+      return !activePosition?.fills.some(
+        (fill) => fill.reason === "tp" && fill.price === target.price,
+      );
     });
 
     const processTargets = () => {
@@ -271,11 +327,19 @@ export function runBacktestEngine<TConfig, TSnapshot, TMeta = unknown>(
     const processStop = () => {
       if (!activePosition || activePosition.stopPrice === undefined) return;
       if (stopTouched(activePosition.side, candle, activePosition.stopPrice)) {
-        closePortion(candle, "stop", activePosition.remainingQuantity, activePosition.stopPrice);
+        closePortion(
+          candle,
+          "stop",
+          activePosition.remainingQuantity,
+          activePosition.stopPrice,
+        );
       }
     };
 
-    if ((input.bot.metadata?.intrabarExitPriority as string | undefined) === "target-first") {
+    if (
+      (input.bot.metadata?.intrabarExitPriority as string | undefined) ===
+      "target-first"
+    ) {
       processTargets();
       if (activePosition) processStop();
     } else {
@@ -285,23 +349,37 @@ export function runBacktestEngine<TConfig, TSnapshot, TMeta = unknown>(
 
     if (!activePosition) return;
 
-    const closeIntent = decision.intents.find((intent): intent is Extract<TradingIntent<TMeta>, { kind: "close" }> => {
-      return intent.kind === "close" && intent.side === activePosition?.side;
-    });
+    const closeIntent = decision.intents.find(
+      (intent): intent is Extract<TradingIntent<TMeta>, { kind: "close" }> => {
+        return intent.kind === "close" && intent.side === activePosition?.side;
+      },
+    );
 
     if (closeIntent) {
-      closePortion(candle, "signal", activePosition.remainingQuantity, closeIntent.price ?? candle.close);
+      closePortion(
+        candle,
+        "signal",
+        activePosition.remainingQuantity,
+        closeIntent.price ?? candle.close,
+      );
       return;
     }
 
     if (!activePosition || !management?.closeOnOppositeIntent) return;
 
-    const oppositeEnter = decision.intents.find((intent): intent is EnterPositionIntent<TMeta> => {
-      return intent.kind === "enter" && intent.side !== activePosition?.side;
-    });
+    const oppositeEnter = decision.intents.find(
+      (intent): intent is EnterPositionIntent<TMeta> => {
+        return intent.kind === "enter" && intent.side !== activePosition?.side;
+      },
+    );
 
     if (oppositeEnter) {
-      closePortion(candle, "signal", activePosition.remainingQuantity, candle.close);
+      closePortion(
+        candle,
+        "signal",
+        activePosition.remainingQuantity,
+        candle.close,
+      );
     }
   };
 
@@ -349,7 +427,10 @@ export function runBacktestEngine<TConfig, TSnapshot, TMeta = unknown>(
     }
 
     if (!activePosition && index >= cooldownUntilIndex) {
-      const enterIntent = decision.intents.find((intent): intent is EnterPositionIntent<TMeta> => intent.kind === "enter");
+      const enterIntent = decision.intents.find(
+        (intent): intent is EnterPositionIntent<TMeta> =>
+          intent.kind === "enter",
+      );
       if (enterIntent) {
         const sizing = input.positionSizer({
           bot: input.bot,
@@ -449,7 +530,12 @@ export function runBacktestEngine<TConfig, TSnapshot, TMeta = unknown>(
 
   const lastCandle = executionCandles[executionCandles.length - 1];
   if (activePosition && lastCandle) {
-    closePortion(lastCandle, "end", activePosition.remainingQuantity, lastCandle.close);
+    closePortion(
+      lastCandle,
+      "end",
+      activePosition.remainingQuantity,
+      lastCandle.close,
+    );
     if (equityCurve.length > 0) {
       equityCurve[equityCurve.length - 1] = {
         time: lastCandle.time,

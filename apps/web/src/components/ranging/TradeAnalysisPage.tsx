@@ -30,18 +30,28 @@ function formatPrice(value?: number): string {
   return value.toLocaleString(undefined, { maximumFractionDigits: 2 });
 }
 
-function buildTpRecap(analysis: TradeAnalysisPayload, positionNotionalUsd: number) {
+function buildTpRecap(
+  analysis: TradeAnalysisPayload,
+  positionNotionalUsd: number,
+) {
   const entryPrice = analysis.trade.price ?? analysis.run.price;
   const tp1Price = analysis.run.rangePoc;
   const side = analysis.trade.side;
 
-  const preferredTp2 = side === "long" ? analysis.run.rangeVah : analysis.run.rangeVal;
-  const fallbackTp2 = side === "long" ? analysis.run.rangeVal : analysis.run.rangeVah;
+  const preferredTp2 =
+    side === "long" ? analysis.run.rangeVah : analysis.run.rangeVal;
+  const fallbackTp2 =
+    side === "long" ? analysis.run.rangeVal : analysis.run.rangeVah;
   const tp2Price = preferredTp2 ?? fallbackTp2;
 
-  const tp2Label = side === "long"
-    ? (typeof analysis.run.rangeVah === "number" ? "VAH" : "VAL")
-    : (typeof analysis.run.rangeVal === "number" ? "VAL" : "VAH");
+  const tp2Label =
+    side === "long"
+      ? typeof analysis.run.rangeVah === "number"
+        ? "VAH"
+        : "VAL"
+      : typeof analysis.run.rangeVal === "number"
+        ? "VAL"
+        : "VAH";
 
   if (
     typeof entryPrice !== "number" ||
@@ -89,11 +99,15 @@ function buildTpRecap(analysis: TradeAnalysisPayload, positionNotionalUsd: numbe
 
 export function TradeAnalysisPage({ data }: TradeAnalysisPageProps) {
   const trades = data?.trades ?? [];
-  const [selectedTradeId, setSelectedTradeId] = useState<string | undefined>(undefined);
+  const [selectedTradeId, setSelectedTradeId] = useState<string | undefined>(
+    undefined,
+  );
   const [barsBefore, setBarsBefore] = useState<number>(80);
   const [barsAfter, setBarsAfter] = useState<number>(80);
   const [positionNotionalUsd, setPositionNotionalUsd] = useState<number>(() => {
-    const parsed = Number(import.meta.env.VITE_RANGING_DEFAULT_POSITION_USD ?? 30);
+    const parsed = Number(
+      import.meta.env.VITE_RANGING_DEFAULT_POSITION_USD ?? 30,
+    );
     return Number.isFinite(parsed) && parsed > 0 ? parsed : 30;
   });
 
@@ -142,7 +156,9 @@ export function TradeAnalysisPage({ data }: TradeAnalysisPageProps) {
     return (
       <div className="panel p-6">
         <h2 className="text-xl font-semibold text-slate-100">Trade Analysis</h2>
-        <p className="mt-2 text-sm text-slate-400">No trade signals available yet. Wait for new signals to analyze.</p>
+        <p className="mt-2 text-sm text-slate-400">
+          No trade signals available yet. Wait for new signals to analyze.
+        </p>
       </div>
     );
   }
@@ -152,9 +168,15 @@ export function TradeAnalysisPage({ data }: TradeAnalysisPageProps) {
       <header className="panel p-6">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <div>
-            <p className="text-xs uppercase tracking-[0.2em] text-cyan-300/80">Ranging Bot</p>
-            <h1 className="mt-2 text-3xl font-semibold text-slate-100">Trade Analysis</h1>
-            <p className="mt-2 text-sm text-slate-300/90">Inspect one trade with related candles and contextual levels</p>
+            <p className="text-xs uppercase tracking-[0.2em] text-cyan-300/80">
+              Ranging Bot
+            </p>
+            <h1 className="mt-2 text-3xl font-semibold text-slate-100">
+              Trade Analysis
+            </h1>
+            <p className="mt-2 text-sm text-slate-300/90">
+              Inspect one trade with related candles and contextual levels
+            </p>
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
@@ -164,7 +186,11 @@ export function TradeAnalysisPage({ data }: TradeAnalysisPageProps) {
                 type="number"
                 min={1}
                 value={positionNotionalUsd}
-                onChange={(event) => setPositionNotionalUsd(Math.max(1, Number(event.target.value) || 30))}
+                onChange={(event) =>
+                  setPositionNotionalUsd(
+                    Math.max(1, Number(event.target.value) || 30),
+                  )
+                }
                 className="w-20 rounded bg-slate-950/50 px-2 py-1 text-right outline-none"
               />
             </label>
@@ -176,7 +202,14 @@ export function TradeAnalysisPage({ data }: TradeAnalysisPageProps) {
                 min={10}
                 max={300}
                 value={barsBefore}
-                onChange={(event) => setBarsBefore(Math.max(10, Math.min(300, Number(event.target.value) || 80)))}
+                onChange={(event) =>
+                  setBarsBefore(
+                    Math.max(
+                      10,
+                      Math.min(300, Number(event.target.value) || 80),
+                    ),
+                  )
+                }
                 className="w-16 rounded bg-slate-950/50 px-2 py-1 text-right outline-none"
               />
             </label>
@@ -188,7 +221,14 @@ export function TradeAnalysisPage({ data }: TradeAnalysisPageProps) {
                 min={10}
                 max={300}
                 value={barsAfter}
-                onChange={(event) => setBarsAfter(Math.max(10, Math.min(300, Number(event.target.value) || 80)))}
+                onChange={(event) =>
+                  setBarsAfter(
+                    Math.max(
+                      10,
+                      Math.min(300, Number(event.target.value) || 80),
+                    ),
+                  )
+                }
                 className="w-16 rounded bg-slate-950/50 px-2 py-1 text-right outline-none"
               />
             </label>
@@ -219,7 +259,8 @@ export function TradeAnalysisPage({ data }: TradeAnalysisPageProps) {
           <div className="max-h-[560px] space-y-2 overflow-auto pr-1">
             {trades.map((trade: TradeSignalRecord) => {
               const active = trade.id === selectedTradeId;
-              const sideTone = trade.side === "long" ? "text-emerald-300" : "text-amber-300";
+              const sideTone =
+                trade.side === "long" ? "text-emerald-300" : "text-amber-300";
 
               return (
                 <button
@@ -233,10 +274,16 @@ export function TradeAnalysisPage({ data }: TradeAnalysisPageProps) {
                 >
                   <div className="flex items-center justify-between">
                     <p className="font-medium text-slate-100">{trade.symbol}</p>
-                    <span className={`text-xs font-medium ${sideTone}`}>{trade.side}</span>
+                    <span className={`text-xs font-medium ${sideTone}`}>
+                      {trade.side}
+                    </span>
                   </div>
-                  <p className="mt-1 text-xs text-slate-400">{formatDateTime(trade.generatedAtMs)}</p>
-                  <p className="mt-1 text-xs text-slate-300">{trade.processingStatus}</p>
+                  <p className="mt-1 text-xs text-slate-400">
+                    {formatDateTime(trade.generatedAtMs)}
+                  </p>
+                  <p className="mt-1 text-xs text-slate-300">
+                    {trade.processingStatus}
+                  </p>
                 </button>
               );
             })}
@@ -248,12 +295,16 @@ export function TradeAnalysisPage({ data }: TradeAnalysisPageProps) {
             <div className="panel flex h-[460px] items-center justify-center">
               <div className="text-center">
                 <CircleDashed className="mx-auto h-8 w-8 animate-spin text-cyan-300" />
-                <p className="mt-3 text-sm text-slate-300">Loading trade context...</p>
+                <p className="mt-3 text-sm text-slate-300">
+                  Loading trade context...
+                </p>
               </div>
             </div>
           ) : error || !analysis ? (
             <div className="panel p-5">
-              <p className="text-sm text-rose-300">Failed to load trade analysis.</p>
+              <p className="text-sm text-rose-300">
+                Failed to load trade analysis.
+              </p>
               <p className="mt-2 text-xs text-slate-400 mono">
                 {error instanceof Error ? error.message : "Unknown API error"}
               </p>
@@ -264,21 +315,29 @@ export function TradeAnalysisPage({ data }: TradeAnalysisPageProps) {
                 <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
                   <div>
                     <p className="text-xs text-slate-400">Trade</p>
-                    <p className="mt-1 font-medium text-slate-100">{analysis.trade.symbol}</p>
+                    <p className="mt-1 font-medium text-slate-100">
+                      {analysis.trade.symbol}
+                    </p>
                   </div>
                   <div>
                     <p className="text-xs text-slate-400">Side</p>
-                    <p className={`mt-1 font-medium ${analysis.trade.side === "long" ? "text-emerald-300" : "text-amber-300"}`}>
+                    <p
+                      className={`mt-1 font-medium ${analysis.trade.side === "long" ? "text-emerald-300" : "text-amber-300"}`}
+                    >
                       {analysis.trade.side}
                     </p>
                   </div>
                   <div>
                     <p className="text-xs text-slate-400">Signal Time</p>
-                    <p className="mt-1 text-sm text-slate-200">{formatDateTime(analysis.trade.generatedAtMs)}</p>
+                    <p className="mt-1 text-sm text-slate-200">
+                      {formatDateTime(analysis.trade.generatedAtMs)}
+                    </p>
                   </div>
                   <div>
                     <p className="text-xs text-slate-400">Processing</p>
-                    <p className="mt-1 text-sm text-slate-200">{analysis.trade.processingStatus}</p>
+                    <p className="mt-1 text-sm text-slate-200">
+                      {analysis.trade.processingStatus}
+                    </p>
                   </div>
                 </div>
 
@@ -287,32 +346,47 @@ export function TradeAnalysisPage({ data }: TradeAnalysisPageProps) {
                     <Crosshair className="mr-1 inline h-3.5 w-3.5 text-cyan-300" />
                     Reasons: {analysis.trade.reasons.join(", ")}
                   </p>
-                  <p className="mt-1">Order ID: {analysis.trade.orderId ?? "-"}</p>
                   <p className="mt-1">
-                    Range: VAL {analysis.run.rangeVal?.toLocaleString() ?? "-"} | POC {analysis.run.rangePoc?.toLocaleString() ?? "-"} | VAH {analysis.run.rangeVah?.toLocaleString() ?? "-"}
+                    Order ID: {analysis.trade.orderId ?? "-"}
+                  </p>
+                  <p className="mt-1">
+                    Range: VAL {analysis.run.rangeVal?.toLocaleString() ?? "-"}{" "}
+                    | POC {analysis.run.rangePoc?.toLocaleString() ?? "-"} | VAH{" "}
+                    {analysis.run.rangeVah?.toLocaleString() ?? "-"}
                   </p>
                 </div>
 
                 <div className="mt-4 rounded-lg border border-cyan-400/20 bg-cyan-500/5 p-3 text-xs text-slate-200">
-                  <p className="text-[11px] uppercase tracking-[0.14em] text-cyan-300/90">TP Recap</p>
+                  <p className="text-[11px] uppercase tracking-[0.14em] text-cyan-300/90">
+                    TP Recap
+                  </p>
                   {tpRecap ? (
                     <>
                       <p className="mt-2">
-                        Entry {formatPrice(tpRecap.entryPrice)} | TP1 (POC) {formatPrice(tpRecap.tp1Price)} | TP2 ({tpRecap.tp2Label}) {formatPrice(tpRecap.tp2Price)}
+                        Entry {formatPrice(tpRecap.entryPrice)} | TP1 (POC){" "}
+                        {formatPrice(tpRecap.tp1Price)} | TP2 (
+                        {tpRecap.tp2Label}) {formatPrice(tpRecap.tp2Price)}
                       </p>
                       <p className="mt-1">
-                        TP1 50% = {formatUsd(tpRecap.tp1Usd)} (qty {tpRecap.tp1Qty.toFixed(6)}) | est. PnL {formatUsd(tpRecap.tp1Pnl)}
+                        TP1 50% = {formatUsd(tpRecap.tp1Usd)} (qty{" "}
+                        {tpRecap.tp1Qty.toFixed(6)}) | est. PnL{" "}
+                        {formatUsd(tpRecap.tp1Pnl)}
                       </p>
                       <p className="mt-1">
-                        TP2 50% = {formatUsd(tpRecap.tp2Usd)} (qty {tpRecap.tp2Qty.toFixed(6)}) | est. PnL {formatUsd(tpRecap.tp2Pnl)}
+                        TP2 50% = {formatUsd(tpRecap.tp2Usd)} (qty{" "}
+                        {tpRecap.tp2Qty.toFixed(6)}) | est. PnL{" "}
+                        {formatUsd(tpRecap.tp2Pnl)}
                       </p>
                       <p className="mt-2 font-medium text-emerald-300">
-                        Estimated locked gain at TP2: {formatUsd(tpRecap.lockedGainAtTp2)} ({tpRecap.lockedGainPct.toFixed(2)}%)
+                        Estimated locked gain at TP2:{" "}
+                        {formatUsd(tpRecap.lockedGainAtTp2)} (
+                        {tpRecap.lockedGainPct.toFixed(2)}%)
                       </p>
                     </>
                   ) : (
                     <p className="mt-2 text-slate-400">
-                      TP recap unavailable for this trade (missing entry or range levels).
+                      TP recap unavailable for this trade (missing entry or
+                      range levels).
                     </p>
                   )}
                 </div>
@@ -325,7 +399,9 @@ export function TradeAnalysisPage({ data }: TradeAnalysisPageProps) {
       </section>
 
       {selectedTrade ? (
-        <p className="text-xs text-slate-400 mono">Selected Trade ID: {selectedTrade.id}</p>
+        <p className="text-xs text-slate-400 mono">
+          Selected Trade ID: {selectedTrade.id}
+        </p>
       ) : null}
     </div>
   );

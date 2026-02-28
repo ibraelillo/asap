@@ -25,11 +25,16 @@ const granularityByTimeframe: Record<OrchestratorTimeframe, number> = {
   "1w": 10080,
 };
 
-const baseUrl = process.env.KUCOIN_PUBLIC_BASE_URL ?? "https://api-futures.kucoin.com";
+const baseUrl =
+  process.env.KUCOIN_PUBLIC_BASE_URL ?? "https://api-futures.kucoin.com";
 const REQUEST_WINDOW_ROWS = 500;
-const REQUEST_TIMEOUT_MS = Number(process.env.RANGING_KLINE_HTTP_TIMEOUT_MS ?? 20_000);
+const REQUEST_TIMEOUT_MS = Number(
+  process.env.RANGING_KLINE_HTTP_TIMEOUT_MS ?? 20_000,
+);
 const REQUEST_MAX_RETRIES = Number(process.env.RANGING_KLINE_HTTP_RETRIES ?? 3);
-const REQUEST_BACKOFF_MS = Number(process.env.RANGING_KLINE_HTTP_BACKOFF_MS ?? 350);
+const REQUEST_BACKOFF_MS = Number(
+  process.env.RANGING_KLINE_HTTP_BACKOFF_MS ?? 350,
+);
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -44,7 +49,12 @@ function parseTimestamp(value: string | number): number {
   return raw < 1_000_000_000_000 ? raw * 1000 : raw;
 }
 
-function parseOHLC(row: KucoinKlineRow): { open: number; high: number; low: number; close: number } {
+function parseOHLC(row: KucoinKlineRow): {
+  open: number;
+  high: number;
+  low: number;
+  close: number;
+} {
   if (row.length < 5) {
     throw new Error(`Invalid kline row length: ${row.length}`);
   }
@@ -86,7 +96,11 @@ function parseRows(rows: KucoinKlineRow[]): Candle[] {
       const { open, high, low, close } = parseOHLC(row);
       const volume = Number(row[5] ?? 0);
 
-      if (![open, high, low, close, volume].every((value) => Number.isFinite(value))) {
+      if (
+        ![open, high, low, close, volume].every((value) =>
+          Number.isFinite(value),
+        )
+      ) {
         continue;
       }
 
@@ -141,16 +155,23 @@ async function fetchKucoinKlineWindow(
     const timeout = setTimeout(() => controller.abort(), timeoutMs);
 
     try {
-      const response = await fetch(`${baseUrl}/api/v1/kline/query?${params.toString()}`, {
-        signal: controller.signal,
-      });
+      const response = await fetch(
+        `${baseUrl}/api/v1/kline/query?${params.toString()}`,
+        {
+          signal: controller.signal,
+        },
+      );
       if (!response.ok) {
-        throw new Error(`KuCoin public kline request failed (${response.status})`);
+        throw new Error(
+          `KuCoin public kline request failed (${response.status})`,
+        );
       }
 
       const payload = (await response.json()) as KucoinKlineResponse;
       if (payload.code !== "200000") {
-        throw new Error(`KuCoin getKlines error: ${payload.msg ?? payload.code}`);
+        throw new Error(
+          `KuCoin getKlines error: ${payload.msg ?? payload.code}`,
+        );
       }
 
       return parseRows(payload.data ?? []);
@@ -170,8 +191,11 @@ async function fetchKucoinKlineWindow(
     }
   }
 
-  const message = lastError instanceof Error ? lastError.message : String(lastError);
-  throw new Error(`KuCoin public kline request failed after ${maxRetries} attempts: ${message}`);
+  const message =
+    lastError instanceof Error ? lastError.message : String(lastError);
+  throw new Error(
+    `KuCoin public kline request failed after ${maxRetries} attempts: ${message}`,
+  );
 }
 
 export interface FetchTradeContextKlinesInput {
@@ -181,7 +205,9 @@ export interface FetchTradeContextKlinesInput {
   toMs: number;
 }
 
-export async function fetchTradeContextKlines(input: FetchTradeContextKlinesInput): Promise<Candle[]> {
+export async function fetchTradeContextKlines(
+  input: FetchTradeContextKlinesInput,
+): Promise<Candle[]> {
   return fetchHistoricalKlines(input);
 }
 
@@ -192,7 +218,9 @@ export interface FetchHistoricalKlinesInput {
   toMs: number;
 }
 
-export async function fetchHistoricalKlines(input: FetchHistoricalKlinesInput): Promise<Candle[]> {
+export async function fetchHistoricalKlines(
+  input: FetchHistoricalKlinesInput,
+): Promise<Candle[]> {
   const granularity = granularityFor(input.timeframe);
   const granularityMs = granularity * 60 * 1000;
   const byTime = new Map<number, Candle>();
@@ -208,7 +236,12 @@ export async function fetchHistoricalKlines(input: FetchHistoricalKlinesInput): 
 
   while (cursor < toMs) {
     const windowTo = Math.min(cursor + windowMs, toMs);
-    const rows = await fetchKucoinKlineWindow(input.symbol, granularity, cursor, windowTo);
+    const rows = await fetchKucoinKlineWindow(
+      input.symbol,
+      granularity,
+      cursor,
+      windowTo,
+    );
 
     for (const candle of rows) {
       byTime.set(candle.time, candle);

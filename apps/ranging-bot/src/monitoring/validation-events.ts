@@ -1,7 +1,8 @@
 import type { OrchestratorTimeframe } from "../contracts";
 
 export const RANGE_VALIDATION_EVENT_SOURCE = "asap.ranging.validation";
-export const RANGE_VALIDATION_EVENT_DETAIL_TYPE_REQUESTED = "range.validation.requested";
+export const RANGE_VALIDATION_EVENT_DETAIL_TYPE_REQUESTED =
+  "range.validation.requested";
 
 export interface RangeValidationRequestedDetail {
   validationId: string;

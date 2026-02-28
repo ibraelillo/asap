@@ -1,6 +1,11 @@
 import { useMemo, useState } from "react";
 import useSWR from "swr";
-import { ArrowLeft, CalendarRange, TrendingDown, TrendingUp } from "lucide-react";
+import {
+  ArrowLeft,
+  CalendarRange,
+  TrendingDown,
+  TrendingUp,
+} from "lucide-react";
 import { MetricCard, Panel, Select } from "@repo/ui";
 import { Link } from "react-router-dom";
 import { fetchBacktestDetails } from "../../lib/ranging-api";
@@ -89,7 +94,10 @@ export function BacktestDetailsPage({
 
   const tradeBalanceProgression = useMemo(() => {
     if (!details) return new Map<string, TradeBalanceProgression>();
-    return buildTradeBalanceProgression(details.backtest.initialEquity, details.trades);
+    return buildTradeBalanceProgression(
+      details.backtest.initialEquity,
+      details.trades,
+    );
   }, [details]);
 
   if (isLoading && !details) {
@@ -103,7 +111,9 @@ export function BacktestDetailsPage({
   if (error || !details) {
     return (
       <Panel className="p-6">
-        <p className="text-sm text-rose-300">Failed to load backtest details.</p>
+        <p className="text-sm text-rose-300">
+          Failed to load backtest details.
+        </p>
         <p className="mt-2 text-xs text-slate-400 mono">
           {error instanceof Error ? error.message : "Unknown API error"}
         </p>
@@ -118,14 +128,19 @@ export function BacktestDetailsPage({
       <Panel as="header" className="p-6">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
-            <p className="text-xs uppercase tracking-[0.2em] text-cyan-300/80">Backtest</p>
+            <p className="text-xs uppercase tracking-[0.2em] text-cyan-300/80">
+              Backtest
+            </p>
             <h1 className="mt-2 text-3xl font-semibold text-slate-100">
               {backtest.symbol} Replay
             </h1>
             <p className="mt-2 text-sm text-slate-300/90">
-              {formatDateTime(backtest.fromMs)} - {formatDateTime(backtest.toMs)}
+              {formatDateTime(backtest.fromMs)} -{" "}
+              {formatDateTime(backtest.toMs)}
             </p>
-            <p className="mt-2 text-xs text-slate-400 mono">ID: {backtest.id}</p>
+            <p className="mt-2 text-xs text-slate-400 mono">
+              ID: {backtest.id}
+            </p>
           </div>
 
           <div className="flex items-center gap-2">
@@ -171,7 +186,11 @@ export function BacktestDetailsPage({
         <MetricCard
           label="Ending Equity"
           value={formatCurrency(backtest.endingEquity)}
-          tone={backtest.endingEquity >= backtest.initialEquity ? "positive" : "negative"}
+          tone={
+            backtest.endingEquity >= backtest.initialEquity
+              ? "positive"
+              : "negative"
+          }
           icon={<CalendarRange className="h-5 w-5" />}
           hint={`Start ${formatCurrency(backtest.initialEquity)}`}
         />
@@ -208,7 +227,9 @@ export function BacktestDetailsPage({
 
       {details.replayError ? (
         <Panel className="p-4" tone="warning">
-          <p className="text-sm text-amber-100">Replay warning: {details.replayError}</p>
+          <p className="text-sm text-amber-100">
+            Replay warning: {details.replayError}
+          </p>
           <p className="mt-1 text-xs text-amber-200/90">
             Summary metrics are still shown from the stored backtest record.
           </p>
@@ -222,7 +243,8 @@ export function BacktestDetailsPage({
           <h3 className="text-sm font-semibold text-slate-100">Best Trade</h3>
           {bestTrade ? (
             <p className="mt-2 text-sm text-emerald-300">
-              #{bestTrade.id} {bestTrade.side} {formatCurrency(bestTrade.netPnl)}
+              #{bestTrade.id} {bestTrade.side}{" "}
+              {formatCurrency(bestTrade.netPnl)}
             </p>
           ) : (
             <p className="mt-2 text-xs text-slate-400">No trades available.</p>
@@ -232,7 +254,8 @@ export function BacktestDetailsPage({
           <h3 className="text-sm font-semibold text-slate-100">Worst Trade</h3>
           {worstTrade ? (
             <p className="mt-2 text-sm text-rose-300">
-              #{worstTrade.id} {worstTrade.side} {formatCurrency(worstTrade.netPnl)}
+              #{worstTrade.id} {worstTrade.side}{" "}
+              {formatCurrency(worstTrade.netPnl)}
             </p>
           ) : (
             <p className="mt-2 text-xs text-slate-400">No trades available.</p>
@@ -244,9 +267,13 @@ export function BacktestDetailsPage({
         <div className="mb-4 flex items-center justify-between">
           <div>
             <h3 className="text-lg font-semibold text-slate-100">Trades</h3>
-            <p className="text-xs text-slate-400">All simulated entries and exits in this backtest</p>
+            <p className="text-xs text-slate-400">
+              All simulated entries and exits in this backtest
+            </p>
           </div>
-          <p className="text-xs text-slate-400">{details.trades.length} trades</p>
+          <p className="text-xs text-slate-400">
+            {details.trades.length} trades
+          </p>
         </div>
         <div className="overflow-x-auto">
           <table className="min-w-full text-left text-sm">
@@ -268,32 +295,52 @@ export function BacktestDetailsPage({
                 const balanceKey = tradeBalanceKey(trade);
                 const balances = tradeBalanceProgression.get(balanceKey);
                 return (
-                  <tr key={balanceKey} className="border-t border-white/5 text-slate-200">
+                  <tr
+                    key={balanceKey}
+                    className="border-t border-white/5 text-slate-200"
+                  >
                     <td className="py-3 pr-4">#{trade.id}</td>
-                    <td className={`py-3 pr-4 ${trade.side === "long" ? "text-emerald-300" : "text-amber-300"}`}>
+                    <td
+                      className={`py-3 pr-4 ${trade.side === "long" ? "text-emerald-300" : "text-amber-300"}`}
+                    >
                       {trade.side}
                     </td>
                     <td className="py-3 pr-4 text-xs">
-                      {formatDateTime(trade.entryTime)} @ {trade.entryPrice.toLocaleString(undefined, { maximumFractionDigits: 2 })}
+                      {formatDateTime(trade.entryTime)} @{" "}
+                      {trade.entryPrice.toLocaleString(undefined, {
+                        maximumFractionDigits: 2,
+                      })}
                     </td>
                     <td className="py-3 pr-4 text-xs">
-                      {formatDateTime(trade.closeTime)} @ {trade.closePrice.toLocaleString(undefined, { maximumFractionDigits: 2 })}
+                      {formatDateTime(trade.closeTime)} @{" "}
+                      {trade.closePrice.toLocaleString(undefined, {
+                        maximumFractionDigits: 2,
+                      })}
                     </td>
-                    <td className="py-3 pr-4 text-xs">{trade.quantity.toFixed(6)}</td>
+                    <td className="py-3 pr-4 text-xs">
+                      {trade.quantity.toFixed(6)}
+                    </td>
                     <td className="py-3 pr-4 text-xs text-slate-300">
                       {balances
                         ? `${formatCurrency(balances.entryBalance)} -> ${formatCurrency(balances.closeBalance)}`
                         : "-"}
                     </td>
                     <td className="py-3 pr-4 text-xs text-slate-300">
-                      {trade.exits.map((exit) => `${exit.reason.toUpperCase()} @ ${exit.price.toFixed(2)}`).join(" | ")}
+                      {trade.exits
+                        .map(
+                          (exit) =>
+                            `${exit.reason.toUpperCase()} @ ${exit.price.toFixed(2)}`,
+                        )
+                        .join(" | ")}
                     </td>
                     <td className="py-3 pr-4 text-xs text-slate-300">
                       {trade.rangeLevels
                         ? `VAL ${trade.rangeLevels.val.toFixed(2)} | POC ${trade.rangeLevels.poc.toFixed(2)} | VAH ${trade.rangeLevels.vah.toFixed(2)}`
                         : "-"}
                     </td>
-                    <td className={`py-3 font-medium ${trade.netPnl >= 0 ? "text-emerald-300" : "text-rose-300"}`}>
+                    <td
+                      className={`py-3 font-medium ${trade.netPnl >= 0 ? "text-emerald-300" : "text-rose-300"}`}
+                    >
                       {formatCurrency(trade.netPnl)}
                     </td>
                   </tr>
@@ -301,7 +348,10 @@ export function BacktestDetailsPage({
               })}
               {details.trades.length === 0 ? (
                 <tr>
-                  <td colSpan={9} className="py-4 text-center text-xs text-slate-400">
+                  <td
+                    colSpan={9}
+                    className="py-4 text-center text-xs text-slate-400"
+                  >
                     No trades generated for this backtest.
                   </td>
                 </tr>

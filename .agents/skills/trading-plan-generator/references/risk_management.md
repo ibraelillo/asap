@@ -7,17 +7,20 @@ The single most important factor determining trading success.
 ## Why Risk Management Matters
 
 **The brutal truth:**
+
 - 90% of traders lose money
 - Most blow up their accounts
 - #1 reason: Poor risk management
 
 **What separates winners from losers:**
+
 - NOT better analysis
-- NOT better indicators  
+- NOT better indicators
 - NOT market prediction
 - **Risk management and discipline**
 
 **Your job as a trader:**
+
 - Protect capital FIRST
 - Make money SECOND
 
@@ -30,11 +33,13 @@ The single most important factor determining trading success.
 ### Why 1%?
 
 **Survival math:**
+
 - 10 losses in a row = -10% drawdown
 - 20 losses in a row = -20% drawdown
 - Still in the game
 
 **Compare to 5% risk:**
+
 - 10 losses in a row = -50% drawdown
 - Need 100% return just to break even
 - Likely game over
@@ -72,21 +77,23 @@ Example:
 
 ### Recommended Limits
 
-| Trader Type | Daily Loss Limit |
-|-------------|------------------|
-| Conservative | -1% |
-| Moderate | -2% |
-| Aggressive | -3% |
+| Trader Type  | Daily Loss Limit |
+| ------------ | ---------------- |
+| Conservative | -1%              |
+| Moderate     | -2%              |
+| Aggressive   | -3%              |
 
 ### Why Daily Limits Matter
 
 **Prevents:**
+
 - Revenge trading
 - Emotional spirals
 - Blowup days
 - Tilt-induced disasters
 
 **Example:**
+
 - $50,000 account
 - 2% daily limit = -$1,000
 - Hit limit → DONE for the day
@@ -126,6 +133,7 @@ Example:
 ### Why This Matters
 
 **Psychology of drawdown:**
+
 - -10% requires +11% to recover
 - -20% requires +25% to recover
 - -50% requires +100% to recover
@@ -185,11 +193,13 @@ Shares = Risk $ / (Entry - Stop)
 ```
 
 **Pros:**
+
 - Simple and consistent
 - Easy to track
 - Protects capital
 
 **Cons:**
+
 - Doesn't scale with wins/losses
 
 ---
@@ -203,11 +213,13 @@ Shares = (Account × Risk %) / (Entry - Stop)
 ```
 
 **Pros:**
+
 - Scales with account
 - Compounds wins
 - Simple
 
 **Cons:**
+
 - Also compounds losses
 
 ---
@@ -221,10 +233,12 @@ Risk $ / (ATR × Multiplier)
 ```
 
 **Pros:**
+
 - Adapts to market conditions
 - Prevents whipsaw
 
 **Cons:**
+
 - More complex
 - Requires calculation
 
@@ -239,6 +253,7 @@ Kelly % = (Win Rate × Avg Win - Loss Rate × Avg Loss) / Avg Win
 ```
 
 **WARNING:**
+
 - Can be very aggressive
 - Use fractional Kelly (1/4 or 1/2)
 - Only for experienced traders
@@ -251,6 +266,7 @@ Kelly % = (Win Rate × Avg Win - Loss Rate × Avg Loss) / Avg Win
 ### Never Trade Without Stops
 
 **Why stops are mandatory:**
+
 - Limits losses
 - Removes emotion
 - Protects from disasters
@@ -261,21 +277,25 @@ Kelly % = (Win Rate × Avg Win - Loss Rate × Avg Loss) / Avg Win
 ### Stop-Loss Methods
 
 **1. Fixed Percentage**
+
 - X% below entry
 - Simple and clear
 - Example: 2% below entry
 
 **2. Technical Level**
+
 - Below support
 - Below swing low
 - Makes logical sense
 
 **3. ATR-Based**
+
 - 1.5-2× Average True Range
 - Adapts to volatility
 - Prevents whipsaw
 
 **4. Time Stop**
+
 - Exit if no progress in X days
 - Frees capital
 - Cuts losers
@@ -283,12 +303,14 @@ Kelly % = (Win Rate × Avg Win - Loss Rate × Avg Loss) / Avg Win
 ### Stop-Loss Rules
 
 **✓ DO:**
+
 - Set stop BEFORE entry
 - Use actual stop orders (not mental)
 - Place stops at logical levels
 - Honor stops always
 
 **✗ NEVER:**
+
 - Move stop further from entry
 - Remove stop "just this once"
 - Use mental stops
@@ -303,16 +325,19 @@ Kelly % = (Win Rate × Avg Win - Loss Rate × Avg Loss) / Avg Win
 ### Maximum Position Limits
 
 **Single position:**
+
 - Conservative: 10% of account
 - Moderate: 20% of account
 - Aggressive: 30% of account
 
 **Sector exposure:**
+
 - Maximum 30-40% in single sector
 - Diversify across sectors
 - Correlation matters
 
 **Total exposure:**
+
 - Day trading: 100% (close daily)
 - Swing trading: 60-80%
 - Position trading: Varies
@@ -320,12 +345,14 @@ Kelly % = (Win Rate × Avg Win - Loss Rate × Avg Loss) / Avg Win
 ### Why Concentration Matters
 
 **Example:**
+
 - 50% in one position
 - Stock drops 20%
 - Account drops 10%
 - Hard to recover
 
 **Better:**
+
 - 10% in one position
 - Stock drops 20%
 - Account drops 2%
@@ -340,12 +367,14 @@ Kelly % = (Win Rate × Avg Win - Loss Rate × Avg Loss) / Avg Win
 ### Understanding Correlation
 
 **High correlation example:**
+
 - Long tech stock A
 - Long tech stock B
 - Both move together
 - Double exposure to tech risk
 
 **Better diversification:**
+
 - Different sectors
 - Different market caps
 - Different strategies
@@ -360,11 +389,13 @@ Kelly % = (Win Rate × Avg Win - Loss Rate × Avg Loss) / Avg Win
 ### Margin Risk
 
 **2:1 Margin:**
+
 - 50% loss = margin call
 - Forced liquidation
 - Game over
 
 **Recommended:**
+
 - Use margin sparingly
 - Never max out margin
 - Maintain buffer
@@ -373,12 +404,14 @@ Kelly % = (Win Rate × Avg Win - Loss Rate × Avg Loss) / Avg Win
 ### Options Leverage
 
 **Options can expire worthless**
+
 - 100% loss possible
 - Time decay (theta)
 - Volatility risk (vega)
 - Requires different risk management
 
 **Options risk limit:**
+
 - Max 5-10% of account in options
 - Treat each option as high risk
 - Never bet the farm
@@ -388,6 +421,7 @@ Kelly % = (Win Rate × Avg Win - Loss Rate × Avg Loss) / Avg Win
 ## Risk Management Checklist
 
 **Before EVERY trade:**
+
 - [ ] Position size calculated
 - [ ] Risk ≤ 1% (or your limit)
 - [ ] Stop-loss identified
@@ -479,12 +513,14 @@ Track and improve
 **High Probability vs High R:R**
 
 ### High Win Rate (60-70%)
+
 - Smaller R:R (1.5:1)
 - More trades
 - Steady equity curve
 - Example: Mean reversion
 
 ### High R:R (3:1+)
+
 - Lower win rate (30-40%)
 - Fewer trades
 - Volatile equity curve
@@ -533,18 +569,21 @@ Actual risk: $500 (1% of account)
 ### When Things Go Wrong
 
 **Circuit breaker triggered:**
+
 1. Stop trading immediately
 2. Close positions if possible
 3. Assess damage
 4. Don't panic trade
 
 **Flash crash:**
+
 1. Don't chase
 2. Check your stops
 3. Wait for stability
 4. Review risk exposure
 
 **Account down big:**
+
 1. STOP trading
 2. Take mandatory break
 3. Full review
@@ -567,18 +606,21 @@ Actual risk: $500 (1% of account)
 ## Summary
 
 **Risk management is:**
+
 - Your edge
 - Your protection
 - Your discipline
 - Your success factor
 
 **Remember:**
+
 - Small consistent gains > Home runs
 - Protect capital first
 - There's always another trade
 - Survive to trade tomorrow
 
 **The math is simple:**
+
 - Lose 50% → Need 100% to recover
 - Lose 10% → Need 11% to recover
 

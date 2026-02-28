@@ -11,7 +11,10 @@ import {
   type SeriesMarker,
   type UTCTimestamp,
 } from "lightweight-charts";
-import type { BacktestDetailsPayload, KlineCandle } from "../../types/ranging-dashboard";
+import type {
+  BacktestDetailsPayload,
+  KlineCandle,
+} from "../../types/ranging-dashboard";
 
 interface BacktestReplayChartProps {
   details: BacktestDetailsPayload;
@@ -23,7 +26,10 @@ function toTimestamp(ms: number): UTCTimestamp {
   return Math.floor(ms / 1000) as UTCTimestamp;
 }
 
-function findClosestCandleTime(candles: KlineCandle[], targetMs: number): number | undefined {
+function findClosestCandleTime(
+  candles: KlineCandle[],
+  targetMs: number,
+): number | undefined {
   if (candles.length === 0) return undefined;
 
   let closest = candles[0];
@@ -226,7 +232,9 @@ export function BacktestReplayChart({ details }: BacktestReplayChartProps) {
   if (candles.length === 0) {
     return (
       <div className="panel flex h-[500px] items-center justify-center">
-        <p className="text-sm text-slate-400">No candles available for this backtest window</p>
+        <p className="text-sm text-slate-400">
+          No candles available for this backtest window
+        </p>
       </div>
     );
   }
@@ -235,12 +243,16 @@ export function BacktestReplayChart({ details }: BacktestReplayChartProps) {
     <div className="panel p-5">
       <div className="mb-4 flex items-center justify-between">
         <div>
-          <h3 className="text-lg font-semibold text-slate-100">Backtest Replay</h3>
+          <h3 className="text-lg font-semibold text-slate-100">
+            Backtest Replay
+          </h3>
           <p className="text-xs text-slate-400">
-            {details.chartTimeframe} candles with entries/exits and range context
+            {details.chartTimeframe} candles with entries/exits and range
+            context
           </p>
           <p className="mt-1 text-[11px] text-slate-500">
-            Trade range levels: VAL (green dashed), POC (blue), VAH (amber dashed)
+            Trade range levels: VAL (green dashed), POC (blue), VAH (amber
+            dashed)
           </p>
         </div>
         <p className="text-xs text-slate-400">{candles.length} candles</p>

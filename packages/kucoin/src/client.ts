@@ -73,7 +73,9 @@ export const createKucoinClient = (deps: {
     return httpClient(method, url, body, headers);
   };
 
-  const getKlines = async (query: KucoinKlineQuery): Promise<KucoinKlineRow[]> => {
+  const getKlines = async (
+    query: KucoinKlineQuery,
+  ): Promise<KucoinKlineRow[]> => {
     const params = new URLSearchParams({
       symbol: query.symbol,
       granularity: String(query.granularity),

@@ -54,7 +54,9 @@ export function ResultsPage({
       <div className="panel flex min-h-[420px] items-center justify-center">
         <div className="text-center">
           <CircleDashed className="mx-auto h-8 w-8 animate-spin text-cyan-300" />
-          <p className="mt-3 text-sm text-slate-300">Loading live bot results...</p>
+          <p className="mt-3 text-sm text-slate-300">
+            Loading live bot results...
+          </p>
         </div>
       </div>
     );
@@ -64,7 +66,9 @@ export function ResultsPage({
     return (
       <div className="panel p-6">
         <p className="text-sm text-rose-300">Failed to load dashboard data.</p>
-        <p className="mt-2 text-xs text-slate-400 mono">{error ?? "Unknown API error"}</p>
+        <p className="mt-2 text-xs text-slate-400 mono">
+          {error ?? "Unknown API error"}
+        </p>
       </div>
     );
   }
@@ -76,21 +80,33 @@ export function ResultsPage({
       <header className="panel p-6">
         <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
           <div>
-            <p className="text-xs uppercase tracking-[0.2em] text-cyan-300/80">Ranging Bot</p>
-            <h1 className="mt-2 text-3xl font-semibold text-slate-100">Live Results</h1>
-            <p className="mt-2 text-sm text-slate-300/90">Execution + analysis stream from the running bots</p>
+            <p className="text-xs uppercase tracking-[0.2em] text-cyan-300/80">
+              Ranging Bot
+            </p>
+            <h1 className="mt-2 text-3xl font-semibold text-slate-100">
+              Live Results
+            </h1>
+            <p className="mt-2 text-sm text-slate-300/90">
+              Execution + analysis stream from the running bots
+            </p>
           </div>
 
           <div className="space-y-1 text-right">
-            <p className={`inline-flex items-center gap-2 text-sm ${realtimeTone(realtimeState)}`}>
+            <p
+              className={`inline-flex items-center gap-2 text-sm ${realtimeTone(realtimeState)}`}
+            >
               <Wifi className="h-4 w-4" />
               Realtime: {realtimeState}
             </p>
             {realtimeDetails ? (
-              <p className="max-w-[32rem] text-xs text-slate-400 mono">{realtimeDetails}</p>
+              <p className="max-w-[32rem] text-xs text-slate-400 mono">
+                {realtimeDetails}
+              </p>
             ) : null}
             <p className="text-xs text-slate-400 mono">API: {apiUrl}</p>
-            <p className="text-xs text-slate-400">Last sync: {new Date(data.generatedAt).toLocaleString()}</p>
+            <p className="text-xs text-slate-400">
+              Last sync: {new Date(data.generatedAt).toLocaleString()}
+            </p>
           </div>
         </div>
       </header>
@@ -134,10 +150,16 @@ export function ResultsPage({
       <div className="panel p-5">
         <div className="mb-4 flex items-center justify-between">
           <div>
-            <h3 className="text-lg font-semibold text-slate-100">Recent Trade Signals</h3>
-            <p className="text-xs text-slate-400">Signals and order attempt status</p>
+            <h3 className="text-lg font-semibold text-slate-100">
+              Recent Trade Signals
+            </h3>
+            <p className="text-xs text-slate-400">
+              Signals and order attempt status
+            </p>
           </div>
-          <p className="text-xs text-slate-400">{trades.length} signal events</p>
+          <p className="text-xs text-slate-400">
+            {trades.length} signal events
+          </p>
         </div>
 
         <div className="overflow-x-auto">
@@ -155,7 +177,8 @@ export function ResultsPage({
             </thead>
             <tbody>
               {trades.slice(0, 120).map((trade) => {
-                const sideTone = trade.side === "long" ? "text-emerald-300" : "text-amber-300";
+                const sideTone =
+                  trade.side === "long" ? "text-emerald-300" : "text-amber-300";
                 const statusTone =
                   trade.processingStatus === "order-submitted"
                     ? "text-emerald-300"
@@ -164,8 +187,13 @@ export function ResultsPage({
                       : "text-slate-300";
 
                 return (
-                  <tr key={trade.id} className="border-t border-white/5 text-slate-200">
-                    <td className="py-3 pr-4 text-xs text-slate-300">{formatDateTime(trade.generatedAtMs)}</td>
+                  <tr
+                    key={trade.id}
+                    className="border-t border-white/5 text-slate-200"
+                  >
+                    <td className="py-3 pr-4 text-xs text-slate-300">
+                      {formatDateTime(trade.generatedAtMs)}
+                    </td>
                     <td className="py-3 pr-4 font-medium">
                       <button
                         onClick={() => onOpenBot?.(trade.botId)}
@@ -174,11 +202,23 @@ export function ResultsPage({
                         {trade.symbol}
                       </button>
                     </td>
-                    <td className={`py-3 pr-4 font-medium ${sideTone}`}>{trade.side}</td>
-                    <td className="py-3 pr-4">{trade.price?.toLocaleString() ?? "-"}</td>
-                    <td className={`py-3 pr-4 text-xs font-medium ${statusTone}`}>{trade.processingStatus}</td>
-                    <td className="py-3 pr-4 text-xs text-slate-300">{trade.reasons.join(", ")}</td>
-                    <td className="py-3 mono text-xs text-slate-400">{trade.orderId ?? "-"}</td>
+                    <td className={`py-3 pr-4 font-medium ${sideTone}`}>
+                      {trade.side}
+                    </td>
+                    <td className="py-3 pr-4">
+                      {trade.price?.toLocaleString() ?? "-"}
+                    </td>
+                    <td
+                      className={`py-3 pr-4 text-xs font-medium ${statusTone}`}
+                    >
+                      {trade.processingStatus}
+                    </td>
+                    <td className="py-3 pr-4 text-xs text-slate-300">
+                      {trade.reasons.join(", ")}
+                    </td>
+                    <td className="py-3 mono text-xs text-slate-400">
+                      {trade.orderId ?? "-"}
+                    </td>
                   </tr>
                 );
               })}

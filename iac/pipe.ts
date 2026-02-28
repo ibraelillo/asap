@@ -187,7 +187,6 @@ export class EventBridgePipe extends pulumi.ComponentResource {
         // Target: EventBridge Bus
         target: args.targetArn,
         targetParameters: {
-
           // Transform DynamoDB record to EventBridge event format
           inputTemplate: JSON.stringify({
             // Extract bot ID from partition key

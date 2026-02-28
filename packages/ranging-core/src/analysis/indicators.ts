@@ -47,7 +47,10 @@ export function computeWaveTrend(
     tp.map((v, i) => {
       const esaValue = esa[i];
       return Math.abs(
-        v - (typeof esaValue === "number" && Number.isFinite(esaValue) ? esaValue : v),
+        v -
+          (typeof esaValue === "number" && Number.isFinite(esaValue)
+            ? esaValue
+            : v),
       );
     }),
     channelLength,
@@ -58,12 +61,19 @@ export function computeWaveTrend(
     const esaValue = esa[i];
     if (typeof d !== "number" || !Number.isFinite(d) || d === 0) return 0;
     return (
-      v - (typeof esaValue === "number" && Number.isFinite(esaValue) ? esaValue : v)
-    ) / (0.015 * d);
+      (v -
+        (typeof esaValue === "number" && Number.isFinite(esaValue)
+          ? esaValue
+          : v)) /
+      (0.015 * d)
+    );
   });
 
   const wt1 = ema(ci, averageLength);
-  const wt2 = sma(wt1.map((v) => (Number.isFinite(v) ? v : 0)), signalLength);
+  const wt2 = sma(
+    wt1.map((v) => (Number.isFinite(v) ? v : 0)),
+    signalLength,
+  );
 
   return { wt1, wt2 };
 }
@@ -72,7 +82,7 @@ export function computeMoneyFlow(candles: Candle[], period: number): number[] {
   const mfm = candles.map((c) => {
     const range = c.high - c.low;
     if (range === 0) return 0;
-    return ((c.close - c.low) - (c.high - c.close)) / range;
+    return (c.close - c.low - (c.high - c.close)) / range;
   });
 
   const mfv = candles.map((c, i) => (mfm[i] ?? 0) * c.volume);
@@ -108,7 +118,11 @@ export function computeMoneyFlow(candles: Candle[], period: number): number[] {
   return out;
 }
 
-export function slopeAt(values: number[], index: number, lookbackBars: number): number {
+export function slopeAt(
+  values: number[],
+  index: number,
+  lookbackBars: number,
+): number {
   if (index < 0 || index >= values.length || lookbackBars <= 0) return 0;
 
   const from = index - lookbackBars;

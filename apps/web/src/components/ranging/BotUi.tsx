@@ -14,7 +14,14 @@ export function formatCurrency(value: number): string {
 
 function isPositiveReason(reason: string): boolean {
   const normalized = reason.toLowerCase();
-  const negativeMarkers = ["missing_", "_not_", "failed", "error", "rejected", "invalid"];
+  const negativeMarkers = [
+    "missing_",
+    "_not_",
+    "failed",
+    "error",
+    "rejected",
+    "invalid",
+  ];
   return !negativeMarkers.some((marker) => normalized.includes(marker));
 }
 

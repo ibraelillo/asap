@@ -48,7 +48,8 @@ export default $config({
       args.memory = "1024 MB";
     });
 
-    const botsJson = process.env.RANGING_BOTS_JSON ?? JSON.stringify(DEFAULT_BOTS);
+    const botsJson =
+      process.env.RANGING_BOTS_JSON ?? JSON.stringify(DEFAULT_BOTS);
     const schedule = process.env.RANGING_SCHEDULE ?? "cron(0 * * * ? *)";
     const realtimeToken = process.env.RANGING_REALTIME_TOKEN ?? "";
     const realtimeTopicPrefix = `${$app.name}/${$app.stage}/ranging-bot`;
@@ -69,8 +70,7 @@ export default $config({
       process.env.RANGING_VALIDATION_TIMEOUT_MS ?? "45000";
     const klineHttpTimeoutMs =
       process.env.RANGING_KLINE_HTTP_TIMEOUT_MS ?? "20000";
-    const klineHttpRetries =
-      process.env.RANGING_KLINE_HTTP_RETRIES ?? "3";
+    const klineHttpRetries = process.env.RANGING_KLINE_HTTP_RETRIES ?? "3";
     const klineHttpBackoffMs =
       process.env.RANGING_KLINE_HTTP_BACKOFF_MS ?? "350";
     const backtestRunningStaleMs =
@@ -237,7 +237,8 @@ export default $config({
       environment: apiRouteEnv,
     });
     api.route("POST /v1/bots/{botId}/validations", {
-      handler: "apps/ranging-bot/src/results-api.createBotRangeValidationHandler",
+      handler:
+        "apps/ranging-bot/src/results-api.createBotRangeValidationHandler",
       environment: apiRouteEnv,
     });
     api.route("GET /v1/ranging/validations", {
@@ -270,7 +271,8 @@ export default $config({
           OPENAI_API_KEY: openAiApiKey,
           RANGING_VALIDATION_MODEL_PRIMARY: validationModelPrimary,
           RANGING_VALIDATION_MODEL_FALLBACK: validationModelFallback,
-          RANGING_VALIDATION_CONFIDENCE_THRESHOLD: validationConfidenceThreshold,
+          RANGING_VALIDATION_CONFIDENCE_THRESHOLD:
+            validationConfidenceThreshold,
           RANGING_VALIDATION_MAX_OUTPUT_TOKENS: validationMaxOutputTokens,
           RANGING_VALIDATION_TIMEOUT_MS: validationTimeoutMs,
           RANGING_KLINE_HTTP_TIMEOUT_MS: klineHttpTimeoutMs,
@@ -297,7 +299,8 @@ export default $config({
           OPENAI_API_KEY: openAiApiKey,
           RANGING_VALIDATION_MODEL_PRIMARY: validationModelPrimary,
           RANGING_VALIDATION_MODEL_FALLBACK: validationModelFallback,
-          RANGING_VALIDATION_CONFIDENCE_THRESHOLD: validationConfidenceThreshold,
+          RANGING_VALIDATION_CONFIDENCE_THRESHOLD:
+            validationConfidenceThreshold,
           RANGING_VALIDATION_MAX_OUTPUT_TOKENS: validationMaxOutputTokens,
           RANGING_VALIDATION_TIMEOUT_MS: validationTimeoutMs,
         },

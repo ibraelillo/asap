@@ -3,6 +3,7 @@
 Exchange orchestration layer for the exchange-agnostic `@repo/ranging-core` strategy.
 
 Responsibilities:
+
 - fetch klines from specific exchange adapters
 - build strategy snapshot via `@repo/ranging-core`
 - process emitted signals with exchange-specific handlers
@@ -29,6 +30,7 @@ pnpm --filter @repo/ranging-bot fetch:kucoin-klines
 Script: `scripts/fetch-kucoin-klines.mjs`
 
 Optional flags:
+
 - `--symbol=XBTUSDTM`
 - `--granularity=60`
 - `--months=3`
@@ -37,11 +39,13 @@ Optional flags:
 ## AWS Scheduler Runtime (Low Cost)
 
 The stack now runs the bot continuously using a single scheduled Lambda:
+
 - schedule: `rate(1 minute)` (configurable via `RANGING_SCHEDULE`)
 - no VPC/NAT/ECS required
 - one function tick handles all configured symbols
 
 Required env vars for deploy:
+
 - `KUCOIN_API_KEY`
 - `KUCOIN_API_SECRET`
 - `KUCOIN_API_PASSPHRASE`
@@ -53,6 +57,7 @@ cp .env.example .env
 ```
 
 Bot runtime config:
+
 - `RANGING_BOTS_JSON` (JSON array)
 - `RANGING_DRY_RUN` (`true`/`false`)
 - `RANGING_MARGIN_MODE` (`CROSS`/`ISOLATED`)

@@ -3,12 +3,14 @@
 Shared React UI primitives for the ASAP frontend.
 
 ## Goals
+
 - keep visual language consistent across apps
 - centralize typed, reusable component APIs
 - isolate UI library quirks inside one package
 - make Tailwind usage predictable and easy to audit
 
 ## Current primitives
+
 - `Panel`
 - `PageHeader`
 - `Button`
@@ -25,6 +27,7 @@ Shared React UI primitives for the ASAP frontend.
 - `cn`
 
 ## Design rules
+
 - Tailwind-only styling
 - no runtime CSS-in-JS
 - dark trading dashboard visual language by default
@@ -32,6 +35,7 @@ Shared React UI primitives for the ASAP frontend.
 - icons are passed as slots when possible
 
 ## Integration requirements
+
 The consuming app must include the package source in Tailwind content scanning.
 
 Example:
@@ -40,10 +44,11 @@ Example:
 content: [
   "./src/**/*.{js,ts,jsx,tsx}",
   "../../packages/ui/src/**/*.{js,ts,jsx,tsx}",
-]
+];
 ```
 
 ## Select and combobox
+
 `Select` and `Combobox` use Headless UI internally for accessibility, but that dependency is intentionally hidden behind the package API.
 
 Use `Select` for finite option lists.
@@ -78,6 +83,7 @@ import { Button, Field, Input, PageHeader, Panel, Select } from "@repo/ui";
 ```
 
 ## Non-goals
+
 - chart primitives
 - domain-specific trading widgets
 - route-level page orchestration
