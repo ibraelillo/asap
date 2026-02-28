@@ -279,7 +279,7 @@ export async function createAccount(
 }
 
 export interface PatchAccountRequest {
-  status?: "active" | "archived";
+  status?: "active" | "paused" | "archived";
   auth?: {
     apiKey?: string;
     apiSecret?: string;

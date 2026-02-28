@@ -820,7 +820,7 @@ export async function mockRangingApi(page: Page) {
     if (method === "PATCH" && pathname.startsWith("/v1/accounts/")) {
       const accountId = decodeURIComponent(pathname.split("/").pop() ?? "");
       const body = JSON.parse(request.postData() ?? "{}") as {
-        status?: "active" | "archived";
+        status?: "active" | "paused" | "archived";
         auth?: {
           apiKey?: string;
           apiSecret?: string;

@@ -16,7 +16,7 @@ export interface ExchangeAccount<
   id: string;
   name: string;
   exchangeId: string;
-  status: "active" | "archived";
+  status: "active" | "paused" | "archived";
   auth: TAuth;
   metadata?: Record<string, unknown>;
   createdAtMs: number;
@@ -161,12 +161,8 @@ export interface SignalProcessor<TSnapshot = unknown, TMeta = unknown> {
 
 export interface PublicMarketDataAdapter {
   readonly id: string;
-  createSymbolReader?(
-    context?: PublicMarketDataContext,
-  ): ExchangeSymbolReader;
-  createKlineProvider(
-    context?: PublicMarketDataContext,
-  ): ExchangeKlineProvider;
+  createSymbolReader?(context?: PublicMarketDataContext): ExchangeSymbolReader;
+  createKlineProvider(context?: PublicMarketDataContext): ExchangeKlineProvider;
 }
 
 export interface PrivateExecutionAdapter<

@@ -64,7 +64,16 @@ test("accounts page renders and supports status actions without errors", async (
   await expect(page.getByText("Account created.")).toBeVisible();
   await expect(page.getByText("Research KuCoin")).toBeVisible();
 
-  await page.getByRole("button", { name: "Archive" }).first().click();
+  await expect(
+    page.getByRole("button", { name: "Archive" }).first(),
+  ).toBeDisabled();
+  await expect(
+    page.getByText(
+      /Archive is blocked while one or more bots still use this account/i,
+    ),
+  ).toBeVisible();
+
+  await page.getByRole("button", { name: "Freeze" }).first().click();
   await expect(page.getByRole("button", { name: "Reactivate" })).toBeVisible();
 
   await assertNoBrowserErrors();

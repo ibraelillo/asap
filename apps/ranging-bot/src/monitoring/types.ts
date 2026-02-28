@@ -43,7 +43,7 @@ export interface AccountSummary {
   id: string;
   name: string;
   exchangeId: string;
-  status: "active" | "archived";
+  status: "active" | "paused" | "archived";
   createdAtMs: number;
   updatedAtMs: number;
   hasAuth: {

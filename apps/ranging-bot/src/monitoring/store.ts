@@ -883,7 +883,9 @@ function fromAccountItem(
   const exchangeId =
     typeof item.exchangeId === "string" ? item.exchangeId : undefined;
   const status =
-    item.status === "active" || item.status === "archived"
+    item.status === "active" ||
+    item.status === "paused" ||
+    item.status === "archived"
       ? item.status
       : undefined;
   const createdAtMs = Number(item.createdAtMs);
@@ -957,7 +959,9 @@ function fromLegacyAccountItem(
   const exchangeId =
     typeof item.exchangeId === "string" ? item.exchangeId : undefined;
   const status =
-    item.status === "active" || item.status === "archived"
+    item.status === "active" ||
+    item.status === "paused" ||
+    item.status === "archived"
       ? item.status
       : undefined;
   const createdAtMs = Number(item.createdAtMs);

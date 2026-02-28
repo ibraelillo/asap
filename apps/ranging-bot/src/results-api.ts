@@ -368,15 +368,18 @@ async function enrichAccountSummaryWithBalance(
 ): Promise<AccountSummary> {
   const summary = toAccountSummary(account);
 
-  if (account.status !== "active") {
+  if (account.status === "archived") {
     return summary;
   }
 
   try {
-    const resolvedAccount = await runtimeAccountResolver.requireAccount(
+    const resolvedAccount = await runtimeAccountResolver.getAccount(
       account.id,
       account.exchangeId,
     );
+    if (!resolvedAccount) {
+      return summary;
+    }
     const executionAdapter = exchangeAdapterRegistry.getPrivate(
       account.exchangeId,
     );
@@ -975,7 +978,8 @@ export async function botsHandler(
     const selectedBots =
       botIds.length > 0
         ? configuredBots.filter(
-            (bot) => botIds.includes(bot.id) && includeBotInPrimaryListings(bot),
+            (bot) =>
+              botIds.includes(bot.id) && includeBotInPrimaryListings(bot),
           )
         : configuredBots.filter(includeBotInPrimaryListings);
     const latestRuns =
@@ -1130,8 +1134,15 @@ export async function patchAccountHandler(
     if (body.status !== undefined && !status) {
       return json(400, { error: "invalid_account_status" });
     }
-    if (status === "paused") {
-      return json(400, { error: "invalid_account_status" });
+    const dependentBots = (await listBotRecords(500)).filter(
+      (bot) => bot.accountId === existing.id && bot.status !== "archived",
+    );
+    if (status === "archived" && dependentBots.length > 0) {
+      return json(409, {
+        error: "account_in_use",
+        details:
+          "Pause or archive bots using this account before archiving the account.",
+      });
     }
 
     const nextAuth = {
@@ -1150,7 +1161,8 @@ export async function patchAccountHandler(
     };
 
     if (
-      (status ?? existing.status) === "active" &&
+      ((status ?? existing.status) === "active" ||
+        (status ?? existing.status) === "paused") &&
       (!nextAuth.apiKey ||
         !nextAuth.apiSecret ||
         (existing.exchangeId === "kucoin" && !nextAuth.apiPassphrase))
@@ -1886,7 +1898,7 @@ interface CreateAccountBody {
 }
 
 interface PatchAccountBody {
-  status?: "active" | "archived";
+  status?: "active" | "paused" | "archived";
   auth?: {
     apiKey?: string;
     apiSecret?: string;

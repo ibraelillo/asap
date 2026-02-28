@@ -66,6 +66,9 @@ export function AccountsPage() {
   const activeCount = (accounts ?? []).filter(
     (account) => account.status === "active",
   ).length;
+  const pausedCount = (accounts ?? []).filter(
+    (account) => account.status === "paused",
+  ).length;
   const archivedCount = (accounts ?? []).filter(
     (account) => account.status === "archived",
   ).length;
@@ -98,7 +101,7 @@ export function AccountsPage() {
 
   async function changeAccountStatus(
     accountId: string,
-    status: "active" | "archived",
+    status: "active" | "paused" | "archived",
   ) {
     setActionError(undefined);
     setFormError(undefined);
@@ -109,7 +112,11 @@ export function AccountsPage() {
       await patchAccount(accountId, { status });
       await refreshData();
       setNotice(
-        status === "archived" ? "Account archived." : "Account reactivated.",
+        status === "archived"
+          ? "Account archived."
+          : status === "paused"
+            ? "Account frozen."
+            : "Account reactivated.",
       );
     } catch (action) {
       setActionError(action instanceof Error ? action.message : String(action));
@@ -231,7 +238,7 @@ export function AccountsPage() {
         }
       />
 
-      <section className="grid grid-cols-1 gap-4 md:grid-cols-3">
+      <section className="grid grid-cols-1 gap-4 md:grid-cols-4">
         <MetricCard
           label="Accounts"
           value={String(accounts?.length ?? 0)}
@@ -240,6 +247,11 @@ export function AccountsPage() {
         <MetricCard
           label="Active"
           value={String(activeCount)}
+          icon={<KeyRound className="h-5 w-5" />}
+        />
+        <MetricCard
+          label="Frozen"
+          value={String(pausedCount)}
           icon={<KeyRound className="h-5 w-5" />}
         />
         <MetricCard
@@ -369,186 +381,246 @@ export function AccountsPage() {
       <section className="space-y-4">
         {(accounts ?? []).map((account) => (
           <Panel key={account.id} className="p-5">
-            <div className="flex flex-wrap items-start justify-between gap-4">
-              <div>
-                <p className="text-lg font-semibold text-slate-100">
-                  {account.name}
-                </p>
-                <p className="mt-1 text-xs text-slate-400">
-                  {account.exchangeId} / {account.id}
-                </p>
-              </div>
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs text-slate-200">
-                  {account.status}
-                </span>
-                <Button
-                  size="sm"
-                  variant={
-                    editingAccountId === account.id ? "ghost" : "secondary"
-                  }
-                  leadingIcon={<RotateCcw className="h-4 w-4" />}
-                  onClick={() =>
-                    editingAccountId === account.id
-                      ? setEditingAccountId(null)
-                      : startEditingAuth(account.id)
-                  }
-                >
-                  {editingAccountId === account.id ? "Cancel" : "Rotate Auth"}
-                </Button>
-                {account.status === "active" ? (
-                  <Button
-                    size="sm"
-                    variant="danger"
-                    disabled={pendingAccountId === account.id}
-                    onClick={() =>
-                      void changeAccountStatus(account.id, "archived")
-                    }
-                  >
-                    Archive
-                  </Button>
-                ) : (
-                  <Button
-                    size="sm"
-                    disabled={pendingAccountId === account.id}
-                    onClick={() =>
-                      void changeAccountStatus(account.id, "active")
-                    }
-                  >
-                    Reactivate
-                  </Button>
-                )}
-              </div>
-            </div>
+            {(() => {
+              const boundBots = botCountByAccount.get(account.id) ?? 0;
+              const canArchive = boundBots === 0;
+              return (
+                <>
+                  <div className="flex flex-wrap items-start justify-between gap-4">
+                    <div>
+                      <p className="text-lg font-semibold text-slate-100">
+                        {account.name}
+                      </p>
+                      <p className="mt-1 text-xs text-slate-400">
+                        {account.exchangeId} / {account.id}
+                      </p>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs text-slate-200">
+                        {account.status}
+                      </span>
+                      <Button
+                        size="sm"
+                        variant={
+                          editingAccountId === account.id
+                            ? "ghost"
+                            : "secondary"
+                        }
+                        leadingIcon={<RotateCcw className="h-4 w-4" />}
+                        onClick={() =>
+                          editingAccountId === account.id
+                            ? setEditingAccountId(null)
+                            : startEditingAuth(account.id)
+                        }
+                      >
+                        {editingAccountId === account.id
+                          ? "Cancel"
+                          : "Rotate Auth"}
+                      </Button>
+                      {account.status === "active" ? (
+                        <>
+                          <Button
+                            size="sm"
+                            variant="secondary"
+                            disabled={pendingAccountId === account.id}
+                            onClick={() =>
+                              void changeAccountStatus(account.id, "paused")
+                            }
+                          >
+                            Freeze
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="danger"
+                            disabled={
+                              pendingAccountId === account.id || !canArchive
+                            }
+                            onClick={() =>
+                              void changeAccountStatus(account.id, "archived")
+                            }
+                          >
+                            Archive
+                          </Button>
+                        </>
+                      ) : account.status === "paused" ? (
+                        <>
+                          <Button
+                            size="sm"
+                            disabled={pendingAccountId === account.id}
+                            onClick={() =>
+                              void changeAccountStatus(account.id, "active")
+                            }
+                          >
+                            Reactivate
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="danger"
+                            disabled={
+                              pendingAccountId === account.id || !canArchive
+                            }
+                            onClick={() =>
+                              void changeAccountStatus(account.id, "archived")
+                            }
+                          >
+                            Archive
+                          </Button>
+                        </>
+                      ) : (
+                        <Button
+                          size="sm"
+                          disabled={pendingAccountId === account.id}
+                          onClick={() =>
+                            void changeAccountStatus(account.id, "active")
+                          }
+                        >
+                          Reactivate
+                        </Button>
+                      )}
+                    </div>
+                  </div>
 
-            <div className="mt-4 grid grid-cols-1 gap-4 text-sm text-slate-200 md:grid-cols-3 xl:grid-cols-6">
-              <div>
-                <p className="text-xs text-slate-400">Bound bots</p>
-                <p className="mt-1">{botCountByAccount.get(account.id) ?? 0}</p>
-              </div>
-              <div>
-                <p className="text-xs text-slate-400">Total balance</p>
-                <p className="mt-1">
-                  {account.balance?.error
-                    ? "unavailable"
-                    : account.balance
-                      ? `${account.balance.total.toFixed(2)} ${account.balance.currency}`
-                      : "-"}
-                </p>
-              </div>
-              <div>
-                <p className="text-xs text-slate-400">Available</p>
-                <p className="mt-1">
-                  {account.balance?.error
-                    ? "unavailable"
-                    : account.balance
-                      ? `${account.balance.available.toFixed(2)} ${account.balance.currency}`
-                      : "-"}
-                </p>
-              </div>
-              <div>
-                <p className="text-xs text-slate-400">API Key</p>
-                <p className="mt-1">
-                  {account.hasAuth.apiKey ? "configured" : "missing"}
-                </p>
-              </div>
-              <div>
-                <p className="text-xs text-slate-400">Secret</p>
-                <p className="mt-1">
-                  {account.hasAuth.apiSecret ? "configured" : "missing"}
-                </p>
-              </div>
-              <div>
-                <p className="text-xs text-slate-400">Updated</p>
-                <p className="mt-1">{formatDateTime(account.updatedAtMs)}</p>
-              </div>
-            </div>
+                  <div className="mt-4 grid grid-cols-1 gap-4 text-sm text-slate-200 md:grid-cols-3 xl:grid-cols-6">
+                    <div>
+                      <p className="text-xs text-slate-400">Bound bots</p>
+                      <p className="mt-1">{boundBots}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-slate-400">Total balance</p>
+                      <p className="mt-1">
+                        {account.balance?.error
+                          ? "unavailable"
+                          : account.balance
+                            ? `${account.balance.total.toFixed(2)} ${account.balance.currency}`
+                            : "-"}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-slate-400">Available</p>
+                      <p className="mt-1">
+                        {account.balance?.error
+                          ? "unavailable"
+                          : account.balance
+                            ? `${account.balance.available.toFixed(2)} ${account.balance.currency}`
+                            : "-"}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-slate-400">API Key</p>
+                      <p className="mt-1">
+                        {account.hasAuth.apiKey ? "configured" : "missing"}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-slate-400">Secret</p>
+                      <p className="mt-1">
+                        {account.hasAuth.apiSecret ? "configured" : "missing"}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-slate-400">Updated</p>
+                      <p className="mt-1">
+                        {formatDateTime(account.updatedAtMs)}
+                      </p>
+                    </div>
+                  </div>
 
-            {account.balance?.error ? (
-              <p className="mt-3 text-xs text-amber-300/90">
-                Balance unavailable: {account.balance.error}
-              </p>
-            ) : null}
+                  {account.balance?.error ? (
+                    <p className="mt-3 text-xs text-amber-300/90">
+                      Balance unavailable: {account.balance.error}
+                    </p>
+                  ) : null}
 
-            {editingAccountId === account.id ? (
-              <Panel className="mt-4 space-y-4 p-4" tone="muted">
-                <div>
-                  <p className="text-xs uppercase tracking-[0.16em] text-slate-400">
-                    Credential rotation
-                  </p>
-                  <p className="mt-1 text-sm text-slate-300/80">
-                    Leave fields empty to keep the current value. For KuCoin,
-                    include the passphrase when rotating key or secret.
-                  </p>
-                </div>
+                  {!canArchive ? (
+                    <p className="mt-3 text-xs text-slate-400">
+                      Archive is blocked while one or more bots still use this
+                      account. Pause or archive those bots first.
+                    </p>
+                  ) : null}
 
-                <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-                  <Field label="New API Key">
-                    <Input
-                      value={authForm.apiKey}
-                      onChange={(event) =>
-                        setAuthForm((current) => ({
-                          ...current,
-                          apiKey: event.target.value,
-                        }))
-                      }
-                      placeholder="Optional new API key"
-                      type="password"
-                    />
-                  </Field>
+                  {editingAccountId === account.id ? (
+                    <Panel className="mt-4 space-y-4 p-4" tone="muted">
+                      <div>
+                        <p className="text-xs uppercase tracking-[0.16em] text-slate-400">
+                          Credential rotation
+                        </p>
+                        <p className="mt-1 text-sm text-slate-300/80">
+                          Leave fields empty to keep the current value. For
+                          KuCoin, include the passphrase when rotating key or
+                          secret.
+                        </p>
+                      </div>
 
-                  <Field label="New API Secret">
-                    <Input
-                      value={authForm.apiSecret}
-                      onChange={(event) =>
-                        setAuthForm((current) => ({
-                          ...current,
-                          apiSecret: event.target.value,
-                        }))
-                      }
-                      placeholder="Optional new API secret"
-                      type="password"
-                    />
-                  </Field>
+                      <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+                        <Field label="New API Key">
+                          <Input
+                            value={authForm.apiKey}
+                            onChange={(event) =>
+                              setAuthForm((current) => ({
+                                ...current,
+                                apiKey: event.target.value,
+                              }))
+                            }
+                            placeholder="Optional new API key"
+                            type="password"
+                          />
+                        </Field>
 
-                  <Field label="New passphrase">
-                    <Input
-                      value={authForm.apiPassphrase}
-                      onChange={(event) =>
-                        setAuthForm((current) => ({
-                          ...current,
-                          apiPassphrase: event.target.value,
-                        }))
-                      }
-                      placeholder="Optional new passphrase"
-                      type="password"
-                    />
-                  </Field>
-                </div>
+                        <Field label="New API Secret">
+                          <Input
+                            value={authForm.apiSecret}
+                            onChange={(event) =>
+                              setAuthForm((current) => ({
+                                ...current,
+                                apiSecret: event.target.value,
+                              }))
+                            }
+                            placeholder="Optional new API secret"
+                            type="password"
+                          />
+                        </Field>
 
-                <div className="flex justify-end gap-2">
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    onClick={() => {
-                      setEditingAccountId(null);
-                      setAuthForm(emptyAuthForm);
-                    }}
-                  >
-                    Cancel
-                  </Button>
-                  <Button
-                    size="sm"
-                    disabled={savingAuthAccountId === account.id}
-                    onClick={() => void saveAuth(account.id)}
-                  >
-                    {savingAuthAccountId === account.id
-                      ? "Saving..."
-                      : "Save Credentials"}
-                  </Button>
-                </div>
-              </Panel>
-            ) : null}
+                        <Field label="New passphrase">
+                          <Input
+                            value={authForm.apiPassphrase}
+                            onChange={(event) =>
+                              setAuthForm((current) => ({
+                                ...current,
+                                apiPassphrase: event.target.value,
+                              }))
+                            }
+                            placeholder="Optional new passphrase"
+                            type="password"
+                          />
+                        </Field>
+                      </div>
+
+                      <div className="flex justify-end gap-2">
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => {
+                            setEditingAccountId(null);
+                            setAuthForm(emptyAuthForm);
+                          }}
+                        >
+                          Cancel
+                        </Button>
+                        <Button
+                          size="sm"
+                          disabled={savingAuthAccountId === account.id}
+                          onClick={() => void saveAuth(account.id)}
+                        >
+                          {savingAuthAccountId === account.id
+                            ? "Saving..."
+                            : "Save Credentials"}
+                        </Button>
+                      </div>
+                    </Panel>
+                  ) : null}
+                </>
+              );
+            })()}
           </Panel>
         ))}
 
