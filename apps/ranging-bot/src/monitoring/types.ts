@@ -1,8 +1,12 @@
 import type {
   BotDefinition,
   Candle,
+  CandleFeedRequirement,
+  CandleFeedSnapshot,
   EquityPoint,
   ExchangeAccount,
+  IndicatorFeedRequirement,
+  IndicatorFeedSnapshotMeta,
   StrategyAnalysisJsonSchema,
   StrategyAnalysisUiField,
   StrategyConfigJsonSchema,
@@ -63,6 +67,40 @@ export interface AccountSummary {
 }
 
 export interface AccountSymbolSummary extends ExchangeSymbolSummary {}
+
+export interface MarketFeedState {
+  exchangeId: string;
+  symbol: string;
+  timeframe: OrchestratorTimeframe;
+  requiredByCount: number;
+  maxLookbackBars: number;
+  lastClosedCandleTime?: number;
+  lastRefreshedAt?: number;
+  nextDueAt: number;
+  status: "ready" | "stale" | "refreshing" | "error";
+  storageKey?: string;
+  candleCount?: number;
+  errorMessage?: string;
+  requirement: CandleFeedRequirement;
+}
+
+export interface IndicatorFeedState extends IndicatorFeedSnapshotMeta {
+  exchangeId: string;
+  symbol: string;
+  timeframe: OrchestratorTimeframe;
+  indicatorId: string;
+  params: Record<string, unknown>;
+  requiredByCount: number;
+  maxLookbackBars: number;
+  requirement: IndicatorFeedRequirement;
+  lastComputedAt?: number;
+}
+
+export interface FeedRegistrySnapshot {
+  generatedAt: string;
+  marketFeeds: MarketFeedState[];
+  indicatorFeeds: IndicatorFeedState[];
+}
 
 export interface BotRunRecord {
   id: string;

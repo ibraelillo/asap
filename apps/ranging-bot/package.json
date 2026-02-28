@@ -20,6 +20,7 @@
     "@aws-sdk/client-eventbridge": "^3.998.0",
     "@aws-sdk/client-iot-data-plane": "^3.918.0",
     "@aws-sdk/client-s3": "^3.998.0",
+    "@aws-sdk/client-sqs": "^3.998.0",
     "@aws-sdk/lib-dynamodb": "^3.918.0",
     "@repo/indicator-bot-core": "workspace:*",
     "@repo/kucoin": "workspace:*",

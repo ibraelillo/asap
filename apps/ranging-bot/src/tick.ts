@@ -295,6 +295,22 @@ export const handler = async (incomingEvent?: CronTickEvent) => {
   const event = asObject(incomingEvent);
   const runtimeSettings = getRuntimeSettings();
 
+  if (runtimeSettings.sharedFeedExecutionEnabled) {
+    const summary = {
+      processed: 0,
+      signaled: 0,
+      failed: 0,
+      skippedNotDue: 0,
+      skippedUnsupportedExecutionTimeframe: 0,
+      total: 0,
+      dryRun: runtimeSettings.defaultDryRun,
+      symbolFilterCount: 0,
+      mode: "disabled-shared-feed-execution-enabled",
+    };
+    await publishTickSummary(summary);
+    return summary;
+  }
+
   const eventSymbols = parseSymbols(event.symbols);
   let bots = await loadActiveBots();
   if (eventSymbols.length > 0) {

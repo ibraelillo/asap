@@ -17,6 +17,7 @@ interface RuntimeConfigResource {
   defaultValueQty?: string | number;
   klinesPublicBaseUrl?: string;
   symbolsPublicBaseUrl?: string;
+  sharedFeedExecutionEnabled?: string | boolean;
 }
 
 export interface RuntimeSettings {
@@ -36,6 +37,7 @@ export interface RuntimeSettings {
   defaultValueQty: string;
   klinesPublicBaseUrl?: string;
   symbolsPublicBaseUrl?: string;
+  sharedFeedExecutionEnabled: boolean;
 }
 
 const DEFAULTS = {
@@ -53,6 +55,7 @@ const DEFAULTS = {
   defaultDryRun: true,
   defaultMarginMode: "CROSS" as const,
   defaultValueQty: "100",
+  sharedFeedExecutionEnabled: false,
 };
 
 let cachedSettings: RuntimeSettings | null = null;
@@ -221,6 +224,11 @@ export function getRuntimeSettings(): RuntimeSettings {
     symbolsPublicBaseUrl: readOptionalString(
       linked.symbolsPublicBaseUrl,
       process.env.RANGING_SYMBOLS_PUBLIC_BASE_URL,
+    ),
+    sharedFeedExecutionEnabled: readBoolean(
+      linked.sharedFeedExecutionEnabled,
+      process.env.RANGING_SHARED_FEED_EXECUTION_ENABLED,
+      DEFAULTS.sharedFeedExecutionEnabled,
     ),
   };
 

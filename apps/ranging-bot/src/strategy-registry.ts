@@ -26,8 +26,11 @@ import {
 } from "@repo/indicator-bot-core";
 import {
   type BacktestMetrics,
+  type CandleFeedRequirement,
   type Candle,
   type EquityPoint,
+  type IndicatorFeedRequirement,
+  type StrategyFeedRequirements,
   type StrategyAnalysisJsonSchema,
   type StrategyAnalysisUiField,
   type StrategyConfigJsonSchema,
@@ -77,6 +80,10 @@ export interface StrategyManifest<
   getDefaultConfig(): TConfig;
   resolveConfig(raw?: Record<string, unknown>): TConfig;
   createStrategy(config: TConfig): TradingStrategy<TConfig, TSnapshot, TMeta>;
+  requiredFeeds(input: {
+    bot: BotRecord;
+    config: TConfig;
+  }): StrategyFeedRequirements;
   buildAnalysis(input: {
     snapshot: TSnapshot;
     decision: StrategyDecision<TMeta>;
@@ -86,6 +93,36 @@ export interface StrategyManifest<
     config: TConfig,
   ): StrategyBacktestArtifacts;
   estimateValidationRange(candles: Candle[]): StrategyRangeEstimate;
+}
+
+function candleRequirement(
+  role: string,
+  timeframe: Timeframe,
+  lookbackBars: number,
+): CandleFeedRequirement {
+  return {
+    role,
+    timeframe,
+    lookbackBars: Math.max(1, Math.floor(lookbackBars)),
+  };
+}
+
+function indicatorRequirement(input: {
+  role: string;
+  timeframe: Timeframe;
+  indicatorId: string;
+  params: Record<string, unknown>;
+  lookbackBars: number;
+  source?: IndicatorFeedRequirement["source"];
+}): IndicatorFeedRequirement {
+  return {
+    role: input.role,
+    timeframe: input.timeframe,
+    indicatorId: input.indicatorId,
+    params: input.params,
+    lookbackBars: Math.max(1, Math.floor(input.lookbackBars)),
+    source: input.source,
+  };
 }
 
 export interface ResolvedStrategy<
@@ -165,6 +202,67 @@ const rangeReversalManifest: StrategyManifest<
   },
   createStrategy(config) {
     return createConfiguredRangeReversalStrategy(config).strategy;
+  },
+  requiredFeeds({ bot, config }) {
+    const executionLookback = Math.max(
+      bot.runtime.executionLimit,
+      config.signal.waveTrendAverageLength +
+        config.signal.waveTrendSignalLength +
+        config.signal.maxBarsAfterDivergence +
+        config.signal.priceExcursionLookbackBars +
+        8,
+    );
+
+    return {
+      candles: [
+        candleRequirement(
+          "execution",
+          bot.runtime.executionTimeframe,
+          executionLookback,
+        ),
+        candleRequirement(
+          "primaryRange",
+          bot.runtime.primaryRangeTimeframe,
+          Math.max(
+            bot.runtime.primaryRangeLimit,
+            config.range.primaryLookbackBars,
+          ),
+        ),
+        candleRequirement(
+          "secondaryRange",
+          bot.runtime.secondaryRangeTimeframe,
+          Math.max(
+            bot.runtime.secondaryRangeLimit,
+            config.range.secondaryLookbackBars,
+          ),
+        ),
+      ],
+      indicators: [
+        indicatorRequirement({
+          role: "wavetrend",
+          timeframe: bot.runtime.executionTimeframe,
+          indicatorId: "wavetrend",
+          source: "hlc3",
+          params: {
+            channelLength: config.signal.waveTrendChannelLength,
+            averageLength: config.signal.waveTrendAverageLength,
+            signalLength: config.signal.waveTrendSignalLength,
+          },
+          lookbackBars: executionLookback,
+        }),
+        indicatorRequirement({
+          role: "moneyflow",
+          timeframe: bot.runtime.executionTimeframe,
+          indicatorId: "moneyflow",
+          source: "hlc3",
+          params: {
+            period: config.signal.moneyFlowPeriod,
+            slopeBars: config.signal.moneyFlowSlopeBars,
+          },
+          lookbackBars: executionLookback,
+        }),
+      ],
+    };
   },
   buildAnalysis(input) {
     return buildRangeReversalAnalysis(input);
@@ -257,6 +355,102 @@ const indicatorManifest: StrategyManifest<
   },
   createStrategy(config) {
     return createConfiguredIndicatorBotStrategy(config).strategy;
+  },
+  requiredFeeds({ bot, config }) {
+    const executionLookback = Math.max(
+      bot.runtime.executionLimit,
+      config.trend.slowEmaLength + config.trend.slopeLookbackBars + 12,
+      config.momentum.rsiLength + 6,
+      config.volatility.atrLength + 6,
+      config.volume.volumeSmaLength + 6,
+    );
+
+    const higherTimeframeLookback = Math.max(
+      bot.runtime.primaryRangeLimit,
+      bot.runtime.secondaryRangeLimit,
+      config.trend.higherTimeframeEmaLength + config.trend.slopeLookbackBars + 8,
+    );
+
+    return {
+      candles: [
+        candleRequirement(
+          "execution",
+          bot.runtime.executionTimeframe,
+          executionLookback,
+        ),
+        candleRequirement(
+          "primaryTrend",
+          bot.runtime.primaryRangeTimeframe,
+          higherTimeframeLookback,
+        ),
+        candleRequirement(
+          "secondaryTrend",
+          bot.runtime.secondaryRangeTimeframe,
+          higherTimeframeLookback,
+        ),
+      ],
+      indicators: [
+        indicatorRequirement({
+          role: "fastEma",
+          timeframe: bot.runtime.executionTimeframe,
+          indicatorId: "ema",
+          source: "close",
+          params: { length: config.trend.fastEmaLength },
+          lookbackBars: executionLookback,
+        }),
+        indicatorRequirement({
+          role: "slowEma",
+          timeframe: bot.runtime.executionTimeframe,
+          indicatorId: "ema",
+          source: "close",
+          params: { length: config.trend.slowEmaLength },
+          lookbackBars: executionLookback,
+        }),
+        indicatorRequirement({
+          role: "higherTimeframeEmaPrimary",
+          timeframe: bot.runtime.primaryRangeTimeframe,
+          indicatorId: "ema",
+          source: "close",
+          params: { length: config.trend.higherTimeframeEmaLength },
+          lookbackBars: higherTimeframeLookback,
+        }),
+        indicatorRequirement({
+          role: "higherTimeframeEmaSecondary",
+          timeframe: bot.runtime.secondaryRangeTimeframe,
+          indicatorId: "ema",
+          source: "close",
+          params: { length: config.trend.higherTimeframeEmaLength },
+          lookbackBars: higherTimeframeLookback,
+        }),
+        indicatorRequirement({
+          role: "rsi",
+          timeframe: bot.runtime.executionTimeframe,
+          indicatorId: "rsi",
+          source: "close",
+          params: { length: config.momentum.rsiLength },
+          lookbackBars: executionLookback,
+        }),
+        indicatorRequirement({
+          role: "atr",
+          timeframe: bot.runtime.executionTimeframe,
+          indicatorId: "atr",
+          source: "ohlc4",
+          params: { length: config.volatility.atrLength },
+          lookbackBars: executionLookback,
+        }),
+        indicatorRequirement({
+          role: "volumeSma",
+          timeframe: bot.runtime.executionTimeframe,
+          indicatorId: "sma",
+          source: "close",
+          params: {
+            length: config.volume.volumeSmaLength,
+            series: "volume",
+          },
+          lookbackBars: executionLookback,
+        }),
+      ],
+    };
   },
   buildAnalysis(input) {
     return buildIndicatorBotAnalysis(input);

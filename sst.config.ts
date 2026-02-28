@@ -26,6 +26,8 @@ export default $config({
       process.env.RANGING_RECONCILIATION_SCHEDULE ?? "rate(5 minutes)";
     const symbolsRefreshSchedule =
       process.env.RANGING_SYMBOLS_REFRESH_SCHEDULE ?? "rate(1 day)";
+    const sharedFeedSchedule =
+      process.env.RANGING_SHARED_FEED_SCHEDULE ?? "rate(5 minutes)";
     const realtimeToken = process.env.RANGING_REALTIME_TOKEN ?? "";
     const realtimeTopicPrefix = `${$app.name}/${$app.stage}/ranging-bot`;
 
@@ -94,6 +96,24 @@ export default $config({
         },
       },
     });
+    const feedsTable = new sst.aws.Dynamo("RangingFeeds", {
+      fields: {
+        PK: "string",
+        SK: "string",
+        GSI1PK: "string",
+        GSI1SK: "string",
+      },
+      primaryIndex: {
+        hashKey: "PK",
+        rangeKey: "SK",
+      },
+      globalIndexes: {
+        ByStatus: {
+          hashKey: "GSI1PK",
+          rangeKey: "GSI1SK",
+        },
+      },
+    });
 
     const klineCacheBucket = new sst.aws.Bucket("RangingKlineCache", {
       access: "cloudfront",
@@ -147,6 +167,8 @@ export default $config({
         defaultValueQty: process.env.RANGING_VALUE_QTY ?? "100",
         klinesPublicBaseUrl: klinesBaseUrl,
         symbolsPublicBaseUrl: symbolsBaseUrl,
+        sharedFeedExecutionEnabled:
+          process.env.RANGING_SHARED_FEED_EXECUTION_ENABLED ?? "false",
       },
     });
 
@@ -163,6 +185,7 @@ export default $config({
       link: [
         runsTable,
         accountsTable,
+        feedsTable,
         klineCacheBucket,
         backtestBus,
         runtimeConfig,
@@ -325,6 +348,68 @@ export default $config({
       },
     });
 
+    const marketFeedRefreshQueue = new sst.aws.Queue(
+      "RangingMarketFeedRefreshQueue",
+    );
+    const botExecutionQueue = new sst.aws.Queue("RangingBotExecutionQueue");
+    const indicatorRefreshQueue = new sst.aws.Queue(
+      "RangingIndicatorRefreshQueue",
+    );
+
+    marketFeedRefreshQueue.subscribe({
+      handler: "apps/ranging-bot/src/market-feed-worker.handler",
+      timeout: "2 minutes",
+      link: [feedsTable, klineCacheBucket, runtimeConfig],
+    });
+
+    botExecutionQueue.subscribe({
+      handler: "apps/ranging-bot/src/bot-execution-worker.handler",
+      timeout: "2 minutes",
+      link: [
+        feedsTable,
+        runsTable,
+        accountsTable,
+        realtime,
+        runtimeConfig,
+        accountsEncryptionKey,
+      ],
+      environment: {
+        KUCOIN_API_KEY: kucoinApiKey,
+        KUCOIN_API_SECRET: kucoinApiSecret,
+        KUCOIN_API_PASSPHRASE: kucoinApiPassphrase,
+      },
+    });
+
+    new sst.aws.Cron("RangingFeedRegistryCron", {
+      schedule: sharedFeedSchedule,
+      function: {
+        handler: "apps/ranging-bot/src/market-feed-dispatcher.handler",
+        timeout: "55 seconds",
+        link: [
+          runsTable,
+          feedsTable,
+          runtimeConfig,
+          marketFeedRefreshQueue,
+          indicatorRefreshQueue,
+        ],
+      },
+      event: {
+        trigger: "ranging-feed-registry-cron",
+      },
+    });
+
+    new sst.aws.Cron("RangingBotExecutionDispatcherCron", {
+      schedule: sharedFeedSchedule,
+      function: {
+        handler: "apps/ranging-bot/src/bot-execution-dispatcher.handler",
+        timeout: "55 seconds",
+        link: [runsTable, feedsTable, runtimeConfig, botExecutionQueue],
+      },
+      event: {
+        trigger: "ranging-bot-execution-dispatcher-cron",
+      },
+    });
+
     new sst.aws.Cron("RangingBotTick", {
       schedule,
       function: {
@@ -333,6 +418,7 @@ export default $config({
         link: [
           runsTable,
           accountsTable,
+          feedsTable,
           realtime,
           runtimeConfig,
           accountsEncryptionKey,
@@ -353,7 +439,13 @@ export default $config({
       function: {
         handler: "apps/ranging-bot/src/reconciliation-worker.handler",
         timeout: "55 seconds",
-        link: [runsTable, accountsTable, runtimeConfig, accountsEncryptionKey],
+        link: [
+          runsTable,
+          accountsTable,
+          feedsTable,
+          runtimeConfig,
+          accountsEncryptionKey,
+        ],
         environment: {
           KUCOIN_API_KEY: kucoinApiKey,
           KUCOIN_API_SECRET: kucoinApiSecret,
@@ -380,6 +472,7 @@ export default $config({
     return {
       mode: "ranging-bot-scheduler",
       schedule,
+      sharedFeedSchedule,
       reconciliationSchedule,
       symbolsRefreshSchedule,
       botCount: "stored",
@@ -391,6 +484,7 @@ export default $config({
       realtimeTopicPrefix,
       klineCacheBucket: klineCacheBucket.name,
       accountsTable: accountsTable.name,
+      feedsTable: feedsTable.name,
       klinesBaseUrl,
       symbolsBaseUrl,
       backtestBusName: backtestBus.name,
