@@ -99,13 +99,14 @@ export function BacktestDetailsPage({
 
   const bestTrade = useMemo(() => {
     if (!details) return undefined;
-    return [...details.trades].sort((a, b) => b.netPnl - a.netPnl)[0];
+    const winners = details.trades.filter((trade) => trade.netPnl > 0);
+    return winners.sort((a, b) => b.netPnl - a.netPnl)[0];
   }, [details]);
 
   const worstTrade = useMemo(() => {
     if (!details) return undefined;
-    if (details.trades.length < 2) return undefined;
-    return [...details.trades].sort((a, b) => a.netPnl - b.netPnl)[0];
+    const losers = details.trades.filter((trade) => trade.netPnl < 0);
+    return losers.sort((a, b) => a.netPnl - b.netPnl)[0];
   }, [details]);
 
   const tradeBalanceProgression = useMemo(() => {
@@ -144,8 +145,6 @@ export function BacktestDetailsPage({
     asRecord(backtest.strategyConfig),
   );
   const hasSnapshot = Object.keys(backtestStrategyConfig).length > 0;
-
-  const hasSingleTrade = details.trades.length === 1;
 
   return (
     <div className="space-y-6">
@@ -306,13 +305,15 @@ export function BacktestDetailsPage({
 
       <section className="grid grid-cols-1 gap-4 xl:grid-cols-2">
         <Panel className="p-4">
-          <h3 className="text-sm font-semibold text-slate-100">
-            {hasSingleTrade ? "Only Trade" : "Best Trade"}
-          </h3>
+          <h3 className="text-sm font-semibold text-slate-100">Best Trade</h3>
           {bestTrade ? (
             <p className="mt-2 text-sm text-emerald-300">
               #{bestTrade.id} {bestTrade.side}{" "}
               {formatCurrency(bestTrade.netPnl)}
+            </p>
+          ) : details.trades.length > 0 ? (
+            <p className="mt-2 text-xs text-slate-400">
+              No winning trade in this backtest.
             </p>
           ) : (
             <p className="mt-2 text-xs text-slate-400">No trades available.</p>
@@ -325,9 +326,9 @@ export function BacktestDetailsPage({
               #{worstTrade.id} {worstTrade.side}{" "}
               {formatCurrency(worstTrade.netPnl)}
             </p>
-          ) : hasSingleTrade ? (
+          ) : details.trades.length > 0 ? (
             <p className="mt-2 text-xs text-slate-400">
-              Need at least two trades to compare best and worst outcomes.
+              No losing trade in this backtest.
             </p>
           ) : (
             <p className="mt-2 text-xs text-slate-400">No trades available.</p>
