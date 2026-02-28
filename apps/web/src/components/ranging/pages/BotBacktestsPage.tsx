@@ -5,11 +5,12 @@ import {
   History,
   Loader2,
   Play,
+  Search,
   Settings2,
   WandSparkles,
   XCircle,
 } from "lucide-react";
-import { Button, Drawer, Select } from "@repo/ui";
+import { Button, Drawer, Panel, Select } from "@repo/ui";
 import { Link, Navigate, useParams } from "react-router-dom";
 import {
   createBacktest,
@@ -28,7 +29,7 @@ import {
   type StrategyConfigEditorHandle,
 } from "../StrategyConfigEditor";
 
-type DrawerMode = "bot-settings" | "new-backtest" | null;
+type DrawerMode = "bot-settings" | "new-backtest" | "compare-backtest" | null;
 
 function toDateInputValue(date: Date): string {
   const year = date.getFullYear();
@@ -88,6 +89,86 @@ function normalizeConfigString(value: unknown): string {
   return JSON.stringify(asRecord(value));
 }
 
+function getValueAtPath(
+  object: Record<string, unknown>,
+  path: string,
+): unknown {
+  return path.split(".").reduce<unknown>((current, segment) => {
+    if (!current || typeof current !== "object") return undefined;
+    return (current as Record<string, unknown>)[segment];
+  }, object);
+}
+
+function collectConfigPaths(
+  value: unknown,
+  prefix = "",
+  paths = new Set<string>(),
+): Set<string> {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    if (prefix) paths.add(prefix);
+    return paths;
+  }
+
+  const entries = Object.entries(value as Record<string, unknown>);
+  if (entries.length === 0 && prefix) {
+    paths.add(prefix);
+    return paths;
+  }
+
+  for (const [key, child] of entries) {
+    const nextPrefix = prefix ? `${prefix}.${key}` : key;
+    collectConfigPaths(child, nextPrefix, paths);
+  }
+
+  return paths;
+}
+
+function labelFromPath(path: string): string {
+  const leaf = path.split(".").at(-1) ?? path;
+  return leaf
+    .replace(/([a-z0-9])([A-Z])/g, "$1 $2")
+    .replace(/[_-]+/g, " ")
+    .replace(/^\w/, (char) => char.toUpperCase());
+}
+
+function formatConfigValue(
+  value: unknown,
+  options?: {
+    valueFormat?: "raw" | "fraction-percent" | "percent";
+    suffix?: string;
+    decimals?: number;
+  },
+): string {
+  if (typeof value === "number" && Number.isFinite(value)) {
+    let display = value;
+    if (options?.valueFormat === "fraction-percent") {
+      display = value * 100;
+    }
+    const fixed =
+      typeof options?.decimals === "number"
+        ? display.toFixed(options.decimals)
+        : String(display);
+    const compact = fixed.replace(/\.0+$/, "").replace(/(\.\d*?)0+$/, "$1");
+    return `${compact}${options?.suffix ?? ""}`;
+  }
+
+  if (typeof value === "boolean") {
+    return value ? "Enabled" : "Disabled";
+  }
+
+  if (typeof value === "string") {
+    return value;
+  }
+
+  if (Array.isArray(value)) {
+    return value.length > 0 ? value.join(", ") : "[]";
+  }
+
+  if (value === undefined) return "Not set";
+  if (value === null) return "null";
+  return JSON.stringify(value);
+}
+
 export function BotBacktestsPage() {
   const { botId } = useParams<{ botId: string }>();
   const { mutate } = useSWRConfig();
@@ -127,9 +208,8 @@ export function BotBacktestsPage() {
   const [backtestFeedback, setBacktestFeedback] = useState<
     string | undefined
   >();
-  const [applyingBacktestId, setApplyingBacktestId] = useState<
-    string | undefined
-  >();
+  const [applyingBacktestId, setApplyingBacktestId] = useState<string>();
+  const [selectedBacktestId, setSelectedBacktestId] = useState<string>();
   const [validationTimeframe, setValidationTimeframe] = useState<string>("15m");
   const [validationFromDate, setValidationFromDate] = useState<string>(() =>
     dateInputDaysAgo(30),
@@ -212,6 +292,39 @@ export function BotBacktestsPage() {
   const strategySummary = strategyDetails?.strategy;
   const currentBotStrategyConfig = asRecord(botDetails?.bot.runtime.strategyConfig);
   const currentBotConfigString = normalizeConfigString(currentBotStrategyConfig);
+  const selectedBacktest =
+    selectedBacktestId !== undefined
+      ? (backtests ?? []).find((entry) => entry.id === selectedBacktestId)
+      : undefined;
+  const selectedBacktestStrategyConfig = asRecord(selectedBacktest?.strategyConfig);
+  const configUiByPath = new Map(
+    (strategySummary?.configUi ?? []).map((field) => [field.path, field]),
+  );
+  const selectedConfigDiff = (() => {
+    if (!selectedBacktest) return [];
+
+    return [...collectConfigPaths(currentBotStrategyConfig), ...collectConfigPaths(selectedBacktestStrategyConfig)]
+      .filter((path, index, values) => values.indexOf(path) === index)
+      .map((path) => {
+        const currentValue = getValueAtPath(currentBotStrategyConfig, path);
+        const backtestValue = getValueAtPath(selectedBacktestStrategyConfig, path);
+        return {
+          path,
+          field: configUiByPath.get(path),
+          currentValue,
+          backtestValue,
+          changed:
+            normalizeConfigString({ value: currentValue }) !==
+            normalizeConfigString({ value: backtestValue }),
+        };
+      })
+      .filter((entry) => entry.changed)
+      .sort((left, right) => {
+        const leftOrder = left.field?.order ?? Number.MAX_SAFE_INTEGER;
+        const rightOrder = right.field?.order ?? Number.MAX_SAFE_INTEGER;
+        return leftOrder - rightOrder || left.path.localeCompare(right.path);
+      });
+  })();
 
   function openBotSettingsDrawer() {
     const nextConfig = cloneRecord(currentBotStrategyConfig);
@@ -294,6 +407,7 @@ export function BotBacktestsPage() {
         mutate(["bot-stats", botId]),
         mutate("ranging-dashboard"),
       ]);
+      setDrawerMode(null);
     } catch (error) {
       setBacktestFeedback(
         `Failed to apply settings: ${error instanceof Error ? error.message : String(error)}`,
@@ -301,6 +415,12 @@ export function BotBacktestsPage() {
     } finally {
       setApplyingBacktestId(undefined);
     }
+  }
+
+  function openCompareBacktest(backtestId: string) {
+    setSelectedBacktestId(backtestId);
+    setBacktestFeedback(undefined);
+    setDrawerMode("compare-backtest");
   }
 
   async function onCreateBacktest() {
@@ -605,19 +725,10 @@ export function BotBacktestsPage() {
                           size="sm"
                           variant="secondary"
                           className="whitespace-nowrap"
-                          onClick={() =>
-                            void applyBacktestSettings(
-                              backtest.strategyConfig,
-                              backtest.id,
-                            )
-                          }
-                          disabled={
-                            !differsFromBot || applyingBacktestId === backtest.id
-                          }
+                          onClick={() => openCompareBacktest(backtest.id)}
+                          disabled={!differsFromBot}
                         >
-                          {applyingBacktestId === backtest.id
-                            ? "Applying..."
-                            : "Apply To Bot"}
+                          Review Diff
                         </Button>
                       </div>
                     </td>
@@ -1010,6 +1121,128 @@ export function BotBacktestsPage() {
             onChange={setDraftBacktestStrategyConfig}
             emptyState="No strategy metadata is available for this bot."
           />
+
+          {backtestFeedback ? (
+            <div className="rounded-xl border border-cyan-300/20 bg-cyan-400/10 px-4 py-3 text-sm text-cyan-100">
+              {backtestFeedback}
+            </div>
+          ) : null}
+        </div>
+      </Drawer>
+
+      <Drawer
+        open={drawerMode === "compare-backtest"}
+        onClose={() => setDrawerMode(null)}
+        title="Compare Backtest Settings"
+        description="Review the exact parameter changes between the current bot settings and this backtest snapshot before applying them."
+        footer={
+          <div className="flex flex-wrap justify-between gap-2">
+            <div className="text-xs text-slate-400">
+              {selectedConfigDiff.length} changed field
+              {selectedConfigDiff.length === 1 ? "" : "s"}
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <Button onClick={() => setDrawerMode(null)}>Close</Button>
+              <Button
+                variant="primary"
+                onClick={() =>
+                  void applyBacktestSettings(
+                    selectedBacktest?.strategyConfig,
+                    selectedBacktest?.id ?? "",
+                  )
+                }
+                disabled={
+                  !selectedBacktest ||
+                  selectedConfigDiff.length === 0 ||
+                  applyingBacktestId === selectedBacktest.id
+                }
+              >
+                {applyingBacktestId === selectedBacktest?.id
+                  ? "Applying..."
+                  : "Apply To Bot"}
+              </Button>
+            </div>
+          </div>
+        }
+      >
+        <div className="space-y-4">
+          {selectedBacktest ? (
+            <Panel className="grid grid-cols-1 gap-3 p-4 text-sm text-slate-300 md:grid-cols-3">
+              <div>
+                <p className="text-xs uppercase tracking-[0.18em] text-slate-400">
+                  Backtest
+                </p>
+                <p className="mt-1 font-medium text-slate-100">
+                  {selectedBacktest.id}
+                </p>
+              </div>
+              <div>
+                <p className="text-xs uppercase tracking-[0.18em] text-slate-400">
+                  Net PnL
+                </p>
+                <p className="mt-1 font-medium text-slate-100">
+                  {formatCurrency(selectedBacktest.netPnl)}
+                </p>
+              </div>
+              <div>
+                <p className="text-xs uppercase tracking-[0.18em] text-slate-400">
+                  Created
+                </p>
+                <p className="mt-1 font-medium text-slate-100">
+                  {formatDateTime(selectedBacktest.createdAtMs)}
+                </p>
+              </div>
+            </Panel>
+          ) : null}
+
+          {selectedConfigDiff.length === 0 ? (
+            <Panel className="px-4 py-3 text-sm text-slate-300" tone="muted">
+              This backtest snapshot matches the current bot settings.
+            </Panel>
+          ) : (
+            <div className="space-y-3">
+              {selectedConfigDiff.map((entry) => (
+                <Panel
+                  key={entry.path}
+                  className="space-y-3 p-4"
+                  tone="muted"
+                >
+                  <div>
+                    <p className="text-sm font-medium text-slate-100">
+                      {entry.field?.label ?? labelFromPath(entry.path)}
+                    </p>
+                    <p className="mt-1 text-xs text-slate-400">
+                      {entry.field?.description ?? entry.path}
+                    </p>
+                  </div>
+
+                  <div className="grid grid-cols-1 gap-3 md:grid-cols-[1fr_auto_1fr]">
+                    <div className="rounded-xl border border-white/10 bg-white/5 p-3">
+                      <p className="text-[11px] uppercase tracking-[0.18em] text-slate-400">
+                        Current Bot
+                      </p>
+                      <p className="mt-2 text-sm font-medium text-slate-100">
+                        {formatConfigValue(entry.currentValue, entry.field)}
+                      </p>
+                    </div>
+
+                    <div className="flex items-center justify-center text-slate-500">
+                      →
+                    </div>
+
+                    <div className="rounded-xl border border-cyan-300/20 bg-cyan-400/10 p-3">
+                      <p className="text-[11px] uppercase tracking-[0.18em] text-cyan-200/80">
+                        Backtest Snapshot
+                      </p>
+                      <p className="mt-2 text-sm font-medium text-cyan-50">
+                        {formatConfigValue(entry.backtestValue, entry.field)}
+                      </p>
+                    </div>
+                  </div>
+                </Panel>
+              ))}
+            </div>
+          )}
 
           {backtestFeedback ? (
             <div className="rounded-xl border border-cyan-300/20 bg-cyan-400/10 px-4 py-3 text-sm text-cyan-100">
