@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Button, Drawer } from "@repo/ui";
+import { Button, DatePicker, Drawer } from "@repo/ui";
 import {
   createBacktest,
   type CreateBacktestRequest,
@@ -236,21 +236,20 @@ export function BacktestConfigDrawer({
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
           <label className="inline-flex flex-col gap-1 text-xs text-slate-300">
             From
-            <input
-              type="date"
+            <DatePicker
               value={fromDate}
-              onChange={(event) => setFromDate(event.target.value)}
-              className="rounded bg-slate-950/60 px-3 py-2 text-sm text-slate-100 outline-none"
+              onChange={setFromDate}
+              buttonClassName="text-sm"
             />
           </label>
 
           <label className="inline-flex flex-col gap-1 text-xs text-slate-300">
             To
-            <input
-              type="date"
+            <DatePicker
               value={toDate}
-              onChange={(event) => setToDate(event.target.value)}
-              className="rounded bg-slate-950/60 px-3 py-2 text-sm text-slate-100 outline-none"
+              onChange={setToDate}
+              fromDate={fromDate}
+              buttonClassName="text-sm"
             />
           </label>
 

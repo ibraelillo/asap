@@ -9,7 +9,7 @@ import {
   WandSparkles,
   XCircle,
 } from "lucide-react";
-import { Button, Drawer, Select } from "@repo/ui";
+import { Button, DatePicker, Drawer, Select } from "@repo/ui";
 import { Link, Navigate, useNavigate, useParams } from "react-router-dom";
 import {
   createRangeValidation,
@@ -560,21 +560,20 @@ export function BotBacktestsPage() {
 
           <label className="inline-flex flex-col gap-1 text-xs text-slate-300">
             From
-            <input
-              type="date"
+            <DatePicker
               value={validationFromDate}
-              onChange={(event) => setValidationFromDate(event.target.value)}
-              className="rounded bg-slate-950/60 px-2 py-1 text-slate-100 outline-none"
+              onChange={setValidationFromDate}
+              buttonClassName="px-2 py-1 text-sm"
             />
           </label>
 
           <label className="inline-flex flex-col gap-1 text-xs text-slate-300">
             To
-            <input
-              type="date"
+            <DatePicker
               value={validationToDate}
-              onChange={(event) => setValidationToDate(event.target.value)}
-              className="rounded bg-slate-950/60 px-2 py-1 text-slate-100 outline-none"
+              onChange={setValidationToDate}
+              fromDate={validationFromDate}
+              buttonClassName="px-2 py-1 text-sm"
             />
           </label>
 
