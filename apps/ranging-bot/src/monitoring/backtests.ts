@@ -4,6 +4,7 @@ import {
   strategyRegistry,
   type StrategyBacktestArtifacts,
 } from "../strategy-registry";
+import { getRuntimeSettings } from "../runtime-settings";
 import { fetchHistoricalKlines } from "./kucoin-public-klines";
 import {
   buildWindowKlineCacheKey,
@@ -23,22 +24,6 @@ import type {
   RangeValidationResult,
 } from "./types";
 
-const OPENAI_ENDPOINT =
-  process.env.OPENAI_RESPONSES_ENDPOINT ??
-  "https://api.openai.com/v1/responses";
-const DEFAULT_AI_MODEL_PRIMARY =
-  process.env.RANGING_VALIDATION_MODEL_PRIMARY ?? "gpt-5-nano-2025-08-07";
-const DEFAULT_AI_MODEL_FALLBACK =
-  process.env.RANGING_VALIDATION_MODEL_FALLBACK ?? "gpt-5-mini-2025-08-07";
-const DEFAULT_AI_CONFIDENCE_THRESHOLD = Number(
-  process.env.RANGING_VALIDATION_CONFIDENCE_THRESHOLD ?? 0.72,
-);
-const DEFAULT_AI_MAX_OUTPUT_TOKENS = Number(
-  process.env.RANGING_VALIDATION_MAX_OUTPUT_TOKENS ?? 800,
-);
-const DEFAULT_AI_TIMEOUT_MS = Number(
-  process.env.RANGING_VALIDATION_TIMEOUT_MS ?? 45_000,
-);
 const MIN_REQUIRED_AI_CANDLES = 60;
 
 const SYSTEM_PROMPT = [
@@ -132,6 +117,18 @@ type BacktestAiProgressReporter = (
 
 function clamp(value: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, value));
+}
+
+function getAiDefaults() {
+  const runtimeSettings = getRuntimeSettings();
+  return {
+    endpoint: runtimeSettings.openAiResponsesEndpoint,
+    primaryModel: runtimeSettings.validationModelPrimary,
+    fallbackModel: runtimeSettings.validationModelFallback,
+    confidenceThreshold: runtimeSettings.validationConfidenceThreshold,
+    maxOutputTokens: runtimeSettings.validationMaxOutputTokens,
+    timeoutMs: runtimeSettings.validationTimeoutMs,
+  };
 }
 
 function isTimeframe(value: unknown): value is OrchestratorTimeframe {
@@ -405,16 +402,17 @@ async function callOpenAiModel(
   candles: Candle[],
   maxOutputTokensOverride?: number,
 ): Promise<RangeValidationResult> {
+  const aiDefaults = getAiDefaults();
   const payload = buildPromptPayload(detail, candles);
   const controller = new AbortController();
   const timeoutMs =
-    Number.isFinite(DEFAULT_AI_TIMEOUT_MS) && DEFAULT_AI_TIMEOUT_MS > 0
-      ? Math.floor(DEFAULT_AI_TIMEOUT_MS)
+    Number.isFinite(aiDefaults.timeoutMs) && aiDefaults.timeoutMs > 0
+      ? Math.floor(aiDefaults.timeoutMs)
       : 45_000;
   const timeout = setTimeout(() => controller.abort(), timeoutMs);
 
   try {
-    const response = await fetch(OPENAI_ENDPOINT, {
+    const response = await fetch(aiDefaults.endpoint, {
       method: "POST",
       headers: {
         "content-type": "application/json",
@@ -443,9 +441,9 @@ async function callOpenAiModel(
           maxOutputTokensOverride &&
           maxOutputTokensOverride > 0
             ? Math.floor(maxOutputTokensOverride)
-            : Number.isFinite(DEFAULT_AI_MAX_OUTPUT_TOKENS) &&
-                DEFAULT_AI_MAX_OUTPUT_TOKENS > 0
-              ? Math.floor(DEFAULT_AI_MAX_OUTPUT_TOKENS)
+            : Number.isFinite(aiDefaults.maxOutputTokens) &&
+                aiDefaults.maxOutputTokens > 0
+              ? Math.floor(aiDefaults.maxOutputTokens)
               : 800,
       }),
       signal: controller.signal,
@@ -484,10 +482,11 @@ async function runAiValidationWithFallback(
   candles: Candle[],
   aiConfig: BacktestAiConfig,
 ): Promise<AiRangeValidationResponse> {
+  const aiDefaults = getAiDefaults();
   const primaryBudget =
-    Number.isFinite(DEFAULT_AI_MAX_OUTPUT_TOKENS) &&
-    DEFAULT_AI_MAX_OUTPUT_TOKENS > 0
-      ? Math.floor(DEFAULT_AI_MAX_OUTPUT_TOKENS)
+    Number.isFinite(aiDefaults.maxOutputTokens) &&
+    aiDefaults.maxOutputTokens > 0
+      ? Math.floor(aiDefaults.maxOutputTokens)
       : 800;
   const retryBudget = Math.min(primaryBudget * 2, 2_000);
 
@@ -570,6 +569,7 @@ function normalizeAiConfig(
   ai: BacktestAiConfig | undefined,
 ): BacktestAiConfig | undefined {
   if (!ai?.enabled) return undefined;
+  const aiDefaults = getAiDefaults();
 
   const lookbackCandles = Number.isFinite(ai.lookbackCandles)
     ? Math.max(MIN_REQUIRED_AI_CANDLES, Math.floor(ai.lookbackCandles))
@@ -582,7 +582,7 @@ function normalizeAiConfig(
     : 50;
   const confidenceThreshold = Number.isFinite(ai.confidenceThreshold)
     ? clamp(ai.confidenceThreshold, 0, 1)
-    : clamp(DEFAULT_AI_CONFIDENCE_THRESHOLD, 0, 1);
+    : clamp(aiDefaults.confidenceThreshold, 0, 1);
 
   return {
     enabled: true,
@@ -593,11 +593,11 @@ function normalizeAiConfig(
     modelPrimary:
       typeof ai.modelPrimary === "string" && ai.modelPrimary.trim().length > 0
         ? ai.modelPrimary.trim()
-        : DEFAULT_AI_MODEL_PRIMARY,
+        : aiDefaults.primaryModel,
     modelFallback:
       typeof ai.modelFallback === "string" && ai.modelFallback.trim().length > 0
         ? ai.modelFallback.trim()
-        : DEFAULT_AI_MODEL_FALLBACK,
+        : aiDefaults.fallbackModel,
   };
 }
 

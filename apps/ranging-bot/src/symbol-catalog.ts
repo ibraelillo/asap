@@ -62,6 +62,37 @@ export async function getCachedExchangeSymbols(
   return loadExchangeSymbolsCache(exchangeId);
 }
 
+export async function refreshExchangeSymbols(
+  exchangeId: string,
+  fallbackAccount?: AccountRecord,
+): Promise<StoredSymbolCatalog> {
+  const adapter = exchangeAdapterRegistry.get(exchangeId);
+  const publicReader = adapter.createPublicSymbolReader?.();
+
+  if (publicReader) {
+    const symbols =
+      (await publicReader.listSymbols()) as ExchangeSymbolSummary[];
+    const saved = await saveExchangeSymbolsCache({
+      exchangeId,
+      symbols,
+    });
+
+    if (!saved) {
+      throw new Error("Symbol cache bucket is not configured");
+    }
+
+    return saved;
+  }
+
+  if (!fallbackAccount) {
+    throw new Error(
+      `Exchange ${exchangeId} does not support public symbol listing and no fallback account was provided`,
+    );
+  }
+
+  return refreshExchangeSymbolsForAccount(fallbackAccount);
+}
+
 export async function refreshExchangeSymbolsForAccount(
   account: AccountRecord,
 ): Promise<StoredSymbolCatalog> {
@@ -110,7 +141,7 @@ export async function refreshActiveExchangeSymbolCatalogs(
 
   for (const [exchangeId, account] of firstActiveAccountByExchange.entries()) {
     try {
-      await refreshExchangeSymbolsForAccount(account);
+      await refreshExchangeSymbols(exchangeId, account);
       refreshed.push(exchangeId);
     } catch (error) {
       console.error("[symbol-catalog] refresh failed", {

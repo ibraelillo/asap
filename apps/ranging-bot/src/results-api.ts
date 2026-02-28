@@ -3,6 +3,7 @@ import type {
   APIGatewayProxyResultV2,
 } from "aws-lambda";
 import type { BotDefinition, ExecutionContext } from "@repo/trading-engine";
+import { Resource } from "sst";
 import {
   EventBridgeClient,
   PutEventsCommand,
@@ -13,7 +14,6 @@ import {
   computeDashboardMetrics,
   mapRunsToTrades,
 } from "./monitoring/analytics";
-import { getRuntimeBotById, getRuntimeBotBySymbol } from "./bot-registry";
 import { runtimeAccountResolver } from "./account-resolver";
 import { exchangeAdapterRegistry } from "./exchange-adapter-registry";
 import {
@@ -86,9 +86,11 @@ import {
   toBotDefinition,
   type RuntimeBotConfig,
 } from "./runtime-config";
+import { getRuntimeSettings } from "./runtime-settings";
 import { loadConfiguredBots } from "./runtime-bots";
 import {
   getCachedExchangeSymbols,
+  refreshExchangeSymbols,
   refreshExchangeSymbolsForAccount,
 } from "./symbol-catalog";
 import {
@@ -216,8 +218,17 @@ function getBacktestBusName(): string {
     return busName.trim();
   }
 
+  const resources = Resource as unknown as Record<
+    string,
+    { name?: string } | undefined
+  >;
+  const linkedName = resources.RangingBacktestBus?.name;
+  if (linkedName && linkedName.trim().length > 0) {
+    return linkedName.trim();
+  }
+
   throw new Error(
-    `Missing ${BACKTEST_BUS_NAME_ENV_KEY}. Link the backtest bus and pass its name to the API function environment.`,
+    `Missing ${BACKTEST_BUS_NAME_ENV_KEY}. Link the backtest bus to this function.`,
   );
 }
 
@@ -552,9 +563,10 @@ function parseJsonBody<T>(event: APIGatewayProxyEventV2): T | null {
 }
 
 function parseBacktestStaleMs(): number {
-  const raw = Number(process.env.RANGING_BACKTEST_RUNNING_STALE_MS);
-  if (!Number.isFinite(raw) || raw <= 0)
+  const raw = getRuntimeSettings().backtestRunningStaleMs;
+  if (!Number.isFinite(raw) || raw <= 0) {
     return DEFAULT_BACKTEST_RUNNING_STALE_MS;
+  }
   return Math.floor(raw);
 }
 
@@ -792,27 +804,13 @@ async function loadStrategySummaries(
 }
 
 async function resolveBotById(botId: string): Promise<BotRecord | undefined> {
-  const stored = await getBotRecordById(botId);
-  if (stored) return stored;
-
-  const runtime = getRuntimeBotById(botId);
-  if (runtime) {
-    await putBotRecord(runtime);
-  }
-  return runtime;
+  return getBotRecordById(botId);
 }
 
 async function resolveBotBySymbol(
   symbol: string,
 ): Promise<BotRecord | undefined> {
-  const stored = await getBotRecordBySymbol(symbol);
-  if (stored) return stored;
-
-  const runtime = getRuntimeBotBySymbol(symbol);
-  if (runtime) {
-    await putBotRecord(runtime);
-  }
-  return runtime;
+  return getBotRecordBySymbol(symbol);
 }
 
 async function loadStrategyDetails(
@@ -907,11 +905,10 @@ async function loadExchangeSymbolsPayload(exchangeId: string): Promise<{
   }
 
   const account = await findActiveAccountForExchange(exchangeId);
-  if (!account) {
-    throw new Error("exchange_symbols_not_cached");
-  }
-
-  const refreshed = await refreshExchangeSymbolsForAccount(account);
+  const refreshed = await refreshExchangeSymbols(
+    exchangeId,
+    account ?? undefined,
+  );
   return {
     exchangeId,
     count: refreshed.symbols.length,
@@ -2027,10 +2024,8 @@ function parseBacktestAiConfig(
   const models = getValidationModels();
   const confidenceThreshold = parseConfidence(
     raw.confidenceThreshold,
-    parseConfidence(
-      process.env.RANGING_VALIDATION_CONFIDENCE_THRESHOLD,
+    getRuntimeSettings().validationConfidenceThreshold ||
       DEFAULT_VALIDATION_CONFIDENCE_THRESHOLD,
-    ),
   );
 
   const modelPrimary =
@@ -2254,18 +2249,15 @@ export async function createBotBacktestHandler(
 }
 
 function getValidationModels(): { primary: string; fallback: string } {
-  const primary = process.env.RANGING_VALIDATION_MODEL_PRIMARY?.trim();
-  const fallback = process.env.RANGING_VALIDATION_MODEL_FALLBACK?.trim();
+  const runtimeSettings = getRuntimeSettings();
 
   return {
     primary:
-      primary && primary.length > 0
-        ? primary
-        : DEFAULT_VALIDATION_MODEL_PRIMARY,
+      runtimeSettings.validationModelPrimary ||
+      DEFAULT_VALIDATION_MODEL_PRIMARY,
     fallback:
-      fallback && fallback.length > 0
-        ? fallback
-        : DEFAULT_VALIDATION_MODEL_FALLBACK,
+      runtimeSettings.validationModelFallback ||
+      DEFAULT_VALIDATION_MODEL_FALLBACK,
   };
 }
 
@@ -2304,10 +2296,8 @@ async function enqueueValidationForBot(
   const models = getValidationModels();
   const confidenceThreshold = parseConfidence(
     body.confidenceThreshold,
-    parseConfidence(
-      process.env.RANGING_VALIDATION_CONFIDENCE_THRESHOLD,
+    getRuntimeSettings().validationConfidenceThreshold ||
       DEFAULT_VALIDATION_CONFIDENCE_THRESHOLD,
-    ),
   );
 
   const identity = createValidationIdentity(bot.symbol);

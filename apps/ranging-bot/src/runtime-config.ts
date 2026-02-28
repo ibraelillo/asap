@@ -203,7 +203,7 @@ export function parseBotConfigs(raw: string | undefined): RuntimeBotConfig[] {
       .map(normalizeBotConfig)
       .filter((value): value is RuntimeBotConfig => Boolean(value));
   } catch {
-    console.error("[ranging-tick] Invalid RANGING_BOTS_JSON");
+    console.error("[ranging-config] Invalid bot config JSON payload");
     return [];
   }
 }

@@ -157,6 +157,7 @@ export interface ExchangeAdapter<
   TAccount extends ExchangeAccount = ExchangeAccount,
 > {
   readonly id: string;
+  createPublicSymbolReader?(): ExchangeSymbolReader;
   createKlineProvider(
     context: ExecutionContext<TAccount>,
   ): ExchangeKlineProvider;

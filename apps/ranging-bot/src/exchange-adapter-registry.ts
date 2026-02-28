@@ -10,6 +10,7 @@ import { KucoinAccountSymbolReader } from "./exchanges/kucoin/account-symbol-rea
 import type { KucoinSignalProcessorOptions } from "./exchanges/kucoin/signal-processor";
 import { KucoinKlineProvider } from "./exchanges/kucoin/klines";
 import { KucoinPositionReader } from "./exchanges/kucoin/position-reader";
+import { KucoinPublicSymbolReader } from "./exchanges/kucoin/public-symbol-reader";
 import { KucoinSignalProcessor } from "./exchanges/kucoin/signal-processor";
 import type { AccountRecord } from "./monitoring/types";
 
@@ -48,6 +49,9 @@ function getKucoinRuntime(account: AccountRecord): KucoinRuntimeHandle {
 
 const kucoinAdapter: ExchangeAdapter<AccountRecord> = {
   id: "kucoin",
+  createPublicSymbolReader() {
+    return new KucoinPublicSymbolReader();
+  },
   createKlineProvider(context: ExecutionContext<AccountRecord>) {
     const { client } = getKucoinRuntime(context.account);
     return new KucoinKlineProvider(client);

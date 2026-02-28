@@ -31,17 +31,16 @@ import {
 } from "./execution-ledger";
 import { createBotRuntime } from "./runtime-orchestrator-factory";
 import { loadActiveBots } from "./runtime-bots";
+import { getRuntimeSettings } from "./runtime-settings";
 import {
   getClosedCandleEndTime,
   getTimeframeDurationMs,
-  toBoolean,
 } from "./runtime-config";
 const HOURLY_DISPATCH_MS = 60 * 60_000;
 
 interface CronTickEvent {
   trigger?: string;
   symbols?: string;
-  botsJson?: string;
   dryRun?: string;
   marginMode?: "CROSS" | "ISOLATED" | string;
   valueQty?: string;
@@ -287,38 +286,32 @@ async function persistAndBroadcast(record: BotRunRecord): Promise<void> {
 export const handler = async (incomingEvent?: CronTickEvent) => {
   const nowMs = Date.now();
   const event = asObject(incomingEvent);
+  const runtimeSettings = getRuntimeSettings();
 
   const eventSymbols = parseSymbols(event.symbols);
-  const rawBotsJson =
-    typeof event.botsJson === "string"
-      ? event.botsJson
-      : process.env.RANGING_BOTS_JSON;
-  let bots = await loadActiveBots(rawBotsJson);
+  let bots = await loadActiveBots();
   if (eventSymbols.length > 0) {
     const allowedSymbols = new Set(eventSymbols);
     bots = bots.filter((bot) => allowedSymbols.has(bot.symbol));
   }
 
-  const envDryRun = toBoolean(process.env.RANGING_DRY_RUN, true);
   const globalDryRun =
     typeof event.dryRun === "string"
-      ? toBoolean(event.dryRun, envDryRun)
-      : envDryRun;
+      ? event.dryRun.trim().toLowerCase() === "true"
+      : runtimeSettings.defaultDryRun;
 
-  const envMarginMode =
-    process.env.RANGING_MARGIN_MODE === "ISOLATED" ? "ISOLATED" : "CROSS";
   const globalMarginMode =
     event.marginMode === "ISOLATED" || event.marginMode === "CROSS"
       ? event.marginMode
-      : envMarginMode;
+      : runtimeSettings.defaultMarginMode;
   const globalValueQty =
     typeof event.valueQty === "string" && event.valueQty.length > 0
       ? event.valueQty
-      : (process.env.RANGING_VALUE_QTY ?? "100");
+      : runtimeSettings.defaultValueQty;
 
   if (bots.length === 0) {
     console.warn(
-      "[ranging-tick] No enabled bot configs. Set RANGING_BOTS_JSON or pass event.symbols.",
+      "[ranging-tick] No active bots found in storage or matching the symbol filter.",
     );
     const emptySummary = {
       processed: 0,

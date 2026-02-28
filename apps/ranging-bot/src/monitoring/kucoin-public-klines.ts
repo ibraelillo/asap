@@ -1,5 +1,6 @@
 import type { Candle } from "@repo/ranging-core";
 import type { OrchestratorTimeframe } from "../contracts";
+import { getRuntimeSettings } from "../runtime-settings";
 
 type KucoinKlineRow = Array<string | number>;
 
@@ -25,16 +26,7 @@ const granularityByTimeframe: Record<OrchestratorTimeframe, number> = {
   "1w": 10080,
 };
 
-const baseUrl =
-  process.env.KUCOIN_PUBLIC_BASE_URL ?? "https://api-futures.kucoin.com";
 const REQUEST_WINDOW_ROWS = 500;
-const REQUEST_TIMEOUT_MS = Number(
-  process.env.RANGING_KLINE_HTTP_TIMEOUT_MS ?? 20_000,
-);
-const REQUEST_MAX_RETRIES = Number(process.env.RANGING_KLINE_HTTP_RETRIES ?? 3);
-const REQUEST_BACKOFF_MS = Number(
-  process.env.RANGING_KLINE_HTTP_BACKOFF_MS ?? 350,
-);
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -133,6 +125,7 @@ async function fetchKucoinKlineWindow(
   fromMs: number,
   toMs: number,
 ): Promise<Candle[]> {
+  const runtimeSettings = getRuntimeSettings();
   const params = new URLSearchParams({
     symbol,
     granularity: String(granularity),
@@ -141,12 +134,14 @@ async function fetchKucoinKlineWindow(
   });
 
   const maxRetries =
-    Number.isFinite(REQUEST_MAX_RETRIES) && REQUEST_MAX_RETRIES > 0
-      ? Math.floor(REQUEST_MAX_RETRIES)
+    Number.isFinite(runtimeSettings.klineHttpRetries) &&
+    runtimeSettings.klineHttpRetries > 0
+      ? Math.floor(runtimeSettings.klineHttpRetries)
       : 3;
   const timeoutMs =
-    Number.isFinite(REQUEST_TIMEOUT_MS) && REQUEST_TIMEOUT_MS > 0
-      ? Math.floor(REQUEST_TIMEOUT_MS)
+    Number.isFinite(runtimeSettings.klineHttpTimeoutMs) &&
+    runtimeSettings.klineHttpTimeoutMs > 0
+      ? Math.floor(runtimeSettings.klineHttpTimeoutMs)
       : 20_000;
   let lastError: unknown;
 
@@ -156,7 +151,7 @@ async function fetchKucoinKlineWindow(
 
     try {
       const response = await fetch(
-        `${baseUrl}/api/v1/kline/query?${params.toString()}`,
+        `${runtimeSettings.kucoinPublicBaseUrl}/api/v1/kline/query?${params.toString()}`,
         {
           signal: controller.signal,
         },
@@ -181,8 +176,9 @@ async function fetchKucoinKlineWindow(
         break;
       }
       const backoffBase =
-        Number.isFinite(REQUEST_BACKOFF_MS) && REQUEST_BACKOFF_MS > 0
-          ? Math.floor(REQUEST_BACKOFF_MS)
+        Number.isFinite(runtimeSettings.klineHttpBackoffMs) &&
+        runtimeSettings.klineHttpBackoffMs > 0
+          ? Math.floor(runtimeSettings.klineHttpBackoffMs)
           : 350;
       const delay = backoffBase * attempt;
       await sleep(delay);

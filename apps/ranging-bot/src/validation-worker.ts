@@ -10,6 +10,7 @@ import type {
   RangeValidationRecord,
   RangeValidationResult,
 } from "./monitoring/types";
+import { getRuntimeSettings } from "./runtime-settings";
 import {
   RANGE_VALIDATION_EVENT_DETAIL_TYPE_REQUESTED,
   RANGE_VALIDATION_EVENT_SOURCE,
@@ -23,22 +24,6 @@ import {
   type ValidationIdentity,
 } from "./monitoring/validations";
 
-const OPENAI_ENDPOINT =
-  process.env.OPENAI_RESPONSES_ENDPOINT ??
-  "https://api.openai.com/v1/responses";
-const PRIMARY_MODEL =
-  process.env.RANGING_VALIDATION_MODEL_PRIMARY ?? "gpt-5-nano-2025-08-07";
-const FALLBACK_MODEL =
-  process.env.RANGING_VALIDATION_MODEL_FALLBACK ?? "gpt-5-mini-2025-08-07";
-const CONFIDENCE_THRESHOLD = Number(
-  process.env.RANGING_VALIDATION_CONFIDENCE_THRESHOLD ?? 0.72,
-);
-const MAX_OUTPUT_TOKENS = Number(
-  process.env.RANGING_VALIDATION_MAX_OUTPUT_TOKENS ?? 800,
-);
-const REQUEST_TIMEOUT_MS = Number(
-  process.env.RANGING_VALIDATION_TIMEOUT_MS ?? 45_000,
-);
 const MIN_REQUIRED_CANDLES = 60;
 
 const SYSTEM_PROMPT = [
@@ -67,6 +52,18 @@ const timeframeSet = new Set<OrchestratorTimeframe>([
   "1d",
   "1w",
 ]);
+
+function getValidationDefaults() {
+  const runtimeSettings = getRuntimeSettings();
+  return {
+    endpoint: runtimeSettings.openAiResponsesEndpoint,
+    primaryModel: runtimeSettings.validationModelPrimary,
+    fallbackModel: runtimeSettings.validationModelFallback,
+    confidenceThreshold: runtimeSettings.validationConfidenceThreshold,
+    maxOutputTokens: runtimeSettings.validationMaxOutputTokens,
+    timeoutMs: runtimeSettings.validationTimeoutMs,
+  };
+}
 
 function isTimeframe(value: unknown): value is OrchestratorTimeframe {
   return (
@@ -121,6 +118,7 @@ function parseRequestedDetail(
 function buildCreateInput(
   detail: RangeValidationRequestedDetail,
 ): CreateValidationInput {
+  const defaults = getValidationDefaults();
   return {
     botId: detail.botId,
     botName: detail.botName,
@@ -130,11 +128,12 @@ function buildCreateInput(
     fromMs: detail.fromMs,
     toMs: detail.toMs,
     candlesCount: detail.candlesCount,
-    modelPrimary: PRIMARY_MODEL,
-    modelFallback: FALLBACK_MODEL,
+    modelPrimary: defaults.primaryModel,
+    modelFallback: defaults.fallbackModel,
     confidenceThreshold:
-      Number.isFinite(CONFIDENCE_THRESHOLD) && CONFIDENCE_THRESHOLD > 0
-        ? Math.min(CONFIDENCE_THRESHOLD, 1)
+      Number.isFinite(defaults.confidenceThreshold) &&
+      defaults.confidenceThreshold > 0
+        ? Math.min(defaults.confidenceThreshold, 1)
         : 0.72,
   };
 }
@@ -377,13 +376,14 @@ async function callOpenAiModel(
   if (!apiKey || apiKey.trim().length === 0) {
     throw new Error("Missing OPENAI_API_KEY in validation worker environment");
   }
+  const defaults = getValidationDefaults();
 
   const payload = buildPromptPayload(detail, candles);
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+  const timeout = setTimeout(() => controller.abort(), defaults.timeoutMs);
 
   try {
-    const response = await fetch(OPENAI_ENDPOINT, {
+    const response = await fetch(defaults.endpoint, {
       method: "POST",
       headers: {
         "content-type": "application/json",
@@ -412,8 +412,9 @@ async function callOpenAiModel(
           maxOutputTokensOverride &&
           maxOutputTokensOverride > 0
             ? Math.floor(maxOutputTokensOverride)
-            : Number.isFinite(MAX_OUTPUT_TOKENS) && MAX_OUTPUT_TOKENS > 0
-              ? Math.floor(MAX_OUTPUT_TOKENS)
+            : Number.isFinite(defaults.maxOutputTokens) &&
+                defaults.maxOutputTokens > 0
+              ? Math.floor(defaults.maxOutputTokens)
               : 800,
       }),
       signal: controller.signal,
@@ -451,9 +452,10 @@ async function runValidationWithFallback(
   record: RangeValidationRecord,
   candles: Candle[],
 ): Promise<{ result: RangeValidationResult; finalModel: string }> {
+  const defaults = getValidationDefaults();
   const primaryBudget =
-    Number.isFinite(MAX_OUTPUT_TOKENS) && MAX_OUTPUT_TOKENS > 0
-      ? Math.floor(MAX_OUTPUT_TOKENS)
+    Number.isFinite(defaults.maxOutputTokens) && defaults.maxOutputTokens > 0
+      ? Math.floor(defaults.maxOutputTokens)
       : 800;
   const retryBudget = Math.min(primaryBudget * 2, 2_000);
 

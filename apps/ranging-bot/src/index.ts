@@ -11,11 +11,9 @@ export {
   normalizeBotConfig,
   parseBotConfigs,
   parseBotDefinitions,
-  toBoolean,
   toBotDefinition,
   type RuntimeBotConfig,
 } from "./runtime-config";
-export * from "./bot-registry";
 export * from "./strategy-registry";
 export * from "./account-resolver";
 export * from "./exchange-adapter-registry";
@@ -24,4 +22,5 @@ export * from "./runtime-bots";
 export * from "./reconciliation";
 export * from "./tick";
 export * from "./results-api";
+export * from "./runtime-settings";
 export * from "./monitoring/types";

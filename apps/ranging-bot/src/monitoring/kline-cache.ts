@@ -6,10 +6,10 @@ import {
 import type { Candle } from "@repo/ranging-core";
 import { Resource } from "sst";
 import type { OrchestratorTimeframe } from "../contracts";
+import { getRuntimeSettings } from "../runtime-settings";
 import type { KlineCacheReference } from "./types";
 
 const BUCKET_ENV_KEY = "RANGING_KLINES_BUCKET";
-const PUBLIC_BASE_URL_ENV_KEY = "RANGING_KLINES_PUBLIC_BASE_URL";
 const CACHE_SCHEMA_VERSION = 1;
 
 let cachedClient: S3Client | null = null;
@@ -118,7 +118,7 @@ function keyPart(input: string): string {
 }
 
 function toPublicUrl(key: string): string | undefined {
-  const base = process.env[PUBLIC_BASE_URL_ENV_KEY]?.trim();
+  const base = getRuntimeSettings().klinesPublicBaseUrl?.trim();
   if (!base) return undefined;
 
   const normalized = base.replace(/\/+$/, "");

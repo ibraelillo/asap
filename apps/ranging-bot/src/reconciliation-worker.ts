@@ -13,7 +13,6 @@ import { loadActiveBots } from "./runtime-bots";
 interface ReconciliationEvent {
   trigger?: string;
   symbols?: string;
-  botsJson?: string;
 }
 
 function asObject(value: unknown): Record<string, unknown> {
@@ -65,13 +64,9 @@ async function buildExecutionContext(
 
 export const handler = async (incomingEvent?: ReconciliationEvent) => {
   const event = asObject(incomingEvent);
-  const rawBotsJson =
-    typeof event.botsJson === "string"
-      ? event.botsJson
-      : process.env.RANGING_BOTS_JSON;
   const allowedSymbols = new Set(parseSymbols(event.symbols));
 
-  let bots = await loadActiveBots(rawBotsJson);
+  let bots = await loadActiveBots();
   if (allowedSymbols.size > 0) {
     bots = bots.filter((bot) => allowedSymbols.has(bot.symbol));
   }

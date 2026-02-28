@@ -59,24 +59,7 @@ cp .env.example .env
 
 Bot runtime config:
 
-- `RANGING_BOTS_JSON` (JSON array)
+- Bots are stored in DynamoDB and managed through the API/UI
 - `RANGING_DRY_RUN` (`true`/`false`)
 - `RANGING_MARGIN_MODE` (`CROSS`/`ISOLATED`)
 - `RANGING_VALUE_QTY` (order notional, string)
-
-Example `RANGING_BOTS_JSON`:
-
-```json
-[
-  {
-    "symbol": "XBTUSDTM",
-    "executionTimeframe": "15m",
-    "primaryRangeTimeframe": "1d",
-    "secondaryRangeTimeframe": "4h",
-    "executionLimit": 240,
-    "primaryRangeLimit": 90,
-    "secondaryRangeLimit": 180,
-    "enabled": true
-  }
-]
-```

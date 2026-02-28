@@ -5,9 +5,9 @@ import {
 } from "@aws-sdk/client-s3";
 import type { ExchangeSymbolSummary } from "@repo/trading-engine";
 import { Resource } from "sst";
+import { getRuntimeSettings } from "../runtime-settings";
 
 const BUCKET_ENV_KEY = "RANGING_KLINES_BUCKET";
-const PUBLIC_BASE_URL_ENV_KEY = "RANGING_SYMBOLS_PUBLIC_BASE_URL";
 const CACHE_SCHEMA_VERSION = 1;
 
 let cachedClient: S3Client | null = null;
@@ -64,7 +64,7 @@ function keyPart(input: string): string {
 }
 
 function toPublicUrl(key: string): string | undefined {
-  const base = process.env[PUBLIC_BASE_URL_ENV_KEY]?.trim();
+  const base = getRuntimeSettings().symbolsPublicBaseUrl?.trim();
   if (!base) return undefined;
 
   const normalized = base.replace(/\/+$/, "");
