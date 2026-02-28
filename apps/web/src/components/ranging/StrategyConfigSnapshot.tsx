@@ -87,6 +87,12 @@ interface StrategyConfigSnapshotProps {
   emptyMessage?: string;
 }
 
+type SnapshotRow = {
+  path: string;
+  field?: StrategyConfigUiField;
+  value: unknown;
+};
+
 export function StrategyConfigSnapshot({
   strategy,
   config,
@@ -96,7 +102,7 @@ export function StrategyConfigSnapshot({
   const configUiByPath = new Map(
     (strategy?.configUi ?? []).map((field) => [field.path, field]),
   );
-  const rows = [...collectConfigPaths(normalizedConfig)]
+  const rows: SnapshotRow[] = [...collectConfigPaths(normalizedConfig)]
     .map((path) => ({
       path,
       field: configUiByPath.get(path),
@@ -112,21 +118,64 @@ export function StrategyConfigSnapshot({
     return <p className="text-sm text-slate-400">{emptyMessage}</p>;
   }
 
+  const sections = new Map<string, SnapshotRow[]>();
+  for (const row of rows) {
+    const section = row.field?.section ?? "Other";
+    const existing = sections.get(section) ?? [];
+    existing.push(row);
+    sections.set(section, existing);
+  }
+
   return (
-    <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
-      {rows.map((entry) => (
-        <Panel key={entry.path} className="space-y-2 p-4" tone="muted">
-          <div>
-            <p className="text-sm font-medium text-slate-100">
-              {entry.field?.label ?? labelFromPath(entry.path)}
-            </p>
+    <div className="space-y-4">
+      {[...sections.entries()].map(([section, sectionRows]) => (
+        <Panel key={section} className="overflow-hidden p-0" tone="muted">
+          <div className="border-b border-white/10 bg-white/5 px-4 py-3">
+            <h4 className="text-sm font-semibold text-slate-100">{section}</h4>
             <p className="mt-1 text-xs text-slate-400">
-              {entry.field?.description ?? entry.path}
+              {sectionRows.length} parameter
+              {sectionRows.length === 1 ? "" : "s"}
             </p>
           </div>
-          <p className="text-sm text-cyan-100">
-            {formatConfigValue(entry.value, entry.field as StrategyConfigUiField)}
-          </p>
+          <div className="overflow-x-auto">
+            <table className="min-w-full text-left text-sm">
+              <thead>
+                <tr className="text-xs uppercase tracking-wide text-slate-400">
+                  <th className="px-4 py-3">Parameter</th>
+                  <th className="px-4 py-3">Value</th>
+                  <th className="px-4 py-3">Notes</th>
+                </tr>
+              </thead>
+              <tbody>
+                {sectionRows.map((entry) => (
+                  <tr
+                    key={entry.path}
+                    className="border-t border-white/5 align-top text-slate-200"
+                  >
+                    <td className="px-4 py-3">
+                      <div>
+                        <p className="text-sm font-medium text-slate-100">
+                          {entry.field?.label ?? labelFromPath(entry.path)}
+                        </p>
+                        <p className="mt-1 text-xs text-slate-500 mono">
+                          {entry.path}
+                        </p>
+                      </div>
+                    </td>
+                    <td className="px-4 py-3 text-cyan-100">
+                      {formatConfigValue(
+                        entry.value,
+                        entry.field as StrategyConfigUiField | undefined,
+                      )}
+                    </td>
+                    <td className="px-4 py-3 text-xs text-slate-400">
+                      {entry.field?.description ?? "No description provided."}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </Panel>
       ))}
     </div>
