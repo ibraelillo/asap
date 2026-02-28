@@ -94,7 +94,10 @@ function normalizeSymbolSummary(raw: unknown): ExchangeSymbolSummary | null {
     maxLeverage: Number.isFinite(maxLeverage) ? maxLeverage : undefined,
     supportCross:
       typeof row.supportCross === "boolean" ? row.supportCross : undefined,
-    raw: row.raw && typeof row.raw === "object" ? row.raw : undefined,
+    raw:
+      row.raw && typeof row.raw === "object"
+        ? (row.raw as Record<string, unknown>)
+        : undefined,
   };
 }
 

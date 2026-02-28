@@ -226,9 +226,8 @@ export async function fetchAccounts(
   return payload.accounts;
 }
 
-export async function fetchAccountSymbols(
-  accountId: string,
-  exchangeId?: string,
+export async function fetchExchangeSymbols(
+  exchangeId: string,
 ): Promise<AccountSymbolSummary[]> {
   if (exchangeId && SYMBOLS_BASE_URL) {
     try {
@@ -247,6 +246,20 @@ export async function fetchAccountSymbols(
     } catch {
       // fall through to API fallback
     }
+  }
+
+  const payload = await getJson<{ symbols: AccountSymbolSummary[] }>(
+    `/v1/exchanges/${encodeURIComponent(exchangeId)}/symbols`,
+  );
+  return payload.symbols;
+}
+
+export async function fetchAccountSymbols(
+  accountId: string,
+  exchangeId?: string,
+): Promise<AccountSymbolSummary[]> {
+  if (exchangeId) {
+    return fetchExchangeSymbols(exchangeId);
   }
 
   const payload = await getJson<{ symbols: AccountSymbolSummary[] }>(

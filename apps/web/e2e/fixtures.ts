@@ -765,9 +765,18 @@ export async function mockRangingApi(page: Page) {
       return json(route, { accounts });
     }
 
+    if (method === "GET" && pathname === "/v1/exchanges/kucoin/symbols") {
+      return json(route, {
+        exchangeId: "kucoin",
+        count: accountSymbols.length,
+        symbols: accountSymbols,
+      });
+    }
+
     if (method === "GET" && pathname === `/v1/accounts/${ACCOUNT_ID}/symbols`) {
       return json(route, {
         accountId: ACCOUNT_ID,
+        exchangeId: "kucoin",
         count: accountSymbols.length,
         symbols: accountSymbols,
       });

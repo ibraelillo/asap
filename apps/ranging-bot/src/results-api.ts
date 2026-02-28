@@ -878,6 +878,49 @@ async function loadStrategyDetails(
   };
 }
 
+async function findActiveAccountForExchange(
+  exchangeId: string,
+): Promise<AccountRecord | undefined> {
+  const accounts = await listAccountRecords(500);
+  return accounts.find(
+    (account) =>
+      account.exchangeId === exchangeId && account.status === "active",
+  );
+}
+
+async function loadExchangeSymbolsPayload(exchangeId: string): Promise<{
+  exchangeId: string;
+  count: number;
+  generatedAtSource: string;
+  source: "cache" | "live";
+  symbols: AccountSymbolSummary[];
+}> {
+  const cached = await getCachedExchangeSymbols(exchangeId);
+  if (cached && cached.symbols.length > 0) {
+    return {
+      exchangeId,
+      count: cached.symbols.length,
+      generatedAtSource: cached.generatedAt,
+      source: "cache",
+      symbols: cached.symbols as AccountSymbolSummary[],
+    };
+  }
+
+  const account = await findActiveAccountForExchange(exchangeId);
+  if (!account) {
+    throw new Error("exchange_symbols_not_cached");
+  }
+
+  const refreshed = await refreshExchangeSymbolsForAccount(account);
+  return {
+    exchangeId,
+    count: refreshed.symbols.length,
+    generatedAtSource: refreshed.generatedAt,
+    source: "live",
+    symbols: refreshed.symbols as AccountSymbolSummary[],
+  };
+}
+
 function getBotDefaults(bot: BotRecord): {
   executionTimeframe: OrchestratorTimeframe;
   primaryRangeTimeframe: OrchestratorTimeframe;
@@ -1259,6 +1302,39 @@ export async function patchAccountHandler(
   }
 }
 
+export async function exchangeSymbolsHandler(
+  event: APIGatewayProxyEventV2,
+): Promise<APIGatewayProxyResultV2> {
+  const rawExchangeId = event.pathParameters?.exchangeId?.trim();
+  const exchangeId = normalizeExchangeId(rawExchangeId);
+  if (!exchangeId) {
+    return json(400, { error: "missing_exchange_id" });
+  }
+  if (!isSupportedExchangeId(exchangeId)) {
+    return json(400, { error: "unsupported_exchange" });
+  }
+
+  try {
+    const payload = await loadExchangeSymbolsPayload(exchangeId);
+    return json(200, {
+      generatedAt: new Date().toISOString(),
+      ...payload,
+    });
+  } catch (error) {
+    if (
+      error instanceof Error &&
+      error.message === "exchange_symbols_not_cached"
+    ) {
+      return json(404, { error: "exchange_symbols_not_cached" });
+    }
+    console.error("[exchange-api] exchange symbols failed", {
+      exchangeId,
+      error,
+    });
+    return json(500, { error: "failed_to_load_exchange_symbols" });
+  }
+}
+
 export async function accountSymbolsHandler(
   event: APIGatewayProxyEventV2,
 ): Promise<APIGatewayProxyResultV2> {
@@ -1277,37 +1353,19 @@ export async function accountSymbolsHandler(
       return json(409, { error: "account_not_active" });
     }
 
-    const cached = await getCachedExchangeSymbols(account.exchangeId);
-    if (cached && cached.symbols.length > 0) {
-      return json(200, {
-        generatedAt: new Date().toISOString(),
-        accountId: account.id,
-        exchangeId: account.exchangeId,
-        count: cached.symbols.length,
-        generatedAtSource: cached.generatedAt,
-        source: "cache",
-        symbols: cached.symbols,
-      });
-    }
-
-    const adapter = exchangeAdapterRegistry.get(account.exchangeId);
-    if (!adapter.createSymbolReader) {
-      return json(400, { error: "symbol_listing_not_supported" });
-    }
-
-    const refreshed = await refreshExchangeSymbolsForAccount(account);
-    const symbols = refreshed.symbols as AccountSymbolSummary[];
-
+    const payload = await loadExchangeSymbolsPayload(account.exchangeId);
     return json(200, {
       generatedAt: new Date().toISOString(),
+      ...payload,
       accountId: account.id,
-      exchangeId: account.exchangeId,
-      count: symbols.length,
-      generatedAtSource: refreshed.generatedAt,
-      source: "live",
-      symbols,
     });
   } catch (error) {
+    if (
+      error instanceof Error &&
+      error.message === "exchange_symbols_not_cached"
+    ) {
+      return json(404, { error: "exchange_symbols_not_cached" });
+    }
     console.error("[account-api] account symbols failed", { error });
     return json(500, { error: "failed_to_load_account_symbols" });
   }

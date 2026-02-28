@@ -15,7 +15,7 @@ import {
   createAccount,
   createBot,
   fetchAccounts,
-  fetchAccountSymbols,
+  fetchExchangeSymbols,
   fetchStrategies,
 } from "../../../lib/ranging-api";
 import {
@@ -294,15 +294,12 @@ export function BotCreatePage() {
     { revalidateOnFocus: false },
   );
   const {
-    data: accountSymbols,
-    error: accountSymbolsError,
-    isLoading: accountSymbolsLoading,
+    data: exchangeSymbols,
+    error: exchangeSymbolsError,
+    isLoading: exchangeSymbolsLoading,
   } = useSWR(
-    accountMode === "existing" && form.accountId
-      ? ["account-symbols", form.accountId, form.exchangeId]
-      : null,
-    ([, accountId, exchangeId]) =>
-      fetchAccountSymbols(String(accountId), String(exchangeId)),
+    form.exchangeId ? ["exchange-symbols", form.exchangeId] : null,
+    ([, exchangeId]) => fetchExchangeSymbols(String(exchangeId)),
     { revalidateOnFocus: false },
   );
 
@@ -362,7 +359,7 @@ export function BotCreatePage() {
 
   const symbolOptions = useMemo(
     () =>
-      (accountSymbols ?? []).map((symbol) => ({
+      (exchangeSymbols ?? []).map((symbol) => ({
         value: symbol.symbol,
         label: symbol.symbol,
         description: [
@@ -375,7 +372,7 @@ export function BotCreatePage() {
           .filter(Boolean)
           .join(" · "),
       })),
-    [accountSymbols],
+    [exchangeSymbols],
   );
 
   useEffect(() => {
@@ -441,13 +438,12 @@ export function BotCreatePage() {
   }, [accountMode, accountsLoading, filteredAccounts, form.accountId]);
 
   useEffect(() => {
-    if (accountMode !== "existing") return;
-    if (!accountSymbols || accountSymbols.length === 0) return;
+    if (!exchangeSymbols || exchangeSymbols.length === 0) return;
 
     const currentSymbol = form.symbol.trim();
     if (!currentSymbol) return;
 
-    const exists = accountSymbols.some(
+    const exists = exchangeSymbols.some(
       (symbol) => symbol.symbol === currentSymbol,
     );
     if (!exists) {
@@ -456,7 +452,7 @@ export function BotCreatePage() {
         symbol: "",
       }));
     }
-  }, [accountMode, accountSymbols, form.symbol]);
+  }, [exchangeSymbols, form.symbol]);
 
   function updateStrategyNumberDraft(path: string, value: string) {
     setStrategyNumberDrafts((current) => ({
@@ -738,23 +734,21 @@ export function BotCreatePage() {
             <Field
               label="Symbol"
               description={
-                accountMode === "existing"
-                  ? accountSymbolsLoading
-                    ? "Loading tradable symbols from the selected account..."
-                    : accountSymbolsError
-                      ? "Failed to load symbols for the selected account."
-                      : symbolOptions.length > 0
-                        ? "Search and select a symbol supported by this account."
-                        : "No symbols returned for this account."
-                  : "Create the account first if you want the exchange symbol list. Manual entry remains available."
+                exchangeSymbolsLoading
+                  ? "Loading tradable symbols from the selected exchange..."
+                  : exchangeSymbolsError
+                    ? "Failed to load symbols for the selected exchange."
+                    : symbolOptions.length > 0
+                      ? "Search and select a symbol supported by this exchange."
+                      : "No symbols returned for this exchange yet."
               }
               error={
-                accountSymbolsError instanceof Error
-                  ? accountSymbolsError.message
+                exchangeSymbolsError instanceof Error
+                  ? exchangeSymbolsError.message
                   : undefined
               }
             >
-              {accountMode === "existing" ? (
+              {symbolOptions.length > 0 || exchangeSymbolsLoading ? (
                 <Combobox
                   value={form.symbol || undefined}
                   onChange={(symbol) =>
@@ -765,11 +759,13 @@ export function BotCreatePage() {
                   }
                   options={symbolOptions}
                   placeholder={
-                    accountSymbolsLoading
+                    exchangeSymbolsLoading
                       ? "Loading symbols..."
                       : "Search symbol"
                   }
-                  disabled={accountSymbolsLoading || symbolOptions.length === 0}
+                  disabled={
+                    exchangeSymbolsLoading || symbolOptions.length === 0
+                  }
                   emptyState="No symbols found"
                 />
               ) : (
