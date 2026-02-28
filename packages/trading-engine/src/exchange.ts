@@ -62,6 +62,31 @@ export interface ExchangePositionSnapshot {
   raw?: Record<string, unknown>;
 }
 
+export type ExchangeOrderPurpose =
+  | "entry"
+  | "reduce"
+  | "stop"
+  | "take-profit"
+  | "close"
+  | "reconcile";
+
+export interface ExchangeOrderExecution {
+  purpose: ExchangeOrderPurpose;
+  status: "submitted" | "filled" | "canceled" | "rejected";
+  requestedPrice?: number;
+  requestedQuantity?: number;
+  requestedValueQty?: string;
+  executedPrice?: number;
+  executedQuantity?: number;
+  externalOrderId?: string;
+  clientOid?: string;
+}
+
+export interface ExchangeReconciliationResult {
+  status: "ok" | "drift" | "error";
+  message: string;
+}
+
 export type SignalProcessingStatus =
   | "no-signal"
   | "skipped-existing-position"
@@ -76,7 +101,10 @@ export interface SignalProcessingResult {
   message?: string;
   orderId?: string;
   clientOid?: string;
+  order?: ExchangeOrderExecution;
   positionSnapshot?: ExchangePositionSnapshot | null;
+  exchangeSnapshots?: ExchangePositionSnapshot[];
+  reconciliation?: ExchangeReconciliationResult;
 }
 
 export interface StrategySignalEvent<TSnapshot = unknown, TMeta = unknown> {

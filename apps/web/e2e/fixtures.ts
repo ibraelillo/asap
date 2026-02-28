@@ -270,6 +270,53 @@ const position = {
   lastExchangeSyncTimeMs: NOW - 10 * 60 * 1000,
 };
 
+const orders = [
+  {
+    id: "client-123",
+    botId: BOT_ID,
+    positionId: position.id,
+    symbol: "SUIUSDTM",
+    side: "long",
+    purpose: "entry",
+    status: "filled",
+    requestedValueQty: "150",
+    executedQuantity: 12.5,
+    executedPrice: 82.45,
+    externalOrderId: "ord-123",
+    clientOid: "client-123",
+    createdAtMs: NOW - HOUR_MS,
+    updatedAtMs: NOW - HOUR_MS,
+  },
+];
+
+const fills = [
+  {
+    id: "client-123-fill",
+    botId: BOT_ID,
+    positionId: position.id,
+    orderId: "client-123",
+    symbol: "SUIUSDTM",
+    side: "long",
+    reason: "entry",
+    source: "exchange-snapshot",
+    price: 82.45,
+    quantity: 12.5,
+    createdAtMs: NOW - HOUR_MS,
+  },
+];
+
+const reconciliations = [
+  {
+    id: "recon-1",
+    botId: BOT_ID,
+    positionId: position.id,
+    symbol: "SUIUSDTM",
+    status: "ok",
+    message: "entry_confirmed",
+    createdAtMs: NOW - HOUR_MS,
+  },
+];
+
 const completedBacktest = {
   id: BACKTEST_ID,
   createdAtMs: NOW - 3 * HOUR_MS,
@@ -556,7 +603,14 @@ export async function mockRangingApi(page: Page) {
     }
 
     if (method === "GET" && pathname === `/v1/bots/${BOT_ID}/positions`) {
-      return json(route, { positions: [position] });
+      return json(route, {
+        generatedAt: iso(NOW),
+        count: 1,
+        positions: [position],
+        orders,
+        fills,
+        reconciliations,
+      });
     }
 
     if (method === "GET" && pathname === `/v1/bots/${BOT_ID}/backtests`) {

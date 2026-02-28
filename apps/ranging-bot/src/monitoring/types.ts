@@ -415,12 +415,27 @@ export interface OrderRecord {
   status: "submitted" | "filled" | "canceled" | "rejected";
   requestedPrice?: number;
   executedPrice?: number;
-  requestedQuantity: number;
+  requestedQuantity?: number;
+  requestedValueQty?: string;
   executedQuantity?: number;
   externalOrderId?: string;
   clientOid?: string;
   createdAtMs: number;
   updatedAtMs: number;
+}
+
+export interface FillRecord {
+  id: string;
+  botId: string;
+  positionId: string;
+  orderId?: string;
+  symbol: string;
+  side: Side;
+  reason: "entry" | "reduce" | "stop" | "take-profit" | "close" | "reconcile";
+  source: "exchange-snapshot" | "synthetic";
+  price?: number;
+  quantity: number;
+  createdAtMs: number;
 }
 
 export interface ReconciliationEventRecord {

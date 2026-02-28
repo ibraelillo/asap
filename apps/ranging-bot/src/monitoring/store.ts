@@ -15,10 +15,13 @@ import type {
   BacktestRecord,
   BotRecord,
   BotRunRecord,
+  FillRecord,
   KlineCacheReference,
+  OrderRecord,
   PositionRecord,
   ProcessingCursorRecord,
   RangeValidationRecord,
+  ReconciliationEventRecord,
 } from "./types";
 
 const MAX_LIMIT = 500;
@@ -96,6 +99,18 @@ function positionSortKey(positionId: string): string {
   return `POSITION#${positionId}`;
 }
 
+function orderSortKey(createdAtMs: number, orderId: string): string {
+  return `ORDER#${padTime(createdAtMs)}#${orderId}`;
+}
+
+function fillSortKey(createdAtMs: number, fillId: string): string {
+  return `FILL#${padTime(createdAtMs)}#${fillId}`;
+}
+
+function reconciliationSortKey(createdAtMs: number, eventId: string): string {
+  return `RECON#${padTime(createdAtMs)}#${eventId}`;
+}
+
 function accountPartitionKey(accountId: string): string {
   return `${PK_ACCOUNT_PREFIX}${accountId}`;
 }
@@ -147,6 +162,38 @@ function toPositionItem(record: PositionRecord): Record<string, unknown> {
     SK: positionSortKey(record.id),
     GSI1PK: `POSITION#${record.symbol}`,
     GSI1SK: `${record.status}#${padTime(record.lastExchangeSyncTimeMs ?? record.openedAtMs ?? Date.now())}#${record.botId}`,
+    ...record,
+  };
+}
+
+function toOrderItem(record: OrderRecord): Record<string, unknown> {
+  return {
+    PK: botPartitionKey(record.botId),
+    SK: orderSortKey(record.createdAtMs, record.id),
+    GSI1PK: `ORDER#${record.symbol}`,
+    GSI1SK: `${record.status}#${padTime(record.createdAtMs)}#${record.botId}`,
+    ...record,
+  };
+}
+
+function toFillItem(record: FillRecord): Record<string, unknown> {
+  return {
+    PK: botPartitionKey(record.botId),
+    SK: fillSortKey(record.createdAtMs, record.id),
+    GSI1PK: `FILL#${record.symbol}`,
+    GSI1SK: `${record.reason}#${padTime(record.createdAtMs)}#${record.botId}`,
+    ...record,
+  };
+}
+
+function toReconciliationItem(
+  record: ReconciliationEventRecord,
+): Record<string, unknown> {
+  return {
+    PK: botPartitionKey(record.botId),
+    SK: reconciliationSortKey(record.createdAtMs, record.id),
+    GSI1PK: `RECON#${record.symbol}`,
+    GSI1SK: `${record.status}#${padTime(record.createdAtMs)}#${record.botId}`,
     ...record,
   };
 }
@@ -913,6 +960,176 @@ function fromPositionItem(
   };
 }
 
+function fromOrderItem(item: Record<string, unknown>): OrderRecord | undefined {
+  const id = typeof item.id === "string" ? item.id : undefined;
+  const botId = typeof item.botId === "string" ? item.botId : undefined;
+  const positionId =
+    typeof item.positionId === "string" ? item.positionId : undefined;
+  const symbol = typeof item.symbol === "string" ? item.symbol : undefined;
+  const side =
+    item.side === "long" || item.side === "short" ? item.side : undefined;
+  const purpose =
+    item.purpose === "entry" ||
+    item.purpose === "reduce" ||
+    item.purpose === "stop" ||
+    item.purpose === "take-profit" ||
+    item.purpose === "close" ||
+    item.purpose === "reconcile"
+      ? item.purpose
+      : undefined;
+  const status =
+    item.status === "submitted" ||
+    item.status === "filled" ||
+    item.status === "canceled" ||
+    item.status === "rejected"
+      ? item.status
+      : undefined;
+  const createdAtMs = Number(item.createdAtMs);
+  const updatedAtMs = Number(item.updatedAtMs);
+
+  if (
+    !id ||
+    !botId ||
+    !positionId ||
+    !symbol ||
+    !side ||
+    !purpose ||
+    !status ||
+    !Number.isFinite(createdAtMs) ||
+    !Number.isFinite(updatedAtMs)
+  ) {
+    return undefined;
+  }
+
+  const requestedQuantity = Number(item.requestedQuantity);
+  const executedQuantity = Number(item.executedQuantity);
+  const requestedPrice = Number(item.requestedPrice);
+  const executedPrice = Number(item.executedPrice);
+
+  return {
+    id,
+    botId,
+    positionId,
+    symbol,
+    side,
+    purpose,
+    status,
+    requestedPrice: Number.isFinite(requestedPrice)
+      ? requestedPrice
+      : undefined,
+    executedPrice: Number.isFinite(executedPrice) ? executedPrice : undefined,
+    requestedQuantity: Number.isFinite(requestedQuantity)
+      ? requestedQuantity
+      : undefined,
+    requestedValueQty:
+      typeof item.requestedValueQty === "string"
+        ? item.requestedValueQty
+        : undefined,
+    executedQuantity: Number.isFinite(executedQuantity)
+      ? executedQuantity
+      : undefined,
+    externalOrderId:
+      typeof item.externalOrderId === "string"
+        ? item.externalOrderId
+        : undefined,
+    clientOid: typeof item.clientOid === "string" ? item.clientOid : undefined,
+    createdAtMs,
+    updatedAtMs,
+  };
+}
+
+function fromFillItem(item: Record<string, unknown>): FillRecord | undefined {
+  const id = typeof item.id === "string" ? item.id : undefined;
+  const botId = typeof item.botId === "string" ? item.botId : undefined;
+  const positionId =
+    typeof item.positionId === "string" ? item.positionId : undefined;
+  const orderId = typeof item.orderId === "string" ? item.orderId : undefined;
+  const symbol = typeof item.symbol === "string" ? item.symbol : undefined;
+  const side =
+    item.side === "long" || item.side === "short" ? item.side : undefined;
+  const reason =
+    item.reason === "entry" ||
+    item.reason === "reduce" ||
+    item.reason === "stop" ||
+    item.reason === "take-profit" ||
+    item.reason === "close" ||
+    item.reason === "reconcile"
+      ? item.reason
+      : undefined;
+  const source =
+    item.source === "exchange-snapshot" || item.source === "synthetic"
+      ? item.source
+      : undefined;
+  const quantity = Number(item.quantity);
+  const price = Number(item.price);
+  const createdAtMs = Number(item.createdAtMs);
+
+  if (
+    !id ||
+    !botId ||
+    !positionId ||
+    !symbol ||
+    !side ||
+    !reason ||
+    !source ||
+    !Number.isFinite(quantity) ||
+    !Number.isFinite(createdAtMs)
+  ) {
+    return undefined;
+  }
+
+  return {
+    id,
+    botId,
+    positionId,
+    orderId,
+    symbol,
+    side,
+    reason,
+    source,
+    price: Number.isFinite(price) ? price : undefined,
+    quantity,
+    createdAtMs,
+  };
+}
+
+function fromReconciliationItem(
+  item: Record<string, unknown>,
+): ReconciliationEventRecord | undefined {
+  const id = typeof item.id === "string" ? item.id : undefined;
+  const botId = typeof item.botId === "string" ? item.botId : undefined;
+  const positionId =
+    typeof item.positionId === "string" ? item.positionId : undefined;
+  const symbol = typeof item.symbol === "string" ? item.symbol : undefined;
+  const status =
+    item.status === "ok" || item.status === "drift" || item.status === "error"
+      ? item.status
+      : undefined;
+  const message = typeof item.message === "string" ? item.message : undefined;
+  const createdAtMs = Number(item.createdAtMs);
+
+  if (
+    !id ||
+    !botId ||
+    !symbol ||
+    !status ||
+    !message ||
+    !Number.isFinite(createdAtMs)
+  ) {
+    return undefined;
+  }
+
+  return {
+    id,
+    botId,
+    positionId,
+    symbol,
+    status,
+    message,
+    createdAtMs,
+  };
+}
+
 async function queryItems(
   input: QueryCommandInput,
 ): Promise<Record<string, unknown>[]> {
@@ -981,6 +1198,32 @@ async function queryPositions(
     );
 }
 
+async function queryOrders(input: QueryCommandInput): Promise<OrderRecord[]> {
+  const items = await queryItems(input);
+  return items
+    .map((item) => fromOrderItem(item))
+    .filter((item): item is OrderRecord => Boolean(item))
+    .sort((a, b) => b.createdAtMs - a.createdAtMs);
+}
+
+async function queryFills(input: QueryCommandInput): Promise<FillRecord[]> {
+  const items = await queryItems(input);
+  return items
+    .map((item) => fromFillItem(item))
+    .filter((item): item is FillRecord => Boolean(item))
+    .sort((a, b) => b.createdAtMs - a.createdAtMs);
+}
+
+async function queryReconciliations(
+  input: QueryCommandInput,
+): Promise<ReconciliationEventRecord[]> {
+  const items = await queryItems(input);
+  return items
+    .map((item) => fromReconciliationItem(item))
+    .filter((item): item is ReconciliationEventRecord => Boolean(item))
+    .sort((a, b) => b.createdAtMs - a.createdAtMs);
+}
+
 export async function putRunRecord(record: BotRunRecord): Promise<void> {
   const client = getDocClient();
   const tableName = getTableName();
@@ -1025,6 +1268,44 @@ export async function putPositionRecord(record: PositionRecord): Promise<void> {
     new PutCommand({
       TableName: tableName,
       Item: toPositionItem(record),
+    }),
+  );
+}
+
+export async function putOrderRecord(record: OrderRecord): Promise<void> {
+  const client = getDocClient();
+  const tableName = getTableName();
+
+  await client.send(
+    new PutCommand({
+      TableName: tableName,
+      Item: toOrderItem(record),
+    }),
+  );
+}
+
+export async function putFillRecord(record: FillRecord): Promise<void> {
+  const client = getDocClient();
+  const tableName = getTableName();
+
+  await client.send(
+    new PutCommand({
+      TableName: tableName,
+      Item: toFillItem(record),
+    }),
+  );
+}
+
+export async function putReconciliationEventRecord(
+  record: ReconciliationEventRecord,
+): Promise<void> {
+  const client = getDocClient();
+  const tableName = getTableName();
+
+  await client.send(
+    new PutCommand({
+      TableName: tableName,
+      Item: toReconciliationItem(record),
     }),
   );
 }
@@ -1230,6 +1511,57 @@ export async function listPositionsByBot(
     ExpressionAttributeValues: {
       ":pk": botPartitionKey(botId),
       ":prefix": "POSITION#",
+    },
+    ScanIndexForward: false,
+    Limit: normalizeLimit(limit),
+  });
+}
+
+export async function listOrdersByBot(
+  botId: string,
+  limit?: number,
+): Promise<OrderRecord[]> {
+  const tableName = getTableName();
+  return queryOrders({
+    TableName: tableName,
+    KeyConditionExpression: "PK = :pk AND begins_with(SK, :prefix)",
+    ExpressionAttributeValues: {
+      ":pk": botPartitionKey(botId),
+      ":prefix": "ORDER#",
+    },
+    ScanIndexForward: false,
+    Limit: normalizeLimit(limit),
+  });
+}
+
+export async function listFillsByBot(
+  botId: string,
+  limit?: number,
+): Promise<FillRecord[]> {
+  const tableName = getTableName();
+  return queryFills({
+    TableName: tableName,
+    KeyConditionExpression: "PK = :pk AND begins_with(SK, :prefix)",
+    ExpressionAttributeValues: {
+      ":pk": botPartitionKey(botId),
+      ":prefix": "FILL#",
+    },
+    ScanIndexForward: false,
+    Limit: normalizeLimit(limit),
+  });
+}
+
+export async function listReconciliationEventsByBot(
+  botId: string,
+  limit?: number,
+): Promise<ReconciliationEventRecord[]> {
+  const tableName = getTableName();
+  return queryReconciliations({
+    TableName: tableName,
+    KeyConditionExpression: "PK = :pk AND begins_with(SK, :prefix)",
+    ExpressionAttributeValues: {
+      ":pk": botPartitionKey(botId),
+      ":prefix": "RECON#",
     },
     ScanIndexForward: false,
     Limit: normalizeLimit(limit),

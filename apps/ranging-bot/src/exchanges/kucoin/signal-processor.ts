@@ -35,6 +35,18 @@ function mapPositionSnapshot(
   };
 }
 
+async function fetchOpenSnapshots(
+  service: KucoinService,
+  symbol: string,
+): Promise<ExchangePositionSnapshot[]> {
+  const positions = await service.positions.getPosition(symbol);
+  return positions
+    .map((position) => mapPositionSnapshot(position))
+    .filter((snapshot): snapshot is ExchangePositionSnapshot =>
+      Boolean(snapshot && snapshot.isOpen),
+    );
+}
+
 export class KucoinSignalProcessor<TSnapshot = unknown, TMeta = unknown>
   implements SignalProcessor<TSnapshot, TMeta>
 {
@@ -61,12 +73,7 @@ export class KucoinSignalProcessor<TSnapshot = unknown, TMeta = unknown>
       (intent) => intent.kind === "close",
     );
 
-    const positions = await this.service.positions.getPosition(event.symbol);
-    const snapshots = positions
-      .map((position) => mapPositionSnapshot(position))
-      .filter((snapshot): snapshot is ExchangePositionSnapshot =>
-        Boolean(snapshot && snapshot.isOpen),
-      );
+    const snapshots = await fetchOpenSnapshots(this.service, event.symbol);
 
     const existingForEnter = enterIntent
       ? snapshots.find((snapshot) => snapshot.side === enterIntent.side)
@@ -77,14 +84,27 @@ export class KucoinSignalProcessor<TSnapshot = unknown, TMeta = unknown>
         status: "skipped-existing-position",
         side: existingForEnter.side,
         message: "Open position already exists for this side.",
+        exchangeSnapshots: snapshots,
         positionSnapshot: existingForEnter,
+        reconciliation: {
+          status: "ok",
+          message: "existing_position_on_exchange",
+        },
       };
     }
 
     if (!enterIntent && !closeIntent) {
       return {
         status: snapshots.length > 0 ? "synced-position" : "no-signal",
+        exchangeSnapshots: snapshots,
         positionSnapshot: snapshots[0] ?? null,
+        reconciliation: {
+          status: "ok",
+          message:
+            snapshots.length > 0
+              ? "exchange_positions_synced"
+              : "exchange_flat",
+        },
       };
     }
 
@@ -97,6 +117,11 @@ export class KucoinSignalProcessor<TSnapshot = unknown, TMeta = unknown>
           status: "no-signal",
           message:
             "Close intent received but no matching open exchange position was found.",
+          exchangeSnapshots: snapshots,
+          reconciliation: {
+            status: "drift",
+            message: "close_intent_without_exchange_position",
+          },
         };
       }
 
@@ -113,8 +138,13 @@ export class KucoinSignalProcessor<TSnapshot = unknown, TMeta = unknown>
         return {
           status: "dry-run",
           side: closeIntent.side,
+          exchangeSnapshots: snapshots,
           positionSnapshot: openPosition,
           message: "close-intent-dry-run",
+          reconciliation: {
+            status: "ok",
+            message: "close_intent_dry_run",
+          },
         };
       }
 
@@ -136,17 +166,52 @@ export class KucoinSignalProcessor<TSnapshot = unknown, TMeta = unknown>
         clientOid: crypto.randomUUID(),
       });
 
+      const updatedSnapshots = await fetchOpenSnapshots(
+        this.service,
+        event.symbol,
+      );
+      const matchingSnapshot = updatedSnapshots.find(
+        (snapshot) => snapshot.side === closeIntent.side,
+      );
+      const orderStatus = matchingSnapshot ? "submitted" : "filled";
+
       return {
         status: "order-submitted",
         side: closeIntent.side,
         orderId: result.orderId,
         clientOid: result.clientOid,
-        positionSnapshot: openPosition,
+        order: {
+          purpose: "close",
+          status: orderStatus,
+          requestedQuantity: openPosition.quantity,
+          executedQuantity:
+            orderStatus === "filled" ? openPosition.quantity : undefined,
+          externalOrderId: result.orderId,
+          clientOid: result.clientOid,
+        },
+        exchangeSnapshots: updatedSnapshots,
+        positionSnapshot: matchingSnapshot ?? updatedSnapshots[0] ?? null,
+        reconciliation: {
+          status: "ok",
+          message:
+            orderStatus === "filled" ? "close_confirmed" : "close_submitted",
+        },
       };
     }
 
     if (!enterIntent) {
-      return { status: "no-signal", positionSnapshot: snapshots[0] ?? null };
+      return {
+        status: "no-signal",
+        exchangeSnapshots: snapshots,
+        positionSnapshot: snapshots[0] ?? null,
+        reconciliation: {
+          status: "ok",
+          message:
+            snapshots.length > 0
+              ? "exchange_positions_synced"
+              : "exchange_flat",
+        },
+      };
     }
 
     const positionSide = enterIntent.side === "long" ? "LONG" : "SHORT";
@@ -161,7 +226,12 @@ export class KucoinSignalProcessor<TSnapshot = unknown, TMeta = unknown>
       return {
         status: "dry-run",
         side: enterIntent.side,
+        exchangeSnapshots: snapshots,
         positionSnapshot: snapshots[0] ?? null,
+        reconciliation: {
+          status: "ok",
+          message: "entry_intent_dry_run",
+        },
       };
     }
 
@@ -181,12 +251,36 @@ export class KucoinSignalProcessor<TSnapshot = unknown, TMeta = unknown>
       clientOid: crypto.randomUUID(),
     });
 
+    const updatedSnapshots = await fetchOpenSnapshots(
+      this.service,
+      event.symbol,
+    );
+    const matchingSnapshot = updatedSnapshots.find(
+      (snapshot) => snapshot.side === enterIntent.side,
+    );
+    const orderStatus = matchingSnapshot ? "filled" : "submitted";
+
     return {
       status: "order-submitted",
       side: enterIntent.side,
       orderId: result.orderId,
       clientOid: result.clientOid,
-      positionSnapshot: snapshots[0] ?? null,
+      order: {
+        purpose: "entry",
+        status: orderStatus,
+        requestedValueQty: this.options.valueQty,
+        executedPrice: matchingSnapshot?.avgEntryPrice,
+        executedQuantity: matchingSnapshot?.quantity,
+        externalOrderId: result.orderId,
+        clientOid: result.clientOid,
+      },
+      exchangeSnapshots: updatedSnapshots,
+      positionSnapshot: matchingSnapshot ?? updatedSnapshots[0] ?? null,
+      reconciliation: {
+        status: "ok",
+        message:
+          orderStatus === "filled" ? "entry_confirmed" : "entry_submitted",
+      },
     };
   }
 }

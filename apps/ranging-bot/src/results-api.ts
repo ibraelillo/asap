@@ -41,9 +41,12 @@ import {
   getLatestOpenPositionByBot,
   getRangeValidationById,
   getRunBySymbolAndTime,
+  listFillsByBot,
   listAccountRecords,
   listBotRecords,
   listLatestRunsByBotIds,
+  listOrdersByBot,
+  listReconciliationEventsByBot,
   listRecentRangeValidations,
   listRecentRangeValidationsByBotId,
   listRecentRangeValidationsBySymbol,
@@ -1194,14 +1197,20 @@ export async function botPositionsHandler(
   }
 
   try {
-    const positions = await listPositionsByBot(
-      decodeURIComponent(rawBotId),
-      50,
-    );
+    const botId = decodeURIComponent(rawBotId);
+    const [positions, orders, fills, reconciliations] = await Promise.all([
+      listPositionsByBot(botId, 50),
+      listOrdersByBot(botId, 100),
+      listFillsByBot(botId, 100),
+      listReconciliationEventsByBot(botId, 100),
+    ]);
     return json(200, {
       generatedAt: new Date().toISOString(),
       count: positions.length,
       positions,
+      orders,
+      fills,
+      reconciliations,
     });
   } catch (error) {
     console.error("[bot-api] bot positions failed", { error });

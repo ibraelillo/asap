@@ -94,7 +94,7 @@ export function BotPositionsPage() {
               </tr>
             </thead>
             <tbody>
-              {positions.map((position) => (
+              {positions.positions.map((position) => (
                 <tr
                   key={position.id}
                   className="border-t border-white/5 text-slate-200"
@@ -120,13 +120,163 @@ export function BotPositionsPage() {
                   </td>
                 </tr>
               ))}
-              {positions.length === 0 ? (
+              {positions.positions.length === 0 ? (
                 <tr>
                   <td
                     colSpan={9}
                     className="py-4 text-center text-xs text-slate-400"
                   >
                     No position records yet.
+                  </td>
+                </tr>
+              ) : null}
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section className="grid gap-6 xl:grid-cols-2">
+        <div className="panel p-5">
+          <SectionHeader
+            title="Orders"
+            description="Persisted execution acknowledgements keyed by bot."
+          />
+          <div className="overflow-x-auto">
+            <table className="min-w-full text-left text-sm">
+              <thead>
+                <tr className="text-xs uppercase tracking-wide text-slate-400">
+                  <th className="pb-3 pr-4">Time</th>
+                  <th className="pb-3 pr-4">Purpose</th>
+                  <th className="pb-3 pr-4">Status</th>
+                  <th className="pb-3 pr-4">Side</th>
+                  <th className="pb-3 pr-4">Req Qty</th>
+                  <th className="pb-3 pr-4">Req Value</th>
+                  <th className="pb-3">Exec Qty</th>
+                </tr>
+              </thead>
+              <tbody>
+                {positions.orders.map((order) => (
+                  <tr
+                    key={order.id}
+                    className="border-t border-white/5 text-slate-200"
+                  >
+                    <td className="py-3 pr-4 text-xs text-slate-300">
+                      {formatDateTime(order.createdAtMs)}
+                    </td>
+                    <td className="py-3 pr-4">{order.purpose}</td>
+                    <td className="py-3 pr-4">{order.status}</td>
+                    <td className="py-3 pr-4">{order.side}</td>
+                    <td className="py-3 pr-4">
+                      {order.requestedQuantity?.toLocaleString() ?? "-"}
+                    </td>
+                    <td className="py-3 pr-4">
+                      {order.requestedValueQty ?? "-"}
+                    </td>
+                    <td className="py-3">
+                      {order.executedQuantity?.toLocaleString() ?? "-"}
+                    </td>
+                  </tr>
+                ))}
+                {positions.orders.length === 0 ? (
+                  <tr>
+                    <td
+                      colSpan={7}
+                      className="py-4 text-center text-xs text-slate-400"
+                    >
+                      No order records yet.
+                    </td>
+                  </tr>
+                ) : null}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div className="panel p-5">
+          <SectionHeader
+            title="Fills"
+            description="Only confirmed fills are persisted here."
+          />
+          <div className="overflow-x-auto">
+            <table className="min-w-full text-left text-sm">
+              <thead>
+                <tr className="text-xs uppercase tracking-wide text-slate-400">
+                  <th className="pb-3 pr-4">Time</th>
+                  <th className="pb-3 pr-4">Reason</th>
+                  <th className="pb-3 pr-4">Side</th>
+                  <th className="pb-3 pr-4">Qty</th>
+                  <th className="pb-3">Price</th>
+                </tr>
+              </thead>
+              <tbody>
+                {positions.fills.map((fill) => (
+                  <tr
+                    key={fill.id}
+                    className="border-t border-white/5 text-slate-200"
+                  >
+                    <td className="py-3 pr-4 text-xs text-slate-300">
+                      {formatDateTime(fill.createdAtMs)}
+                    </td>
+                    <td className="py-3 pr-4">{fill.reason}</td>
+                    <td className="py-3 pr-4">{fill.side}</td>
+                    <td className="py-3 pr-4">
+                      {fill.quantity.toLocaleString()}
+                    </td>
+                    <td className="py-3">
+                      {fill.price?.toLocaleString() ?? "-"}
+                    </td>
+                  </tr>
+                ))}
+                {positions.fills.length === 0 ? (
+                  <tr>
+                    <td
+                      colSpan={5}
+                      className="py-4 text-center text-xs text-slate-400"
+                    >
+                      No fill records yet.
+                    </td>
+                  </tr>
+                ) : null}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <section className="panel p-5">
+        <SectionHeader
+          title="Reconciliation"
+          description="Drift and sync events between local ledger and exchange state."
+        />
+        <div className="overflow-x-auto">
+          <table className="min-w-full text-left text-sm">
+            <thead>
+              <tr className="text-xs uppercase tracking-wide text-slate-400">
+                <th className="pb-3 pr-4">Time</th>
+                <th className="pb-3 pr-4">Status</th>
+                <th className="pb-3">Message</th>
+              </tr>
+            </thead>
+            <tbody>
+              {positions.reconciliations.map((event) => (
+                <tr
+                  key={event.id}
+                  className="border-t border-white/5 text-slate-200"
+                >
+                  <td className="py-3 pr-4 text-xs text-slate-300">
+                    {formatDateTime(event.createdAtMs)}
+                  </td>
+                  <td className="py-3 pr-4">{event.status}</td>
+                  <td className="py-3 text-slate-300">{event.message}</td>
+                </tr>
+              ))}
+              {positions.reconciliations.length === 0 ? (
+                <tr>
+                  <td
+                    colSpan={3}
+                    className="py-4 text-center text-xs text-slate-400"
+                  >
+                    No reconciliation events yet.
                   </td>
                 </tr>
               ) : null}

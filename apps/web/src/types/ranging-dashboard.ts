@@ -384,3 +384,55 @@ export interface PositionRecord {
   lastStrategyDecisionTimeMs?: number;
   lastExchangeSyncTimeMs?: number;
 }
+
+export interface OrderRecord {
+  id: string;
+  botId: string;
+  positionId: string;
+  symbol: string;
+  side: Side;
+  purpose: "entry" | "reduce" | "stop" | "take-profit" | "close" | "reconcile";
+  status: "submitted" | "filled" | "canceled" | "rejected";
+  requestedPrice?: number;
+  executedPrice?: number;
+  requestedQuantity?: number;
+  requestedValueQty?: string;
+  executedQuantity?: number;
+  externalOrderId?: string;
+  clientOid?: string;
+  createdAtMs: number;
+  updatedAtMs: number;
+}
+
+export interface FillRecord {
+  id: string;
+  botId: string;
+  positionId: string;
+  orderId?: string;
+  symbol: string;
+  side: Side;
+  reason: "entry" | "reduce" | "stop" | "take-profit" | "close" | "reconcile";
+  source: "exchange-snapshot" | "synthetic";
+  price?: number;
+  quantity: number;
+  createdAtMs: number;
+}
+
+export interface ReconciliationEventRecord {
+  id: string;
+  botId: string;
+  positionId?: string;
+  symbol: string;
+  status: "ok" | "drift" | "error";
+  message: string;
+  createdAtMs: number;
+}
+
+export interface BotPositionsPayload {
+  generatedAt: string;
+  count: number;
+  positions: PositionRecord[];
+  orders: OrderRecord[];
+  fills: FillRecord[];
+  reconciliations: ReconciliationEventRecord[];
+}

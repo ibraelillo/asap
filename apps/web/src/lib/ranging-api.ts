@@ -1,5 +1,6 @@
 import type {
   BacktestRecord,
+  BotPositionsPayload,
   BacktestDetailsPayload,
   KlineCacheReference,
   KlineCandle,
@@ -431,9 +432,8 @@ export async function fetchBotStats(
 
 export async function fetchBotPositions(
   botId: string,
-): Promise<PositionRecord[]> {
-  const payload = await getJson<{ positions: PositionRecord[] }>(
+): Promise<BotPositionsPayload> {
+  return getJson<BotPositionsPayload>(
     `/v1/bots/${encodeURIComponent(botId)}/positions`,
   );
-  return payload.positions;
 }

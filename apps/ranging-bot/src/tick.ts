@@ -12,9 +12,12 @@ import {
   advanceProcessingCursor,
   getLatestOpenPositionByBot,
   getProcessingCursor,
+  putFillRecord,
   listBotRecords,
   putBotRecord,
+  putOrderRecord,
   putPositionRecord,
+  putReconciliationEventRecord,
   putRunRecord,
 } from "./monitoring/store";
 import type {
@@ -23,6 +26,12 @@ import type {
   BotRunRecord,
   PositionRecord,
 } from "./monitoring/types";
+import {
+  buildFillRecords,
+  buildOrderRecord,
+  buildReconciliationEventRecord,
+  reconcilePositionRecord,
+} from "./execution-ledger";
 import { createBotRuntime } from "./runtime-orchestrator-factory";
 import {
   getClosedCandleEndTime,
@@ -158,6 +167,30 @@ function toRunRecord(
     bearishSfp?: boolean;
     moneyFlowSlope?: number;
   };
+  const order = processing.order;
+  const positionStatusAfter = processing.positionSnapshot?.isOpen
+    ? order?.purpose === "reduce"
+      ? "reducing"
+      : order?.purpose === "close"
+        ? "closing"
+        : "open"
+    : order?.purpose === "entry"
+      ? order.status === "rejected"
+        ? "error"
+        : order.status === "filled"
+          ? "open"
+          : "entry-pending"
+      : order?.purpose === "close"
+        ? order.status === "rejected"
+          ? "error"
+          : order.status === "filled"
+            ? "closed"
+            : "closing"
+        : processing.reconciliation?.status === "drift"
+          ? "reconciling"
+          : processing.reconciliation?.status === "error"
+            ? "error"
+            : positionBefore?.status;
 
   return {
     id: `${bot.id}-${event.generatedAtMs}`,
@@ -188,12 +221,10 @@ function toRunRecord(
     bearishSfp: snapshot.bearishSfp,
     moneyFlowSlope: snapshot.moneyFlowSlope,
     positionStatusBefore: positionBefore?.status,
-    positionStatusAfter: processing.positionSnapshot?.isOpen
-      ? "open"
-      : positionBefore?.status,
+    positionStatusAfter,
     exchangeReconciliationStatus: processing.positionSnapshot
       ? "ok"
-      : undefined,
+      : processing.reconciliation?.status,
     processing,
   };
 }
@@ -249,79 +280,6 @@ function toPositionState(record: PositionRecord | null): PositionState | null {
     closedAtMs: record.closedAtMs,
     strategyContext: record.strategyContext,
   };
-}
-
-function reconcilePositionRecord(
-  bot: BotRecord,
-  existing: PositionRecord | null,
-  processing: BotRunRecord["processing"],
-  generatedAtMs: number,
-): PositionRecord | undefined {
-  const snapshot = processing.positionSnapshot;
-  if (snapshot?.isOpen) {
-    return {
-      id: existing?.id ?? `${bot.id}-${snapshot.side}-${generatedAtMs}`,
-      botId: bot.id,
-      botName: bot.name,
-      strategyId: bot.strategyId,
-      strategyVersion: bot.strategyVersion,
-      exchangeId: bot.exchangeId,
-      accountId: bot.accountId,
-      symbol: bot.symbol,
-      side: snapshot.side,
-      status: "open",
-      quantity: snapshot.quantity,
-      remainingQuantity: snapshot.quantity,
-      avgEntryPrice: snapshot.avgEntryPrice,
-      stopPrice: existing?.stopPrice,
-      realizedPnl: existing?.realizedPnl ?? 0,
-      unrealizedPnl: existing?.unrealizedPnl,
-      openedAtMs: existing?.openedAtMs ?? generatedAtMs,
-      closedAtMs: undefined,
-      lastStrategyDecisionTimeMs: generatedAtMs,
-      lastExchangeSyncTimeMs: generatedAtMs,
-      strategyContext: existing?.strategyContext,
-    };
-  }
-
-  if (processing.status === "order-submitted" && processing.side) {
-    return {
-      id: existing?.id ?? `${bot.id}-${processing.side}-${generatedAtMs}`,
-      botId: bot.id,
-      botName: bot.name,
-      strategyId: bot.strategyId,
-      strategyVersion: bot.strategyVersion,
-      exchangeId: bot.exchangeId,
-      accountId: bot.accountId,
-      symbol: bot.symbol,
-      side: processing.side,
-      status: "entry-pending",
-      quantity: existing?.quantity ?? 0,
-      remainingQuantity: existing?.remainingQuantity ?? 0,
-      avgEntryPrice: existing?.avgEntryPrice,
-      stopPrice: existing?.stopPrice,
-      realizedPnl: existing?.realizedPnl ?? 0,
-      unrealizedPnl: existing?.unrealizedPnl,
-      openedAtMs: existing?.openedAtMs ?? generatedAtMs,
-      closedAtMs: undefined,
-      lastStrategyDecisionTimeMs: generatedAtMs,
-      lastExchangeSyncTimeMs: generatedAtMs,
-      strategyContext: existing?.strategyContext,
-    };
-  }
-
-  if (existing && existing.status !== "closed") {
-    return {
-      ...existing,
-      status: "closed",
-      remainingQuantity: 0,
-      closedAtMs: generatedAtMs,
-      lastStrategyDecisionTimeMs: generatedAtMs,
-      lastExchangeSyncTimeMs: generatedAtMs,
-    };
-  }
-
-  return undefined;
 }
 
 async function persistAndBroadcast(record: BotRunRecord): Promise<void> {
@@ -477,11 +435,36 @@ export const handler = async (incomingEvent?: CronTickEvent) => {
         runRecord.processing,
         runRecord.generatedAtMs,
       );
+      const orderRecord = buildOrderRecord(
+        bot,
+        positionBefore ?? null,
+        runRecord.processing,
+        runRecord.generatedAtMs,
+      );
+      const fillRecords = buildFillRecords(
+        bot,
+        positionBefore ?? null,
+        runRecord.processing,
+        runRecord.generatedAtMs,
+      );
+      const reconciliationEvent = buildReconciliationEventRecord(
+        bot,
+        positionBefore ?? null,
+        runRecord.processing,
+        runRecord.generatedAtMs,
+      );
 
       await persistAndBroadcast(runRecord);
-      if (reconciledPosition) {
-        await putPositionRecord(reconciledPosition);
-      }
+      await Promise.allSettled([
+        reconciledPosition
+          ? putPositionRecord(reconciledPosition)
+          : Promise.resolve(),
+        orderRecord ? putOrderRecord(orderRecord) : Promise.resolve(),
+        reconciliationEvent
+          ? putReconciliationEventRecord(reconciliationEvent)
+          : Promise.resolve(),
+        ...fillRecords.map((record) => putFillRecord(record)),
+      ]);
       await advanceProcessingCursor({
         symbol: bot.symbol,
         timeframe: bot.runtime.executionTimeframe,

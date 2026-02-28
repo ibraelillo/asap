@@ -100,9 +100,21 @@ describe("kucoin signal processor", () => {
 
   it("places entry order in live mode", async () => {
     const addOrder = vi.fn().mockResolvedValue({ orderId: "1" });
+    const getPosition = vi
+      .fn()
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([
+        {
+          symbol: "SOLUSDTM",
+          positionSide: "SHORT",
+          isOpen: true,
+          currentQty: 1.25,
+          avgEntryPrice: 99.5,
+        },
+      ]);
 
     const service = {
-      positions: { getPosition: vi.fn().mockResolvedValue([]) },
+      positions: { getPosition },
       market: { normalize: vi.fn().mockResolvedValue({ maxLeverage: 25 }) },
       orders: { addOrder },
     } as unknown as KucoinService;
@@ -112,7 +124,7 @@ describe("kucoin signal processor", () => {
       valueQty: "150",
     });
 
-    await processor.process(buildEvent("short"));
+    const result = await processor.process(buildEvent("short"));
 
     expect(addOrder).toHaveBeenCalledTimes(1);
     expect(addOrder.mock.calls[0][0]).toMatchObject({
@@ -121,6 +133,19 @@ describe("kucoin signal processor", () => {
       side: "sell",
       valueQty: "150",
       type: "market",
+    });
+    expect(getPosition).toHaveBeenCalledTimes(2);
+    expect(result.order).toMatchObject({
+      purpose: "entry",
+      status: "filled",
+      requestedValueQty: "150",
+      executedQuantity: 1.25,
+    });
+    expect(result.positionSnapshot).toMatchObject({
+      side: "short",
+      quantity: 1.25,
+      avgEntryPrice: 99.5,
+      isOpen: true,
     });
   });
 });
