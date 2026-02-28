@@ -9,6 +9,7 @@ import type {
   BotRunRecord,
   DashboardPayload,
   AccountSummary,
+  AccountSymbolSummary,
   StrategyDetailsPayload,
   StrategySummary,
   RangeValidationRecord,
@@ -220,6 +221,15 @@ export async function fetchAccounts(
     `/v1/accounts${suffix ? `?${suffix}` : ""}`,
   );
   return payload.accounts;
+}
+
+export async function fetchAccountSymbols(
+  accountId: string,
+): Promise<AccountSymbolSummary[]> {
+  const payload = await getJson<{ symbols: AccountSymbolSummary[] }>(
+    `/v1/accounts/${encodeURIComponent(accountId)}/symbols`,
+  );
+  return payload.symbols;
 }
 
 export async function createAccount(

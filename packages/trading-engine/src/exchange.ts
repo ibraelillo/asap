@@ -68,6 +68,20 @@ export interface ExchangeAccountBalanceReader {
   getBalance(currency?: string): Promise<ExchangeAccountBalanceSnapshot>;
 }
 
+export interface ExchangeSymbolSummary {
+  symbol: string;
+  baseCurrency?: string;
+  quoteCurrency?: string;
+  status?: string;
+  maxLeverage?: number;
+  supportCross?: boolean;
+  raw?: Record<string, unknown>;
+}
+
+export interface ExchangeSymbolReader {
+  listSymbols(): Promise<ExchangeSymbolSummary[]>;
+}
+
 export interface ExchangePositionSnapshot {
   symbol: string;
   side: "long" | "short";
@@ -149,6 +163,9 @@ export interface ExchangeAdapter<
   createAccountBalanceReader?(
     context: ExecutionContext<TAccount>,
   ): ExchangeAccountBalanceReader;
+  createSymbolReader?(
+    context: ExecutionContext<TAccount>,
+  ): ExchangeSymbolReader;
   createPositionReader(
     context: ExecutionContext<TAccount>,
   ): ExchangePositionReader;

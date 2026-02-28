@@ -15,6 +15,7 @@ import {
   createAccount,
   createBot,
   fetchAccounts,
+  fetchAccountSymbols,
   fetchStrategies,
 } from "../../../lib/ranging-api";
 import {
@@ -88,6 +89,17 @@ export function BotCreatePage() {
     ([, exchangeId]) => fetchAccounts(String(exchangeId)),
     { revalidateOnFocus: false },
   );
+  const {
+    data: accountSymbols,
+    error: accountSymbolsError,
+    isLoading: accountSymbolsLoading,
+  } = useSWR(
+    accountMode === "existing" && form.accountId
+      ? ["account-symbols", form.accountId]
+      : null,
+    ([, accountId]) => fetchAccountSymbols(String(accountId)),
+    { revalidateOnFocus: false },
+  );
 
   const strategyOptions = useMemo(() => {
     if (!strategies || strategies.length === 0) {
@@ -129,6 +141,24 @@ export function BotCreatePage() {
     [filteredAccounts],
   );
 
+  const symbolOptions = useMemo(
+    () =>
+      (accountSymbols ?? []).map((symbol) => ({
+        value: symbol.symbol,
+        label: symbol.symbol,
+        description: [
+          symbol.baseCurrency && symbol.quoteCurrency
+            ? `${symbol.baseCurrency}/${symbol.quoteCurrency}`
+            : undefined,
+          symbol.maxLeverage ? `${symbol.maxLeverage}x max` : undefined,
+          symbol.supportCross === true ? "cross" : undefined,
+        ]
+          .filter(Boolean)
+          .join(" · "),
+      })),
+    [accountSymbols],
+  );
+
   useEffect(() => {
     if (accountsLoading) return;
 
@@ -154,6 +184,24 @@ export function BotCreatePage() {
       }));
     }
   }, [accountMode, accountsLoading, filteredAccounts, form.accountId]);
+
+  useEffect(() => {
+    if (accountMode !== "existing") return;
+    if (!accountSymbols || accountSymbols.length === 0) return;
+
+    const currentSymbol = form.symbol.trim();
+    if (!currentSymbol) return;
+
+    const exists = accountSymbols.some(
+      (symbol) => symbol.symbol === currentSymbol,
+    );
+    if (!exists) {
+      setForm((current) => ({
+        ...current,
+        symbol: "",
+      }));
+    }
+  }, [accountMode, accountSymbols, form.symbol]);
 
   async function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -272,17 +320,55 @@ export function BotCreatePage() {
               />
             </Field>
 
-            <Field label="Symbol">
-              <Input
-                value={form.symbol}
-                onChange={(event) =>
-                  setForm((current) => ({
-                    ...current,
-                    symbol: event.target.value.toUpperCase(),
-                  }))
-                }
-                placeholder="SUIUSDTM"
-              />
+            <Field
+              label="Symbol"
+              description={
+                accountMode === "existing"
+                  ? accountSymbolsLoading
+                    ? "Loading tradable symbols from the selected account..."
+                    : accountSymbolsError
+                      ? "Failed to load symbols for the selected account."
+                      : symbolOptions.length > 0
+                        ? "Search and select a symbol supported by this account."
+                        : "No symbols returned for this account."
+                  : "Create the account first if you want the exchange symbol list. Manual entry remains available."
+              }
+              error={
+                accountSymbolsError instanceof Error
+                  ? accountSymbolsError.message
+                  : undefined
+              }
+            >
+              {accountMode === "existing" ? (
+                <Combobox
+                  value={form.symbol || undefined}
+                  onChange={(symbol) =>
+                    setForm((current) => ({
+                      ...current,
+                      symbol: symbol ?? "",
+                    }))
+                  }
+                  options={symbolOptions}
+                  placeholder={
+                    accountSymbolsLoading
+                      ? "Loading symbols..."
+                      : "Search symbol"
+                  }
+                  disabled={accountSymbolsLoading || symbolOptions.length === 0}
+                  emptyState="No symbols found"
+                />
+              ) : (
+                <Input
+                  value={form.symbol}
+                  onChange={(event) =>
+                    setForm((current) => ({
+                      ...current,
+                      symbol: event.target.value.toUpperCase(),
+                    }))
+                  }
+                  placeholder="SUIUSDTM"
+                />
+              )}
             </Field>
 
             <Field label="Name">
@@ -306,6 +392,7 @@ export function BotCreatePage() {
                     ...current,
                     exchangeId,
                     accountId: "",
+                    symbol: "",
                   }));
                   setAccountMode("existing");
                 }}
@@ -370,6 +457,7 @@ export function BotCreatePage() {
                     setForm((current) => ({
                       ...current,
                       accountId: accountId ?? "",
+                      symbol: "",
                     }))
                   }
                   options={accountOptions}

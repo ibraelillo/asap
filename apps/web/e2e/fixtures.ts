@@ -279,6 +279,33 @@ const initialAccount = {
   },
 };
 
+const accountSymbols = [
+  {
+    symbol: "BTCUSDTM",
+    baseCurrency: "BTC",
+    quoteCurrency: "USDT",
+    status: "Open",
+    maxLeverage: 100,
+    supportCross: true,
+  },
+  {
+    symbol: "ETHUSDTM",
+    baseCurrency: "ETH",
+    quoteCurrency: "USDT",
+    status: "Open",
+    maxLeverage: 100,
+    supportCross: true,
+  },
+  {
+    symbol: "SUIUSDTM",
+    baseCurrency: "SUI",
+    quoteCurrency: "USDT",
+    status: "Open",
+    maxLeverage: 50,
+    supportCross: true,
+  },
+];
+
 const position = {
   id: "pos-sui-1",
   botId: BOT_ID,
@@ -664,6 +691,14 @@ export async function mockRangingApi(page: Page) {
 
     if (method === "GET" && pathname === "/v1/accounts") {
       return json(route, { accounts });
+    }
+
+    if (method === "GET" && pathname === `/v1/accounts/${ACCOUNT_ID}/symbols`) {
+      return json(route, {
+        accountId: ACCOUNT_ID,
+        count: accountSymbols.length,
+        symbols: accountSymbols,
+      });
     }
 
     if (method === "POST" && pathname === "/v1/accounts") {

@@ -3,6 +3,7 @@ import type {
   Candle,
   EquityPoint,
   ExchangeAccount,
+  ExchangeSymbolSummary,
   Side,
 } from "@repo/trading-engine";
 import type {
@@ -55,6 +56,8 @@ export interface AccountSummary {
     error?: string;
   };
 }
+
+export interface AccountSymbolSummary extends ExchangeSymbolSummary {}
 
 export interface BotRunRecord {
   id: string;

@@ -190,6 +190,10 @@ export default $config({
       handler: "apps/ranging-bot/src/results-api.patchAccountHandler",
       environment: apiRouteEnv,
     });
+    api.route("GET /v1/accounts/{accountId}/symbols", {
+      handler: "apps/ranging-bot/src/results-api.accountSymbolsHandler",
+      environment: apiRouteEnv,
+    });
     api.route("GET /v1/strategies", {
       handler: "apps/ranging-bot/src/results-api.strategiesHandler",
       environment: apiRouteEnv,

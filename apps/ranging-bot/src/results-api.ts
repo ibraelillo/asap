@@ -2,6 +2,7 @@ import type {
   APIGatewayProxyEventV2,
   APIGatewayProxyResultV2,
 } from "aws-lambda";
+import type { BotDefinition, ExecutionContext } from "@repo/trading-engine";
 import {
   EventBridgeClient,
   PutEventsCommand,
@@ -62,6 +63,7 @@ import {
 import type {
   AccountRecord,
   AccountSummary,
+  AccountSymbolSummary,
   BacktestAiConfig,
   BacktestRecord,
   BacktestTradeView,
@@ -356,6 +358,50 @@ function toAccountSummary(account: AccountRecord): AccountSummary {
       apiKey: account.auth.apiKey.trim().length > 0,
       apiSecret: account.auth.apiSecret.trim().length > 0,
       apiPassphrase: (account.auth.apiPassphrase?.trim().length ?? 0) > 0,
+    },
+  };
+}
+
+function createAccountInspectionBot(account: AccountRecord): BotDefinition {
+  const nowMs = Date.now();
+  return {
+    id: `account-inspection-${account.id}`,
+    name: `Account Inspection ${account.name}`,
+    strategyId: "account-inspection",
+    strategyVersion: "1",
+    exchangeId: account.exchangeId,
+    accountId: account.id,
+    symbol: "ACCOUNT",
+    marketType: "futures",
+    status: "active",
+    execution: {
+      trigger: "event",
+      executionTimeframe: "1h",
+      warmupBars: 0,
+    },
+    context: {
+      primaryPriceTimeframe: "1h",
+      additionalTimeframes: [],
+      providers: [],
+    },
+    riskProfileId: `${account.id}:inspection`,
+    strategyConfig: {},
+    createdAtMs: nowMs,
+    updatedAtMs: nowMs,
+  };
+}
+
+function createAccountExecutionContext(
+  account: AccountRecord,
+): ExecutionContext<AccountRecord> {
+  return {
+    bot: createAccountInspectionBot(account),
+    account,
+    exchangeId: account.exchangeId,
+    nowMs: Date.now(),
+    dryRun: true,
+    metadata: {
+      source: "account-api",
     },
   };
 }
@@ -1174,6 +1220,46 @@ export async function patchAccountHandler(
   } catch (error) {
     console.error("[account-api] patch account failed", { error });
     return json(500, { error: "failed_to_patch_account" });
+  }
+}
+
+export async function accountSymbolsHandler(
+  event: APIGatewayProxyEventV2,
+): Promise<APIGatewayProxyResultV2> {
+  const rawAccountId = event.pathParameters?.accountId?.trim();
+  if (!rawAccountId) {
+    return json(400, { error: "missing_account_id" });
+  }
+
+  try {
+    const accountId = decodeURIComponent(rawAccountId);
+    const account = await getAccountRecordById(accountId);
+    if (!account) {
+      return json(404, { error: "account_not_found" });
+    }
+    if (account.status !== "active") {
+      return json(409, { error: "account_not_active" });
+    }
+
+    const adapter = exchangeAdapterRegistry.get(account.exchangeId);
+    if (!adapter.createSymbolReader) {
+      return json(400, { error: "symbol_listing_not_supported" });
+    }
+
+    const reader = adapter.createSymbolReader(
+      createAccountExecutionContext(account),
+    );
+    const symbols = (await reader.listSymbols()) as AccountSymbolSummary[];
+
+    return json(200, {
+      generatedAt: new Date().toISOString(),
+      accountId: account.id,
+      count: symbols.length,
+      symbols,
+    });
+  } catch (error) {
+    console.error("[account-api] account symbols failed", { error });
+    return json(500, { error: "failed_to_load_account_symbols" });
   }
 }
 

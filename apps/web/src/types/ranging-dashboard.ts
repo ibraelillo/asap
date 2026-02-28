@@ -82,6 +82,15 @@ export interface AccountSummary {
   };
 }
 
+export interface AccountSymbolSummary {
+  symbol: string;
+  baseCurrency?: string;
+  quoteCurrency?: string;
+  status?: string;
+  maxLeverage?: number;
+  supportCross?: boolean;
+}
+
 export interface BotOperationalStats {
   totalRuns: number;
   failedRuns: number;

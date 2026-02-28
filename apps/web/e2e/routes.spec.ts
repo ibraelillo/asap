@@ -78,11 +78,12 @@ test("bot create page supports production form interactions without errors", asy
   await page.goto("/bots/create");
   await expect(page.getByRole("heading", { name: "Create Bot" })).toBeVisible();
 
-  await page.getByPlaceholder("SUIUSDTM").fill("SUIUSDTM");
-
   await expect(page.getByPlaceholder("Search account")).toHaveValue(
     "main-kucoin",
   );
+
+  await page.getByPlaceholder("Search symbol").fill("SUI");
+  await page.getByRole("option", { name: /SUIUSDTM/i }).click();
 
   await page.getByRole("button", { name: "Create Bot" }).click();
   await expect(page).toHaveURL(`/bots/${BOT_ID}`);
