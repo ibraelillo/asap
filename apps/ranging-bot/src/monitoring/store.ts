@@ -169,6 +169,7 @@ function toAccountItem(record: AccountRecord): Record<string, unknown> {
     SK: accountSortKey(record.id),
     GSI1PK: "ACCOUNTDEF",
     GSI1SK: `${record.exchangeId}#${record.name}#${record.id}`,
+    id: record.id,
     accountId: record.id,
     name: record.name,
     exchangeId: record.exchangeId,
@@ -872,7 +873,12 @@ function fromBotItem(item: Record<string, unknown>): BotRecord | undefined {
 function fromAccountItem(
   item: Record<string, unknown>,
 ): AccountRecord | undefined {
-  const id = typeof item.id === "string" ? item.id : undefined;
+  const id =
+    typeof item.id === "string"
+      ? item.id
+      : typeof item.accountId === "string"
+        ? item.accountId
+        : undefined;
   const name = typeof item.name === "string" ? item.name : undefined;
   const exchangeId =
     typeof item.exchangeId === "string" ? item.exchangeId : undefined;
