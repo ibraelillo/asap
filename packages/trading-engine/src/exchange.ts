@@ -42,6 +42,12 @@ export interface ExecutionContext<
   metadata?: Record<string, unknown>;
 }
 
+export interface PublicMarketDataContext {
+  exchangeId: string;
+  nowMs: number;
+  metadata?: Record<string, unknown>;
+}
+
 export interface KlineQuery {
   symbol: string;
   timeframe: Timeframe;
@@ -153,20 +159,23 @@ export interface SignalProcessor<TSnapshot = unknown, TMeta = unknown> {
   ): Promise<SignalProcessingResult>;
 }
 
-export interface ExchangeAdapter<
+export interface PublicMarketDataAdapter {
+  readonly id: string;
+  createSymbolReader?(
+    context?: PublicMarketDataContext,
+  ): ExchangeSymbolReader;
+  createKlineProvider(
+    context?: PublicMarketDataContext,
+  ): ExchangeKlineProvider;
+}
+
+export interface PrivateExecutionAdapter<
   TAccount extends ExchangeAccount = ExchangeAccount,
 > {
   readonly id: string;
-  createPublicSymbolReader?(): ExchangeSymbolReader;
-  createKlineProvider(
-    context: ExecutionContext<TAccount>,
-  ): ExchangeKlineProvider;
   createAccountBalanceReader?(
     context: ExecutionContext<TAccount>,
   ): ExchangeAccountBalanceReader;
-  createSymbolReader?(
-    context: ExecutionContext<TAccount>,
-  ): ExchangeSymbolReader;
   createPositionReader(
     context: ExecutionContext<TAccount>,
   ): ExchangePositionReader;
@@ -175,3 +184,10 @@ export interface ExchangeAdapter<
     options?: unknown,
   ): SignalProcessor<TSnapshot, TMeta>;
 }
+
+/**
+ * @deprecated Prefer using PublicMarketDataAdapter and PrivateExecutionAdapter explicitly.
+ */
+export type ExchangeAdapter<
+  TAccount extends ExchangeAccount = ExchangeAccount,
+> = PublicMarketDataAdapter & PrivateExecutionAdapter<TAccount>;

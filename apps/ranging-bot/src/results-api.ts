@@ -91,7 +91,6 @@ import { loadConfiguredBots } from "./runtime-bots";
 import {
   getCachedExchangeSymbols,
   refreshExchangeSymbols,
-  refreshExchangeSymbolsForAccount,
 } from "./symbol-catalog";
 import {
   createFailedValidationRecord,
@@ -378,8 +377,10 @@ async function enrichAccountSummaryWithBalance(
       account.id,
       account.exchangeId,
     );
-    const adapter = exchangeAdapterRegistry.get(account.exchangeId);
-    const reader = adapter.createAccountBalanceReader?.({
+    const executionAdapter = exchangeAdapterRegistry.getPrivate(
+      account.exchangeId,
+    );
+    const reader = executionAdapter.createAccountBalanceReader?.({
       bot: {
         id: `account-balance-${account.id}`,
         name: `account-balance-${account.name}`,
@@ -817,16 +818,6 @@ async function loadStrategyDetails(
   };
 }
 
-async function findActiveAccountForExchange(
-  exchangeId: string,
-): Promise<AccountRecord | undefined> {
-  const accounts = await listAccountRecords(500);
-  return accounts.find(
-    (account) =>
-      account.exchangeId === exchangeId && account.status === "active",
-  );
-}
-
 async function loadExchangeSymbolsPayload(exchangeId: string): Promise<{
   exchangeId: string;
   count: number;
@@ -845,11 +836,7 @@ async function loadExchangeSymbolsPayload(exchangeId: string): Promise<{
     };
   }
 
-  const account = await findActiveAccountForExchange(exchangeId);
-  const refreshed = await refreshExchangeSymbols(
-    exchangeId,
-    account ?? undefined,
-  );
+  const refreshed = await refreshExchangeSymbols(exchangeId);
   return {
     exchangeId,
     count: refreshed.symbols.length,
@@ -1101,7 +1088,7 @@ export async function createAccountHandler(
 
     await putAccountRecord(account);
     try {
-      await refreshExchangeSymbolsForAccount(account);
+      await refreshExchangeSymbols(account.exchangeId);
     } catch (error) {
       console.warn("[account-api] symbol cache prime failed", {
         accountId: account.id,
@@ -1181,7 +1168,7 @@ export async function patchAccountHandler(
     await putAccountRecord(updated);
     if (updated.status === "active") {
       try {
-        await refreshExchangeSymbolsForAccount(updated);
+        await refreshExchangeSymbols(updated.exchangeId);
       } catch (error) {
         console.warn("[account-api] symbol cache refresh failed", {
           accountId: updated.id,

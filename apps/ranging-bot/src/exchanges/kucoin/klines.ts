@@ -1,10 +1,10 @@
 import type { Candle } from "@repo/trading-engine";
-import type { KucoinClient } from "@repo/kucoin";
 import type {
   ExchangeKlineProvider,
   KlineQuery,
   OrchestratorTimeframe,
 } from "../../contracts";
+import { getRuntimeSettings } from "../../runtime-settings";
 
 const granularityByTimeframe: Record<OrchestratorTimeframe, number> = {
   "1m": 1,
@@ -110,7 +110,49 @@ function parseRows(
 }
 
 export class KucoinKlineProvider implements ExchangeKlineProvider {
-  constructor(private readonly client: KucoinClient) {}
+  constructor(
+    private readonly deps: {
+      getKlines(query: {
+        symbol: string;
+        granularity: number;
+        from: number;
+        to: number;
+      }): Promise<KucoinKlineRow[]>;
+    } = {
+      async getKlines(query) {
+        const runtimeSettings = getRuntimeSettings();
+        const params = new URLSearchParams({
+          symbol: query.symbol,
+          granularity: String(query.granularity),
+          from: String(query.from),
+          to: String(query.to),
+        });
+        const response = await fetch(
+          `${runtimeSettings.kucoinPublicBaseUrl}/api/v1/kline/query?${params.toString()}`,
+        );
+
+        if (!response.ok) {
+          throw new Error(
+            `KuCoin public klines request failed (${response.status})`,
+          );
+        }
+
+        const payload = (await response.json()) as {
+          code?: string;
+          data?: KucoinKlineRow[];
+          msg?: string;
+        };
+
+        if (payload.code !== "200000") {
+          throw new Error(
+            `KuCoin public klines request returned ${payload.msg ?? payload.code ?? "unknown_error"}`,
+          );
+        }
+
+        return payload.data ?? [];
+      },
+    },
+  ) {}
 
   async fetchKlines(query: KlineQuery): Promise<Candle[]> {
     const granularity = granularityByTimeframe[query.timeframe];
@@ -125,7 +167,7 @@ export class KucoinKlineProvider implements ExchangeKlineProvider {
 
     while (cursor < endMs) {
       const toMs = Math.min(cursor + windowMs, endMs);
-      const rows = await this.client.getKlines({
+      const rows = await this.deps.getKlines({
         symbol: query.symbol,
         granularity,
         from: cursor,

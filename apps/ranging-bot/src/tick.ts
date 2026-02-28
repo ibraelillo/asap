@@ -368,10 +368,16 @@ export const handler = async (incomingEvent?: CronTickEvent) => {
 
     try {
       const executionContext = await buildExecutionContext(bot, globalDryRun);
-      const adapter = exchangeAdapterRegistry.get(bot.exchangeId);
+      const marketDataAdapter = exchangeAdapterRegistry.getPublic(
+        bot.exchangeId,
+      );
+      const executionAdapter = exchangeAdapterRegistry.getPrivate(
+        bot.exchangeId,
+      );
       const instance = createBotRuntime({
         bot,
-        adapter,
+        marketDataAdapter,
+        executionAdapter,
         executionContext,
         signalProcessorOptions: {
           dryRun: executionContext.dryRun,

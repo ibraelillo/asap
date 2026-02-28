@@ -1,12 +1,14 @@
 import {
   createKucoinClient,
   createKucoinService,
-  type KucoinClient,
   type KucoinService,
 } from "@repo/kucoin";
-import type { ExchangeAdapter, ExecutionContext } from "@repo/trading-engine";
+import type {
+  ExecutionContext,
+  PrivateExecutionAdapter,
+  PublicMarketDataAdapter,
+} from "@repo/trading-engine";
 import { KucoinAccountBalanceReader } from "./exchanges/kucoin/account-balance-reader";
-import { KucoinAccountSymbolReader } from "./exchanges/kucoin/account-symbol-reader";
 import type { KucoinSignalProcessorOptions } from "./exchanges/kucoin/signal-processor";
 import { KucoinKlineProvider } from "./exchanges/kucoin/klines";
 import { KucoinPositionReader } from "./exchanges/kucoin/position-reader";
@@ -15,7 +17,6 @@ import { KucoinSignalProcessor } from "./exchanges/kucoin/signal-processor";
 import type { AccountRecord } from "./monitoring/types";
 
 type KucoinRuntimeHandle = {
-  client: KucoinClient;
   service: KucoinService;
 };
 
@@ -42,27 +43,26 @@ function getKucoinRuntime(account: AccountRecord): KucoinRuntimeHandle {
     passphrase: account.auth.apiPassphrase,
   });
   const service = createKucoinService(client);
-  const runtime = { client, service };
+  const runtime = { service };
   kucoinRuntimeCache.set(cacheKey, runtime);
   return runtime;
 }
 
-const kucoinAdapter: ExchangeAdapter<AccountRecord> = {
+const kucoinPublicAdapter: PublicMarketDataAdapter = {
   id: "kucoin",
-  createPublicSymbolReader() {
+  createSymbolReader() {
     return new KucoinPublicSymbolReader();
   },
-  createKlineProvider(context: ExecutionContext<AccountRecord>) {
-    const { client } = getKucoinRuntime(context.account);
-    return new KucoinKlineProvider(client);
+  createKlineProvider() {
+    return new KucoinKlineProvider();
   },
+};
+
+const kucoinPrivateAdapter: PrivateExecutionAdapter<AccountRecord> = {
+  id: "kucoin",
   createAccountBalanceReader(context: ExecutionContext<AccountRecord>) {
     const { service } = getKucoinRuntime(context.account);
     return new KucoinAccountBalanceReader(service);
-  },
-  createSymbolReader(context: ExecutionContext<AccountRecord>) {
-    const { service } = getKucoinRuntime(context.account);
-    return new KucoinAccountSymbolReader(service);
   },
   createPositionReader(context: ExecutionContext<AccountRecord>) {
     const { service } = getKucoinRuntime(context.account);
@@ -81,15 +81,27 @@ const kucoinAdapter: ExchangeAdapter<AccountRecord> = {
 };
 
 export interface ExchangeAdapterRegistry {
-  get(exchangeId: string): ExchangeAdapter<AccountRecord>;
+  getPublic(exchangeId: string): PublicMarketDataAdapter;
+  getPrivate(exchangeId: string): PrivateExecutionAdapter<AccountRecord>;
+  listExchangeIds(): string[];
 }
 
 export const exchangeAdapterRegistry: ExchangeAdapterRegistry = {
-  get(exchangeId) {
+  getPublic(exchangeId) {
     if (exchangeId === "kucoin") {
-      return kucoinAdapter;
+      return kucoinPublicAdapter;
     }
 
-    throw new Error(`Unsupported exchange adapter: ${exchangeId}`);
+    throw new Error(`Unsupported public exchange adapter: ${exchangeId}`);
+  },
+  getPrivate(exchangeId) {
+    if (exchangeId === "kucoin") {
+      return kucoinPrivateAdapter;
+    }
+
+    throw new Error(`Unsupported private exchange adapter: ${exchangeId}`);
+  },
+  listExchangeIds() {
+    return ["kucoin"];
   },
 };

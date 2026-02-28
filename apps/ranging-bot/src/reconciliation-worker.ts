@@ -82,8 +82,10 @@ export const handler = async (incomingEvent?: ReconciliationEvent) => {
         getLatestOpenPositionByBot(bot.id),
         buildExecutionContext(bot),
       ]);
-      const adapter = exchangeAdapterRegistry.get(bot.exchangeId);
-      const reader = adapter.createPositionReader(executionContext);
+      const executionAdapter = exchangeAdapterRegistry.getPrivate(
+        bot.exchangeId,
+      );
+      const reader = executionAdapter.createPositionReader(executionContext);
       const exchangeSnapshots = await reader.getOpenPositions(bot.symbol);
       const outcome = reconcileBotState({
         bot,

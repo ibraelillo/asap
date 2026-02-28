@@ -13,10 +13,12 @@ export interface CreateKucoinOrchestratorInput {
 }
 
 export function createKucoinOrchestrator(input: CreateKucoinOrchestratorInput) {
-  const adapter = exchangeAdapterRegistry.get("kucoin");
+  const marketDataAdapter = exchangeAdapterRegistry.getPublic("kucoin");
+  const executionAdapter = exchangeAdapterRegistry.getPrivate("kucoin");
   const runtime = createBotRuntime({
     bot: input.bot,
-    adapter,
+    marketDataAdapter,
+    executionAdapter,
     executionContext: input.executionContext,
     signalProcessorOptions: input.signalProcessorOptions,
   });
