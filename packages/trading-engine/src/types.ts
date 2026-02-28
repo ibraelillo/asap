@@ -37,6 +37,18 @@ export interface ContextProviderSpec {
   config?: Record<string, unknown>;
 }
 
+export interface StrategyConfigUiField {
+  path: string;
+  widget: "number" | "boolean" | "select" | "text" | "string-array";
+  label?: string;
+  description?: string;
+  section?: string;
+  placeholder?: string;
+  order?: number;
+}
+
+export type StrategyConfigJsonSchema = Record<string, unknown>;
+
 export interface BotDefinition {
   id: string;
   name: string;

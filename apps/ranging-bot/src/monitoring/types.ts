@@ -3,6 +3,8 @@ import type {
   Candle,
   EquityPoint,
   ExchangeAccount,
+  StrategyConfigJsonSchema,
+  StrategyConfigUiField,
   ExchangeSymbolSummary,
   Side,
 } from "@repo/trading-engine";
@@ -19,6 +21,7 @@ export interface BotRecord extends BotDefinition {
     primaryRangeLimit: number;
     secondaryRangeTimeframe: OrchestratorTimeframe;
     secondaryRangeLimit: number;
+    strategyConfig?: Record<string, unknown>;
     dryRun?: boolean;
     marginMode?: "CROSS" | "ISOLATED";
     valueQty?: string;
@@ -295,6 +298,9 @@ export interface StrategySummary {
   label: string;
   description: string;
   manifestVersion: string;
+  configJsonSchema: StrategyConfigJsonSchema;
+  configUi: StrategyConfigUiField[];
+  configDefaults: Record<string, unknown>;
   configuredVersions: string[];
   configuredBots: number;
   activeBots: number;

@@ -1,8 +1,11 @@
 import type {
+  StrategyConfigJsonSchema,
+  StrategyConfigUiField,
   StrategyEvaluationInput,
   StrategySnapshotInput,
   TradingStrategy,
 } from "@repo/trading-engine";
+import { z } from "zod";
 
 export interface IndicatorBotConfig {
   indicators: string[];
@@ -13,16 +16,37 @@ export interface IndicatorBotSnapshot {
   price: number;
 }
 
+export const indicatorBotConfigSchema = z.object({
+  indicators: z.array(z.string().min(1)).default([]),
+});
+
+export const indicatorBotConfigJsonSchema = z.toJSONSchema(
+  indicatorBotConfigSchema,
+) as StrategyConfigJsonSchema;
+
+export const indicatorBotConfigUi: StrategyConfigUiField[] = [
+  {
+    path: "indicators",
+    widget: "string-array",
+    label: "Indicators",
+    description:
+      "Comma-separated indicator identifiers to activate for this bot instance.",
+    section: "Indicators",
+    placeholder: "rsi, ema-20, ema-50",
+    order: 10,
+  },
+];
+
 function normalizeConfig(
   config?: Partial<IndicatorBotConfig>,
 ): IndicatorBotConfig {
-  return {
+  return indicatorBotConfigSchema.parse({
     indicators: Array.isArray(config?.indicators)
       ? config.indicators.filter(
           (indicator): indicator is string => typeof indicator === "string",
         )
-      : [],
-  };
+      : config?.indicators,
+  });
 }
 
 export function createIndicatorBotStrategy(

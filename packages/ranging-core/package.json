@@ -14,7 +14,8 @@
     "lint": "eslint ."
   },
   "dependencies": {
-    "@repo/trading-engine": "workspace:*"
+    "@repo/trading-engine": "workspace:*",
+    "zod": "^4.1.12"
   },
   "devDependencies": {
     "@repo/eslint-config": "workspace:*",

@@ -712,6 +712,12 @@ function buildBacktestStats(backtests: BacktestRecord[]) {
   };
 }
 
+function toStrategyConfigRecord(value: unknown): Record<string, unknown> {
+  return value && typeof value === "object"
+    ? (value as Record<string, unknown>)
+    : {};
+}
+
 async function loadStrategySummaries(
   windowHours: number,
   runsLimit: number,
@@ -755,6 +761,9 @@ async function loadStrategySummaries(
         label: manifest.label,
         description: manifest.description,
         manifestVersion: manifest.version,
+        configJsonSchema: manifest.configJsonSchema,
+        configUi: manifest.configUi,
+        configDefaults: toStrategyConfigRecord(manifest.getDefaultConfig()),
         configuredVersions: [
           ...new Set(strategyBots.map((bot) => bot.strategyVersion)),
         ].sort(),
@@ -844,6 +853,9 @@ async function loadStrategyDetails(
       label: manifest.label,
       description: manifest.description,
       manifestVersion: manifest.version,
+      configJsonSchema: manifest.configJsonSchema,
+      configUi: manifest.configUi,
+      configDefaults: toStrategyConfigRecord(manifest.getDefaultConfig()),
       configuredVersions: [
         ...new Set(bots.map((bot) => bot.strategyVersion)),
       ].sort(),
@@ -1293,14 +1305,29 @@ export async function createBotHandler(
       return json(400, { error: "invalid_bot_config" });
     }
 
-    const bot: BotRecord = {
-      ...toBotDefinition(normalized),
-      runtime: normalized,
-    };
-
-    if (bot.strategyId !== "range-reversal") {
+    let manifest;
+    try {
+      manifest = strategyRegistry.getManifest(
+        normalized.strategyId ?? "range-reversal",
+      );
+    } catch {
       return json(400, { error: "unsupported_strategy" });
     }
+
+    const resolvedStrategyConfig = toStrategyConfigRecord(
+      manifest.resolveConfig(toStrategyConfigRecord(body.strategyConfig)),
+    );
+
+    const bot: BotRecord = {
+      ...toBotDefinition({
+        ...normalized,
+        strategyConfig: resolvedStrategyConfig,
+      }),
+      runtime: {
+        ...normalized,
+        strategyConfig: resolvedStrategyConfig,
+      },
+    };
 
     const account = await getAccountRecordById(accountId);
     if (!account) {
@@ -1418,6 +1445,21 @@ export async function patchBotHandler(
       return json(400, { error: "invalid_bot_config" });
     }
 
+    let manifest;
+    try {
+      manifest = strategyRegistry.getManifest(existing.strategyId);
+    } catch {
+      return json(400, { error: "unsupported_strategy" });
+    }
+
+    const resolvedStrategyConfig = toStrategyConfigRecord(
+      manifest.resolveConfig(
+        body.strategyConfig !== undefined
+          ? toStrategyConfigRecord(body.strategyConfig)
+          : toStrategyConfigRecord(existing.strategyConfig),
+      ),
+    );
+
     const status: BotRecord["status"] =
       requestedStatus ??
       (typeof body.enabled === "boolean"
@@ -1429,13 +1471,19 @@ export async function patchBotHandler(
     const { enabled: _enabled, ...normalizedRuntime } = normalized;
 
     const updated: BotRecord = {
-      ...toBotDefinition(normalized),
+      ...toBotDefinition({
+        ...normalized,
+        strategyConfig: resolvedStrategyConfig,
+      }),
       id: existing.id,
       name: normalizeNonEmptyString(body.name) ?? existing.name,
       status,
       createdAtMs: existing.createdAtMs,
       updatedAtMs: Date.now(),
-      runtime: normalizedRuntime,
+      runtime: {
+        ...normalizedRuntime,
+        strategyConfig: resolvedStrategyConfig,
+      },
     };
 
     await putBotRecord(updated);

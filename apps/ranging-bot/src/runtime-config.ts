@@ -1,5 +1,4 @@
 import type { BotDefinition, Timeframe } from "@repo/trading-engine";
-import type { DeepPartial, RangeReversalConfig } from "@repo/ranging-core";
 
 const timeframeMs: Record<Timeframe, number> = {
   "1m": 60_000,
@@ -35,7 +34,7 @@ export interface RuntimeBotConfig {
   executionLimit: number;
   primaryRangeLimit: number;
   secondaryRangeLimit: number;
-  strategyConfig?: DeepPartial<RangeReversalConfig>;
+  strategyConfig?: Record<string, unknown>;
   dryRun?: boolean;
   marginMode?: "CROSS" | "ISOLATED";
   valueQty?: string;

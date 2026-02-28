@@ -2,12 +2,16 @@ import {
   computeVolumeProfileLevels,
   createConfig as createRangeReversalConfig,
   createConfiguredRangeReversalStrategy,
+  rangeReversalConfigJsonSchema,
+  rangeReversalConfigUi,
   type BacktestCandle,
   type DeepPartial,
   type RangeReversalConfig,
 } from "@repo/ranging-core";
 import {
   createConfiguredIndicatorBotStrategy,
+  indicatorBotConfigJsonSchema,
+  indicatorBotConfigUi,
   type IndicatorBotConfig,
 } from "@repo/indicator-bot-core";
 import {
@@ -16,6 +20,8 @@ import {
   type BotDefinition,
   type Candle,
   type EquityPoint,
+  type StrategyConfigJsonSchema,
+  type StrategyConfigUiField,
   type Timeframe,
   type TradingStrategy,
 } from "@repo/trading-engine";
@@ -53,6 +59,9 @@ export interface StrategyManifest<
   version: string;
   label: string;
   description: string;
+  configJsonSchema: StrategyConfigJsonSchema;
+  configUi: StrategyConfigUiField[];
+  getDefaultConfig(): TConfig;
   resolveConfig(raw?: Record<string, unknown>): TConfig;
   createStrategy(config: TConfig): TradingStrategy<TConfig, TSnapshot, TMeta>;
   runBacktest(
@@ -156,6 +165,11 @@ const rangeReversalManifest: StrategyManifest<RangeReversalConfig> = {
   label: "Range Reversal",
   description:
     "Daily + 4h aligned value-area reversal strategy with divergence, money flow, and SFP confirmation.",
+  configJsonSchema: rangeReversalConfigJsonSchema,
+  configUi: rangeReversalConfigUi,
+  getDefaultConfig() {
+    return createRangeReversalConfig();
+  },
   resolveConfig(raw) {
     return createRangeReversalConfig(
       (raw ?? {}) as DeepPartial<RangeReversalConfig>,
@@ -233,6 +247,11 @@ const indicatorManifest: StrategyManifest<IndicatorBotConfig> = {
   label: "Indicator Bot",
   description:
     "Scaffold strategy for future indicator confluence systems. Currently hold-only.",
+  configJsonSchema: indicatorBotConfigJsonSchema,
+  configUi: indicatorBotConfigUi,
+  getDefaultConfig() {
+    return createConfiguredIndicatorBotStrategy().config;
+  },
   resolveConfig(raw) {
     const configured = createConfiguredIndicatorBotStrategy(
       (raw ?? {}) as Partial<IndicatorBotConfig>,

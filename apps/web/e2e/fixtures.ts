@@ -515,6 +515,56 @@ const strategies = [
     description:
       "Daily + 4h aligned value-area reversal strategy with divergence, money flow, and SFP confirmation.",
     manifestVersion: "1",
+    configJsonSchema: {
+      type: "object",
+      properties: {
+        risk: {
+          type: "object",
+          properties: {
+            riskPctPerTrade: {
+              type: "number",
+              minimum: 0.001,
+              maximum: 0.05,
+              multipleOf: 0.001,
+              description: "Fraction of equity risked between entry and stop.",
+            },
+          },
+        },
+        exits: {
+          type: "object",
+          properties: {
+            runnerExitOnOppositeSignal: {
+              type: "boolean",
+              description: "Close the remaining runner on opposite setup.",
+            },
+          },
+        },
+      },
+    },
+    configUi: [
+      {
+        path: "risk.riskPctPerTrade",
+        widget: "number",
+        label: "Risk % per trade",
+        section: "Risk",
+        order: 10,
+      },
+      {
+        path: "exits.runnerExitOnOppositeSignal",
+        widget: "boolean",
+        label: "Exit runner on opposite signal",
+        section: "Exits",
+        order: 20,
+      },
+    ],
+    configDefaults: {
+      risk: {
+        riskPctPerTrade: 0.01,
+      },
+      exits: {
+        runnerExitOnOppositeSignal: true,
+      },
+    },
     configuredVersions: ["1"],
     configuredBots: 1,
     activeBots: 1,
@@ -530,6 +580,28 @@ const strategies = [
     description:
       "Scaffold strategy for future indicator confluence systems. Currently hold-only.",
     manifestVersion: "1",
+    configJsonSchema: {
+      type: "object",
+      properties: {
+        indicators: {
+          type: "array",
+          items: { type: "string" },
+          description: "Indicators enabled for this bot.",
+        },
+      },
+    },
+    configUi: [
+      {
+        path: "indicators",
+        widget: "string-array",
+        label: "Indicators",
+        section: "Indicators",
+        placeholder: "rsi, ema-20, ema-50",
+      },
+    ],
+    configDefaults: {
+      indicators: [],
+    },
     configuredVersions: [],
     configuredBots: 0,
     activeBots: 0,

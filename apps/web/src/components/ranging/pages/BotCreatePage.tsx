@@ -22,6 +22,10 @@ import {
   getSupportedExchange,
   SUPPORTED_EXCHANGES,
 } from "../supportedExchanges";
+import type {
+  StrategyConfigUiField,
+  StrategySummary,
+} from "../../../types/ranging-dashboard";
 
 const EXECUTION_TIMEFRAME_OPTIONS = [
   { value: "1h", label: "1h" },
@@ -46,6 +50,112 @@ const MARGIN_MODE_OPTIONS = [
 ] as const;
 
 type AccountMode = "existing" | "create";
+
+function asRecord(value: unknown): Record<string, unknown> {
+  return value && typeof value === "object"
+    ? (value as Record<string, unknown>)
+    : {};
+}
+
+function cloneRecord<T extends Record<string, unknown>>(value: T): T {
+  return JSON.parse(JSON.stringify(value)) as T;
+}
+
+function getValueAtPath(
+  object: Record<string, unknown>,
+  path: string,
+): unknown {
+  return path.split(".").reduce<unknown>((current, segment) => {
+    if (!current || typeof current !== "object") return undefined;
+    return (current as Record<string, unknown>)[segment];
+  }, object);
+}
+
+function setValueAtPath(
+  object: Record<string, unknown>,
+  path: string,
+  value: unknown,
+): Record<string, unknown> {
+  const next = cloneRecord(object);
+  const segments = path.split(".");
+  let cursor: Record<string, unknown> = next;
+
+  for (let index = 0; index < segments.length - 1; index += 1) {
+    const segment = segments[index];
+    if (!segment) continue;
+    const existing = cursor[segment];
+    if (!existing || typeof existing !== "object" || Array.isArray(existing)) {
+      cursor[segment] = {};
+    }
+    cursor = cursor[segment] as Record<string, unknown>;
+  }
+
+  const leaf = segments[segments.length - 1];
+  if (!leaf) return next;
+
+  if (value === undefined) {
+    delete cursor[leaf];
+  } else {
+    cursor[leaf] = value;
+  }
+
+  return next;
+}
+
+function getSchemaNode(
+  schema: Record<string, unknown>,
+  path: string,
+): Record<string, unknown> | undefined {
+  let current: Record<string, unknown> | undefined = schema;
+
+  for (const segment of path.split(".")) {
+    const properties = current?.properties;
+    if (!properties || typeof properties !== "object") return undefined;
+    const next = (properties as Record<string, unknown>)[segment];
+    if (!next || typeof next !== "object") return undefined;
+    current = next as Record<string, unknown>;
+  }
+
+  return current;
+}
+
+function toSelectOptions(schemaNode: Record<string, unknown> | undefined) {
+  const values = Array.isArray(schemaNode?.enum) ? schemaNode.enum : [];
+  return values
+    .filter((value): value is string => typeof value === "string")
+    .map((value) => ({ value, label: value }));
+}
+
+function labelFromPath(path: string): string {
+  const leaf = path.split(".").at(-1) ?? path;
+  return leaf
+    .replace(/([a-z0-9])([A-Z])/g, "$1 $2")
+    .replace(/[_-]+/g, " ")
+    .replace(/^\w/, (char) => char.toUpperCase());
+}
+
+function groupStrategyFields(
+  strategy: StrategySummary | undefined,
+): Array<[string, StrategyConfigUiField[]]> {
+  if (!strategy) return [];
+
+  const groups = new Map<string, StrategyConfigUiField[]>();
+  const fields = [...strategy.configUi].sort(
+    (left, right) =>
+      (left.order ?? Number.MAX_SAFE_INTEGER) -
+        (right.order ?? Number.MAX_SAFE_INTEGER) ||
+      left.path.localeCompare(right.path),
+  );
+
+  for (const field of fields) {
+    const section = field.section ?? "General";
+    const existing = groups.get(section) ?? [];
+    existing.push(field);
+    groups.set(section, existing);
+  }
+
+  return [...groups.entries()];
+}
 
 export function BotCreatePage() {
   const navigate = useNavigate();
@@ -72,6 +182,7 @@ export function BotCreatePage() {
     dryRun: true,
     marginMode: "CROSS" as "CROSS" | "ISOLATED",
     valueQty: "100",
+    strategyConfig: {} as Record<string, unknown>,
   });
   const [newAccount, setNewAccount] = useState({
     name: "",
@@ -112,6 +223,15 @@ export function BotCreatePage() {
       description: `${strategy.strategyId} · manifest v${strategy.manifestVersion}`,
     }));
   }, [strategies]);
+  const selectedStrategy = useMemo(
+    () =>
+      strategies?.find((strategy) => strategy.strategyId === form.strategyId),
+    [form.strategyId, strategies],
+  );
+  const strategySections = useMemo(
+    () => groupStrategyFields(selectedStrategy),
+    [selectedStrategy],
+  );
 
   const exchangeOptions = useMemo(
     () =>
@@ -158,6 +278,32 @@ export function BotCreatePage() {
       })),
     [accountSymbols],
   );
+
+  useEffect(() => {
+    if (!strategies || strategies.length === 0) return;
+
+    setForm((current) => {
+      const matched =
+        strategies.find(
+          (strategy) => strategy.strategyId === current.strategyId,
+        ) ?? strategies[0];
+
+      if (!matched) return current;
+
+      if (
+        matched.strategyId === current.strategyId &&
+        Object.keys(asRecord(current.strategyConfig)).length > 0
+      ) {
+        return current;
+      }
+
+      return {
+        ...current,
+        strategyId: matched.strategyId,
+        strategyConfig: cloneRecord(matched.configDefaults),
+      };
+    });
+  }, [strategies]);
 
   useEffect(() => {
     if (accountsLoading) return;
@@ -262,6 +408,7 @@ export function BotCreatePage() {
         dryRun: form.dryRun,
         marginMode: form.marginMode,
         valueQty: form.valueQty.trim(),
+        strategyConfig: form.strategyConfig,
       });
 
       const botId = typeof bot.id === "string" ? bot.id : undefined;
@@ -313,9 +460,16 @@ export function BotCreatePage() {
             <Field label="Strategy">
               <Select
                 value={form.strategyId}
-                onChange={(strategyId) =>
-                  setForm((current) => ({ ...current, strategyId }))
-                }
+                onChange={(strategyId) => {
+                  const matched = strategies?.find(
+                    (strategy) => strategy.strategyId === strategyId,
+                  );
+                  setForm((current) => ({
+                    ...current,
+                    strategyId,
+                    strategyConfig: cloneRecord(matched?.configDefaults ?? {}),
+                  }));
+                }}
                 options={strategyOptions}
               />
             </Field>
@@ -549,6 +703,198 @@ export function BotCreatePage() {
             </div>
           )}
         </section>
+
+        {selectedStrategy ? (
+          <section className="space-y-4">
+            <div>
+              <p className="text-xs uppercase tracking-[0.18em] text-slate-400">
+                Strategy Config
+              </p>
+              <h2 className="mt-1 text-lg font-semibold text-slate-100">
+                {selectedStrategy.label} parameters
+              </h2>
+              <p className="mt-1 text-sm text-slate-300/80">
+                Stored per bot. Multiple bots can share the same strategy and
+                use different parameter sets.
+              </p>
+            </div>
+
+            {strategySections.length === 0 ? (
+              <Panel className="px-4 py-3 text-sm text-slate-300" tone="muted">
+                This strategy exposes no configurable parameters yet.
+              </Panel>
+            ) : (
+              strategySections.map(([section, fields]) => (
+                <Panel key={section} className="space-y-4 p-5" tone="muted">
+                  <div>
+                    <p className="text-xs uppercase tracking-[0.18em] text-slate-400">
+                      {section}
+                    </p>
+                  </div>
+
+                  <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+                    {fields.map((field) => {
+                      const schemaNode = getSchemaNode(
+                        selectedStrategy.configJsonSchema,
+                        field.path,
+                      );
+                      const value = getValueAtPath(
+                        asRecord(form.strategyConfig),
+                        field.path,
+                      );
+                      const label =
+                        field.label ??
+                        (typeof schemaNode?.title === "string"
+                          ? schemaNode.title
+                          : labelFromPath(field.path));
+                      const description =
+                        field.description ??
+                        (typeof schemaNode?.description === "string"
+                          ? schemaNode.description
+                          : undefined);
+
+                      if (field.widget === "boolean") {
+                        return (
+                          <Field key={field.path} description={description}>
+                            <Checkbox
+                              checked={Boolean(value)}
+                              onChange={(event) =>
+                                setForm((current) => ({
+                                  ...current,
+                                  strategyConfig: setValueAtPath(
+                                    asRecord(current.strategyConfig),
+                                    field.path,
+                                    event.target.checked,
+                                  ),
+                                }))
+                              }
+                              label={label}
+                            />
+                          </Field>
+                        );
+                      }
+
+                      if (field.widget === "select") {
+                        return (
+                          <Field
+                            key={field.path}
+                            label={label}
+                            description={description}
+                          >
+                            <Select
+                              value={
+                                typeof value === "string" ? value : undefined
+                              }
+                              onChange={(nextValue) =>
+                                setForm((current) => ({
+                                  ...current,
+                                  strategyConfig: setValueAtPath(
+                                    asRecord(current.strategyConfig),
+                                    field.path,
+                                    nextValue,
+                                  ),
+                                }))
+                              }
+                              options={toSelectOptions(schemaNode)}
+                            />
+                          </Field>
+                        );
+                      }
+
+                      if (field.widget === "string-array") {
+                        return (
+                          <Field
+                            key={field.path}
+                            label={label}
+                            description={description}
+                            className="md:col-span-2 xl:col-span-4"
+                          >
+                            <Input
+                              value={
+                                Array.isArray(value)
+                                  ? value.join(", ")
+                                  : typeof value === "string"
+                                    ? value
+                                    : ""
+                              }
+                              placeholder={field.placeholder}
+                              onChange={(event) =>
+                                setForm((current) => ({
+                                  ...current,
+                                  strategyConfig: setValueAtPath(
+                                    asRecord(current.strategyConfig),
+                                    field.path,
+                                    event.target.value
+                                      .split(",")
+                                      .map((item) => item.trim())
+                                      .filter((item) => item.length > 0),
+                                  ),
+                                }))
+                              }
+                            />
+                          </Field>
+                        );
+                      }
+
+                      const inputType =
+                        field.widget === "number" ? "number" : "text";
+                      return (
+                        <Field
+                          key={field.path}
+                          label={label}
+                          description={description}
+                        >
+                          <Input
+                            type={inputType}
+                            value={
+                              field.widget === "number"
+                                ? typeof value === "number"
+                                  ? String(value)
+                                  : ""
+                                : typeof value === "string"
+                                  ? value
+                                  : ""
+                            }
+                            min={
+                              typeof schemaNode?.minimum === "number"
+                                ? schemaNode.minimum
+                                : undefined
+                            }
+                            max={
+                              typeof schemaNode?.maximum === "number"
+                                ? schemaNode.maximum
+                                : undefined
+                            }
+                            step={
+                              typeof schemaNode?.multipleOf === "number"
+                                ? schemaNode.multipleOf
+                                : undefined
+                            }
+                            placeholder={field.placeholder}
+                            onChange={(event) =>
+                              setForm((current) => ({
+                                ...current,
+                                strategyConfig: setValueAtPath(
+                                  asRecord(current.strategyConfig),
+                                  field.path,
+                                  field.widget === "number"
+                                    ? event.target.value === ""
+                                      ? undefined
+                                      : Number(event.target.value)
+                                    : event.target.value,
+                                ),
+                              }))
+                            }
+                          />
+                        </Field>
+                      );
+                    })}
+                  </div>
+                </Panel>
+              ))
+            )}
+          </section>
+        ) : null}
 
         <section className="space-y-4">
           <div>

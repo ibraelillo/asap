@@ -1,5 +1,11 @@
 import { runBacktest } from "./backtest";
-import { createConfig, defaultRangeReversalConfig } from "./config";
+import {
+  createConfig,
+  defaultRangeReversalConfig,
+  rangeReversalConfigJsonSchema,
+  rangeReversalConfigSchema,
+  rangeReversalConfigUi,
+} from "./config";
 import {
   buildSignalSnapshot,
   buildRangeReversalDecision,
@@ -98,5 +104,8 @@ export const rangingBotDefaults = defaultRangeReversalConfig;
 export {
   buildRangeReversalDecision,
   createRangeReversalStrategy,
+  rangeReversalConfigJsonSchema,
+  rangeReversalConfigSchema,
+  rangeReversalConfigUi,
   resolveTakeProfitLevels,
 };
