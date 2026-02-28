@@ -69,6 +69,10 @@ function parseRequestedDetail(
   const accountId =
     typeof detail.accountId === "string" ? detail.accountId.trim() : "";
   const symbol = typeof detail.symbol === "string" ? detail.symbol.trim() : "";
+  const strategyConfig =
+    detail.strategyConfig && typeof detail.strategyConfig === "object"
+      ? (detail.strategyConfig as Record<string, unknown>)
+      : undefined;
   const createdAtMs = Number(detail.createdAtMs);
   const fromMs = Number(detail.fromMs);
   const toMs = Number(detail.toMs);
@@ -152,6 +156,7 @@ function parseRequestedDetail(
     exchangeId,
     accountId,
     symbol,
+    strategyConfig,
     fromMs: Math.floor(fromMs),
     toMs: Math.floor(toMs),
     executionTimeframe,
@@ -182,6 +187,7 @@ function toCreateBacktestInput(
     exchangeId: detail.exchangeId,
     accountId: detail.accountId,
     symbol: detail.symbol,
+    strategyConfig: detail.strategyConfig,
     fromMs: detail.fromMs,
     toMs: detail.toMs,
     executionTimeframe: detail.executionTimeframe,

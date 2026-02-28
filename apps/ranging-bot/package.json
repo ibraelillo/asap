@@ -21,6 +21,7 @@
     "@aws-sdk/client-iot-data-plane": "^3.918.0",
     "@aws-sdk/client-s3": "^3.998.0",
     "@aws-sdk/lib-dynamodb": "^3.918.0",
+    "@repo/indicator-bot-core": "workspace:*",
     "@repo/kucoin": "workspace:*",
     "@repo/ranging-core": "workspace:*",
     "@repo/trading-engine": "workspace:*"

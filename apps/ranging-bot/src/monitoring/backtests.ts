@@ -1,14 +1,9 @@
-import {
-  computeVolumeProfileLevels,
-  createConfiguredRangeReversalStrategy,
-  type BacktestCandle,
-  type BacktestResult,
-  type BacktestTrade,
-  type Candle,
-  type DeepPartial,
-  type RangeReversalConfig,
-} from "@repo/ranging-core";
+import { type BacktestCandle, type Candle } from "@repo/ranging-core";
 import type { OrchestratorTimeframe } from "../contracts";
+import {
+  strategyRegistry,
+  type StrategyBacktestArtifacts,
+} from "../strategy-registry";
 import { fetchHistoricalKlines } from "./kucoin-public-klines";
 import {
   buildWindowKlineCacheKey,
@@ -87,7 +82,7 @@ export interface CreateBacktestInput {
   primaryRangeTimeframe: OrchestratorTimeframe;
   secondaryRangeTimeframe: OrchestratorTimeframe;
   initialEquity: number;
-  strategyConfig?: DeepPartial<RangeReversalConfig>;
+  strategyConfig?: Record<string, unknown>;
   ai?: BacktestAiConfig;
 }
 
@@ -118,6 +113,7 @@ interface ResolveCandlesInput {
 }
 
 interface AiPromptDetail {
+  strategyId: string;
   symbol: string;
   timeframe: OrchestratorTimeframe;
   fromMs: number;
@@ -180,12 +176,17 @@ function sanitizeReasons(reasons: string[]): string[] {
   return reasons.slice(0, 6).map((reason) => truncateText(reason, 96));
 }
 
-function defaultRange(candles: Candle[]): {
+function defaultRange(
+  strategyId: string,
+  candles: Candle[],
+): {
   val: number;
   poc: number;
   vah: number;
 } {
-  const levels = computeVolumeProfileLevels(candles);
+  const levels = strategyRegistry
+    .getManifest(strategyId)
+    .estimateValidationRange(candles);
   return {
     val: levels.val,
     poc: levels.poc,
@@ -226,7 +227,7 @@ function summarizeCandles(candles: Candle[]) {
 }
 
 function buildPromptPayload(detail: AiPromptDetail, candles: Candle[]) {
-  const candidate = defaultRange(candles);
+  const candidate = defaultRange(detail.strategyId, candles);
   const summary = summarizeCandles(candles);
 
   return {
@@ -343,9 +344,10 @@ function safeJsonParse(raw: string): unknown {
 
 function normalizeValidationResult(
   raw: unknown,
+  strategyId: string,
   candles: Candle[],
 ): RangeValidationResult {
-  const fallback = defaultRange(candles);
+  const fallback = defaultRange(strategyId, candles);
   const root =
     raw && typeof raw === "object" ? (raw as Record<string, unknown>) : {};
   const rawRange =
@@ -470,7 +472,7 @@ async function callOpenAiModel(
       throw new Error("OpenAI output was not valid JSON");
     }
 
-    return normalizeValidationResult(parsed, candles);
+    return normalizeValidationResult(parsed, detail.strategyId, candles);
   } finally {
     clearTimeout(timeout);
   }
@@ -719,6 +721,7 @@ async function buildAiSummary(
     const fromMs = window[0]?.time ?? input.fromMs;
     const toMs = window[window.length - 1]?.time ?? input.toMs;
     const detail: AiPromptDetail = {
+      strategyId: input.strategyId,
       symbol: input.symbol,
       timeframe: input.executionTimeframe,
       fromMs,
@@ -757,7 +760,7 @@ async function buildAiSummary(
       });
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
-      const fallback = defaultRange(window);
+      const fallback = defaultRange(input.strategyId, window);
 
       summary.evaluationsRun += 1;
       summary.failed += 1;
@@ -980,22 +983,28 @@ async function fetchBacktestCandles(
 function runComputation(
   input: CreateBacktestInput,
   candles: BacktestComputationCandles,
-): BacktestResult {
+): StrategyBacktestArtifacts {
   if (candles.executionCandles.length < 80) {
     throw new Error(
       `Not enough execution candles (${candles.executionCandles.length}) for ${input.symbol}`,
     );
   }
 
-  const configured = createConfiguredRangeReversalStrategy(
-    input.strategyConfig,
+  const manifest = strategyRegistry.getManifest(input.strategyId);
+  const config = manifest.resolveConfig(input.strategyConfig);
+
+  return manifest.runBacktest(
+    {
+      botId: input.botId,
+      symbol: input.symbol,
+      initialEquity: input.initialEquity,
+      executionTimeframe: input.executionTimeframe,
+      executionCandles: candles.executionCandles,
+      primaryRangeCandles: candles.primaryRangeCandles,
+      secondaryRangeCandles: candles.secondaryRangeCandles,
+    },
+    config,
   );
-  return configured.runBacktest({
-    initialEquity: input.initialEquity,
-    executionCandles: candles.executionCandles,
-    primaryRangeCandles: candles.primaryRangeCandles,
-    secondaryRangeCandles: candles.secondaryRangeCandles,
-  });
 }
 
 function toInputFromRecord(record: BacktestRecord): CreateBacktestInput {
@@ -1007,6 +1016,7 @@ function toInputFromRecord(record: BacktestRecord): CreateBacktestInput {
     exchangeId: record.exchangeId,
     accountId: record.accountId,
     symbol: record.symbol,
+    strategyConfig: record.strategyConfig,
     fromMs: record.fromMs,
     toMs: record.toMs,
     executionTimeframe: record.executionTimeframe,
@@ -1025,55 +1035,6 @@ function toInputFromRecord(record: BacktestRecord): CreateBacktestInput {
         }
       : undefined,
   };
-}
-
-function enrichTradesWithRangeLevels(
-  input: CreateBacktestInput,
-  candles: BacktestComputationCandles,
-  trades: BacktestTrade[],
-): BacktestTradeView[] {
-  const configured = createConfiguredRangeReversalStrategy(
-    input.strategyConfig,
-  );
-  const indexByTime = new Map<number, number>();
-
-  candles.executionCandles.forEach((candle, index) => {
-    indexByTime.set(candle.time, index);
-  });
-
-  return trades.map((trade) => {
-    const entryIndex = indexByTime.get(trade.entryTime);
-    if (entryIndex === undefined) {
-      return {
-        ...trade,
-        exits: [...trade.exits],
-      };
-    }
-
-    try {
-      const snapshot = configured.buildSignalSnapshot({
-        executionCandles: candles.executionCandles,
-        index: entryIndex,
-        primaryRangeCandles: candles.primaryRangeCandles,
-        secondaryRangeCandles: candles.secondaryRangeCandles,
-      });
-
-      return {
-        ...trade,
-        exits: [...trade.exits],
-        rangeLevels: {
-          val: snapshot.range.effective.val,
-          vah: snapshot.range.effective.vah,
-          poc: snapshot.range.effective.poc,
-        },
-      };
-    } catch {
-      return {
-        ...trade,
-        exits: [...trade.exits],
-      };
-    }
-  });
 }
 
 export function createBacktestIdentity(
@@ -1101,6 +1062,7 @@ export function createRunningBacktestRecord(
     exchangeId: input.exchangeId,
     accountId: input.accountId,
     symbol: input.symbol,
+    strategyConfig: input.strategyConfig,
     fromMs: input.fromMs,
     toMs: input.toMs,
     executionTimeframe: input.executionTimeframe,
@@ -1228,7 +1190,7 @@ export async function runBacktestJob(
 }
 
 export interface ReplayedBacktest {
-  result: BacktestResult;
+  result: StrategyBacktestArtifacts;
   chartCandles: Candle[];
   chartCandlesRef?: KlineCacheReference;
   trades: BacktestTradeView[];
@@ -1270,11 +1232,7 @@ export async function replayBacktestRecord(
     result,
     chartCandles: chart.candles,
     chartCandlesRef: chart.ref,
-    trades: enrichTradesWithRangeLevels(
-      input,
-      candlesForComputation,
-      result.trades,
-    ),
+    trades: result.trades,
     klineRefs: dedupeRefs([...candles.klineRefs, chart.ref]),
   };
 }

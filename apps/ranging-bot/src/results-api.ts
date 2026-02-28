@@ -1876,6 +1876,7 @@ async function enqueueBacktestForBot(
     exchangeId: bot.exchangeId,
     accountId: bot.accountId,
     symbol: bot.symbol,
+    strategyConfig: bot.strategyConfig,
     fromMs,
     toMs,
     executionTimeframe,

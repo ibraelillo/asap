@@ -252,6 +252,7 @@ export interface BacktestRecord {
   exchangeId: string;
   accountId: string;
   symbol: string;
+  strategyConfig?: Record<string, unknown>;
   fromMs: number;
   toMs: number;
   executionTimeframe: OrchestratorTimeframe;
