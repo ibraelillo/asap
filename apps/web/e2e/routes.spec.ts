@@ -126,37 +126,45 @@ test("bot backtests page can queue jobs without browser errors", async ({
   const assertNoBrowserErrors = attachBrowserErrorGuards(page);
 
   await page.goto(`/bots/${BOT_ID}/backtests`);
-  await expect(page.getByRole("heading", { name: "SUIUSDTM" })).toBeVisible();
+  await page.waitForLoadState("networkidle");
   await expect(
     page.getByText(
       "Backtest queue, historical results, and bot-scoped validation jobs.",
     ),
+    { timeout: 10_000 },
+  ).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "SUIUSDTM" }),
+    { timeout: 10_000 },
   ).toBeVisible();
 
   await page.getByRole("button", { name: /New Backtest/i }).first().click();
   await expect(
     page.getByRole("heading", { name: "Create Backtest" }),
   ).toBeVisible();
-  await page.getByRole("button", { name: /Queue Backtest/i }).click();
+  await page.getByRole("button", { name: /Run Backtest/i }).click();
+  await expect(page).toHaveURL(/\/bots\/.+\/backtests\/bt-sui-rerun-1$/);
   await expect(
-    page
-      .getByText(/Backtest queued|AI-integrated backtest queued|Backtest ready/)
-      .first(),
+    page.getByRole("heading", { name: "SUIUSDTM Replay" }),
   ).toBeVisible();
+
+  await page.goto(`/bots/${BOT_ID}/backtests`);
 
   await page.getByRole("button", { name: /Run Validation/i }).click();
   await expect(
     page.getByText(/Validation queued|Validation completed/),
   ).toBeVisible();
 
-  await page.getByRole("button", { name: "Compare" }).nth(1).click();
-  const compareDrawer = page.getByRole("dialog");
+  await page.getByRole("button", { name: "Edit & Rerun" }).nth(1).click();
+  const rerunDrawer = page.getByRole("dialog");
   await expect(
-    compareDrawer.getByRole("heading", { name: "Compare Backtest Settings" }),
+    rerunDrawer.getByRole("heading", { name: /Edit .* And Run/ }),
   ).toBeVisible();
-  await expect(compareDrawer.getByText("Current Bot").first()).toBeVisible();
   await expect(
-    compareDrawer.getByText("Backtest Snapshot").first(),
+    rerunDrawer.getByRole("button", { name: /Run Backtest/i }),
+  ).toBeVisible();
+  await expect(
+    rerunDrawer.getByText("AI range validation"),
   ).toBeVisible();
 
   await assertNoBrowserErrors();
@@ -179,13 +187,15 @@ test("backtest replay page renders charts without browser errors", async ({
   ).toBeVisible();
   await expect(page.getByText("AI-integrated")).toBeVisible();
   await expect(page.getByText("Strategy Snapshot")).toBeVisible();
-  await expect(page.getByRole("button", { name: "Compare Settings" })).toBeVisible();
-  await page.getByRole("button", { name: "Compare Settings" }).click();
-  const compareDrawer = page.getByRole("dialog");
+  await expect(page.getByRole("button", { name: "Edit & Rerun" })).toBeVisible();
+  await page.getByRole("button", { name: "Edit & Rerun" }).click();
+  const rerunDrawer = page.getByRole("dialog");
   await expect(
-    compareDrawer.getByRole("heading", { name: "Compare Backtest Settings" }),
+    rerunDrawer.getByRole("heading", { name: /Edit .* And Run/ }),
   ).toBeVisible();
-  await expect(compareDrawer.getByText("Current Bot").first()).toBeVisible();
+  await expect(
+    rerunDrawer.getByRole("button", { name: /Run Backtest/i }),
+  ).toBeVisible();
 
   await assertNoBrowserErrors();
 });

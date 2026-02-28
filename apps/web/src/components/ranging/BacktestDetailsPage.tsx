@@ -3,23 +3,19 @@ import useSWR from "swr";
 import {
   ArrowLeft,
   CalendarRange,
-  Search,
   TrendingDown,
   TrendingUp,
 } from "lucide-react";
-import { Button, Drawer, MetricCard, Panel, Select } from "@repo/ui";
-import { Link } from "react-router-dom";
+import { Button, MetricCard, Panel, Select } from "@repo/ui";
+import { Link, useNavigate } from "react-router-dom";
 import {
   fetchBacktestDetails,
-  fetchBotDetails,
   fetchStrategyDetails,
-  patchBot,
 } from "../../lib/ranging-api";
-import type {
-  BacktestTrade,
-  StrategyConfigUiField,
-} from "../../types/ranging-dashboard";
+import type { BacktestRecord, BacktestTrade } from "../../types/ranging-dashboard";
 import { BacktestReplayChart } from "./BacktestReplayChart";
+import { BacktestConfigDrawer } from "./BacktestConfigDrawer";
+import { StrategyConfigSnapshot } from "./StrategyConfigSnapshot";
 
 interface BacktestDetailsPageProps {
   botId: string;
@@ -31,87 +27,6 @@ type TradeBalanceProgression = {
   entryBalance: number;
   closeBalance: number;
 };
-
-function asRecord(value: unknown): Record<string, unknown> {
-  return value && typeof value === "object"
-    ? (value as Record<string, unknown>)
-    : {};
-}
-
-function normalizeConfigString(value: unknown): string {
-  return JSON.stringify(asRecord(value));
-}
-
-function getValueAtPath(
-  object: Record<string, unknown>,
-  path: string,
-): unknown {
-  return path.split(".").reduce<unknown>((current, segment) => {
-    if (!current || typeof current !== "object") return undefined;
-    return (current as Record<string, unknown>)[segment];
-  }, object);
-}
-
-function collectConfigPaths(
-  value: unknown,
-  prefix = "",
-  paths = new Set<string>(),
-): Set<string> {
-  if (!value || typeof value !== "object" || Array.isArray(value)) {
-    if (prefix) paths.add(prefix);
-    return paths;
-  }
-
-  const entries = Object.entries(value as Record<string, unknown>);
-  if (entries.length === 0 && prefix) {
-    paths.add(prefix);
-    return paths;
-  }
-
-  for (const [key, child] of entries) {
-    const nextPrefix = prefix ? `${prefix}.${key}` : key;
-    collectConfigPaths(child, nextPrefix, paths);
-  }
-
-  return paths;
-}
-
-function labelFromPath(path: string): string {
-  const leaf = path.split(".").at(-1) ?? path;
-  return leaf
-    .replace(/([a-z0-9])([A-Z])/g, "$1 $2")
-    .replace(/[_-]+/g, " ")
-    .replace(/^\w/, (char) => char.toUpperCase());
-}
-
-function formatConfigValue(
-  value: unknown,
-  options?: {
-    valueFormat?: "raw" | "fraction-percent" | "percent";
-    suffix?: string;
-    decimals?: number;
-  },
-): string {
-  if (typeof value === "number" && Number.isFinite(value)) {
-    let display = value;
-    if (options?.valueFormat === "fraction-percent") {
-      display = value * 100;
-    }
-    const fixed =
-      typeof options?.decimals === "number"
-        ? display.toFixed(options.decimals)
-        : String(display);
-    const compact = fixed.replace(/\.0+$/, "").replace(/(\.\d*?)0+$/, "$1");
-    return `${compact}${options?.suffix ?? ""}`;
-  }
-
-  if (typeof value === "boolean") return value ? "Enabled" : "Disabled";
-  if (typeof value === "string") return value;
-  if (Array.isArray(value)) return value.length > 0 ? value.join(", ") : "[]";
-  if (value === undefined) return "Not set";
-  if (value === null) return "null";
-  return JSON.stringify(value);
-}
 
 function formatDateTime(value?: number): string {
   if (!value) return "-";
@@ -158,10 +73,9 @@ export function BacktestDetailsPage({
   botId,
   backtestId,
 }: BacktestDetailsPageProps) {
+  const navigate = useNavigate();
   const [chartTimeframe, setChartTimeframe] = useState<ChartTimeframe>("4h");
-  const [compareOpen, setCompareOpen] = useState(false);
-  const [applyFeedback, setApplyFeedback] = useState<string | undefined>();
-  const [applying, setApplying] = useState(false);
+  const [rerunOpen, setRerunOpen] = useState(false);
 
   const {
     data: details,
@@ -173,11 +87,6 @@ export function BacktestDetailsPage({
     {
       revalidateOnFocus: false,
     },
-  );
-  const { data: botDetails, mutate: mutateBotDetails } = useSWR(
-    ["bot-details", botId],
-    ([, id]) => fetchBotDetails(String(id)),
-    { revalidateOnFocus: false },
   );
   const { data: strategyDetails } = useSWR(
     details?.backtest.strategyId
@@ -228,69 +137,11 @@ export function BacktestDetailsPage({
 
   const { backtest } = details;
   const strategySummary = strategyDetails?.strategy;
-  const configUiByPath = new Map(
-    (strategySummary?.configUi ?? []).map((field) => [field.path, field]),
-  );
-  const backtestStrategyConfig = asRecord(backtest.strategyConfig);
-  const currentBotStrategyConfig = asRecord(botDetails?.bot.runtime.strategyConfig);
+  const backtestStrategyConfig =
+    backtest.strategyConfig && typeof backtest.strategyConfig === "object"
+      ? backtest.strategyConfig
+      : {};
   const hasSnapshot = Object.keys(backtestStrategyConfig).length > 0;
-  const differsFromBot =
-    hasSnapshot &&
-    normalizeConfigString(backtestStrategyConfig) !==
-      normalizeConfigString(currentBotStrategyConfig);
-  const snapshotRows = (
-    [...collectConfigPaths(backtestStrategyConfig)]
-      .map((path) => ({
-        path,
-        field: configUiByPath.get(path),
-        value: getValueAtPath(backtestStrategyConfig, path),
-      }))
-      .sort((left, right) => {
-        const leftOrder = left.field?.order ?? Number.MAX_SAFE_INTEGER;
-        const rightOrder = right.field?.order ?? Number.MAX_SAFE_INTEGER;
-        return leftOrder - rightOrder || left.path.localeCompare(right.path);
-      })
-  );
-  const configDiffRows = (
-    [...collectConfigPaths(currentBotStrategyConfig), ...collectConfigPaths(backtestStrategyConfig)]
-      .filter((path, index, values) => values.indexOf(path) === index)
-      .map((path) => ({
-        path,
-        field: configUiByPath.get(path),
-        currentValue: getValueAtPath(currentBotStrategyConfig, path),
-        backtestValue: getValueAtPath(backtestStrategyConfig, path),
-      }))
-      .filter(
-        (entry) =>
-          normalizeConfigString({ value: entry.currentValue }) !==
-          normalizeConfigString({ value: entry.backtestValue }),
-      )
-      .sort((left, right) => {
-        const leftOrder = left.field?.order ?? Number.MAX_SAFE_INTEGER;
-        const rightOrder = right.field?.order ?? Number.MAX_SAFE_INTEGER;
-        return leftOrder - rightOrder || left.path.localeCompare(right.path);
-      })
-  );
-
-  async function applySnapshotToBot() {
-    if (!hasSnapshot || applying) return;
-
-    setApplying(true);
-    setApplyFeedback(undefined);
-
-    try {
-      await patchBot(botId, { strategyConfig: backtestStrategyConfig });
-      setApplyFeedback("Backtest settings applied to the bot.");
-      await mutateBotDetails();
-      setCompareOpen(false);
-    } catch (error) {
-      setApplyFeedback(
-        `Failed to apply settings: ${error instanceof Error ? error.message : String(error)}`,
-      );
-    } finally {
-      setApplying(false);
-    }
-  }
 
   return (
     <div className="space-y-6">
@@ -342,21 +193,10 @@ export function BacktestDetailsPage({
             </Link>
             <Button
               size="sm"
-              leadingIcon={<Search className="h-4 w-4" />}
-              onClick={() => setCompareOpen(true)}
+              onClick={() => setRerunOpen(true)}
               disabled={!hasSnapshot}
             >
-              Compare Settings
-            </Button>
-            <Button
-              size="sm"
-              variant="primary"
-              onClick={() => {
-                void applySnapshotToBot();
-              }}
-              disabled={!differsFromBot || applying}
-            >
-              {applying ? "Applying..." : "Apply To Bot"}
+              {hasSnapshot ? "Edit & Rerun" : "No Snapshot"}
             </Button>
           </div>
         </div>
@@ -433,52 +273,29 @@ export function BacktestDetailsPage({
               Settings frozen into this backtest at queue time.
             </p>
           </div>
-          {hasSnapshot ? (
-            differsFromBot ? (
-              <span className="rounded-full border border-amber-300/30 bg-amber-400/10 px-2 py-1 text-xs text-amber-100">
-                snapshot differs from current bot
-              </span>
-            ) : (
-              <span className="rounded-full border border-emerald-300/30 bg-emerald-400/10 px-2 py-1 text-xs text-emerald-100">
-                snapshot matches current bot
-              </span>
-            )
-          ) : (
+          {hasSnapshot ? null : (
             <span className="rounded-full border border-white/10 bg-white/5 px-2 py-1 text-xs text-slate-400">
               no snapshot stored
             </span>
           )}
         </div>
 
-        {snapshotRows.length > 0 ? (
-          <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
-            {snapshotRows.map((entry) => (
-              <Panel key={entry.path} className="space-y-2 p-4" tone="muted">
-                <div>
-                  <p className="text-sm font-medium text-slate-100">
-                    {entry.field?.label ?? labelFromPath(entry.path)}
-                  </p>
-                  <p className="mt-1 text-xs text-slate-400">
-                    {entry.field?.description ?? entry.path}
-                  </p>
-                </div>
-                <p className="text-sm text-cyan-100">
-                  {formatConfigValue(entry.value, entry.field)}
-                </p>
-              </Panel>
-            ))}
-          </div>
+        {hasSnapshot ? (
+          <>
+            <p className="mb-4 text-sm text-slate-400">
+              Use the edit-and-rerun flow to fork this exact snapshot, adjust
+              the parameters, and open the new replay immediately.
+            </p>
+            <StrategyConfigSnapshot
+              strategy={strategySummary}
+              config={backtestStrategyConfig}
+            />
+          </>
         ) : (
           <p className="text-sm text-slate-400">
             No strategy snapshot was stored on this backtest.
           </p>
         )}
-
-        {applyFeedback ? (
-          <div className="mt-4 rounded-xl border border-cyan-300/20 bg-cyan-400/10 px-4 py-3 text-sm text-cyan-100">
-            {applyFeedback}
-          </div>
-        ) : null}
       </Panel>
 
       <BacktestReplayChart details={details} />
@@ -606,78 +423,28 @@ export function BacktestDetailsPage({
         </div>
       </Panel>
 
-      <Drawer
-        open={compareOpen}
-        onClose={() => setCompareOpen(false)}
-        title="Compare Backtest Settings"
-        description="Review the exact parameter differences between the current bot settings and this backtest snapshot."
-        footer={
-          <div className="flex flex-wrap justify-between gap-2">
-            <div className="text-xs text-slate-400">
-              {configDiffRows.length} changed field
-              {configDiffRows.length === 1 ? "" : "s"}
-            </div>
-            <div className="flex flex-wrap gap-2">
-              <Button onClick={() => setCompareOpen(false)}>Close</Button>
-              <Button
-                variant="primary"
-                onClick={() => {
-                  void applySnapshotToBot();
-                }}
-                disabled={!differsFromBot || applying}
-              >
-                {applying ? "Applying..." : "Apply To Bot"}
-              </Button>
-            </div>
-          </div>
-        }
-      >
-        <div className="space-y-4">
-          {configDiffRows.length === 0 ? (
-            <Panel className="px-4 py-3 text-sm text-slate-300" tone="muted">
-              This backtest snapshot matches the current bot settings.
-            </Panel>
-          ) : (
-            <div className="space-y-3">
-              {configDiffRows.map((entry) => (
-                <Panel key={entry.path} className="space-y-3 p-4" tone="muted">
-                  <div>
-                    <p className="text-sm font-medium text-slate-100">
-                      {entry.field?.label ?? labelFromPath(entry.path)}
-                    </p>
-                    <p className="mt-1 text-xs text-slate-400">
-                      {entry.field?.description ?? entry.path}
-                    </p>
-                  </div>
-                  <div className="grid grid-cols-1 gap-3 md:grid-cols-[1fr_auto_1fr]">
-                    <div className="rounded-xl border border-white/10 bg-white/5 p-3">
-                      <p className="text-[11px] uppercase tracking-[0.18em] text-slate-400">
-                        Current Bot
-                      </p>
-                      <p className="mt-2 text-sm font-medium text-slate-100">
-                        {formatConfigValue(entry.currentValue, entry.field)}
-                      </p>
-                    </div>
-
-                    <div className="flex items-center justify-center text-slate-500">
-                      →
-                    </div>
-
-                    <div className="rounded-xl border border-cyan-300/20 bg-cyan-400/10 p-3">
-                      <p className="text-[11px] uppercase tracking-[0.18em] text-cyan-200/80">
-                        Backtest Snapshot
-                      </p>
-                      <p className="mt-2 text-sm font-medium text-cyan-50">
-                        {formatConfigValue(entry.backtestValue, entry.field)}
-                      </p>
-                    </div>
-                  </div>
-                </Panel>
-              ))}
-            </div>
-          )}
-        </div>
-      </Drawer>
+      <BacktestConfigDrawer
+        open={rerunOpen}
+        onClose={() => setRerunOpen(false)}
+        botId={botId}
+        symbol={backtest.symbol}
+        strategy={strategySummary}
+        seedKey={backtest.id}
+        seed={{
+          strategyConfig: backtest.strategyConfig,
+          fromMs: backtest.fromMs,
+          toMs: backtest.toMs,
+          initialEquity: backtest.initialEquity,
+          ai: backtest.ai,
+        }}
+        title={`Edit ${backtest.id} And Run`}
+        description="This drawer is seeded with the configuration used by this backtest. Edit the values, queue a new run, and jump straight to the new replay."
+        onCreated={async (nextBacktest: BacktestRecord) => {
+          navigate(
+            `/bots/${encodeURIComponent(botId)}/backtests/${encodeURIComponent(nextBacktest.id)}`,
+          );
+        }}
+      />
     </div>
   );
 }

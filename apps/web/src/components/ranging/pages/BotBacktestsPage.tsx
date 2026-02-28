@@ -5,15 +5,13 @@ import {
   History,
   Loader2,
   Play,
-  Search,
   Settings2,
   WandSparkles,
   XCircle,
 } from "lucide-react";
-import { Button, Drawer, Panel, Select } from "@repo/ui";
-import { Link, Navigate, useParams } from "react-router-dom";
+import { Button, Drawer, Select } from "@repo/ui";
+import { Link, Navigate, useNavigate, useParams } from "react-router-dom";
 import {
-  createBacktest,
   createRangeValidation,
   fetchBacktests,
   fetchBotDetails,
@@ -22,14 +20,30 @@ import {
   fetchStrategyDetails,
   patchBot,
 } from "../../../lib/ranging-api";
+import type { BacktestRecord } from "../../../types/ranging-dashboard";
 import { MetricCard } from "../../trade-results/MetricCard";
 import { SectionHeader, formatCurrency, formatDateTime } from "../BotUi";
 import {
   StrategyConfigEditor,
   type StrategyConfigEditorHandle,
 } from "../StrategyConfigEditor";
+import { BacktestConfigDrawer } from "../BacktestConfigDrawer";
 
-type DrawerMode = "bot-settings" | "new-backtest" | "compare-backtest" | null;
+type DrawerMode = "bot-settings" | "new-backtest" | "rerun-backtest" | null;
+
+function asRecord(value: unknown): Record<string, unknown> {
+  return value && typeof value === "object"
+    ? (value as Record<string, unknown>)
+    : {};
+}
+
+function cloneRecord<T extends Record<string, unknown>>(value: T): T {
+  return JSON.parse(JSON.stringify(value)) as T;
+}
+
+function normalizeConfigString(value: unknown): string {
+  return JSON.stringify(asRecord(value));
+}
 
 function toDateInputValue(date: Date): string {
   const year = date.getFullYear();
@@ -75,106 +89,11 @@ function parseDateEndMs(value: string): number | undefined {
   return Number.isFinite(parsed) ? parsed : undefined;
 }
 
-function asRecord(value: unknown): Record<string, unknown> {
-  return value && typeof value === "object"
-    ? (value as Record<string, unknown>)
-    : {};
-}
-
-function cloneRecord<T extends Record<string, unknown>>(value: T): T {
-  return JSON.parse(JSON.stringify(value)) as T;
-}
-
-function normalizeConfigString(value: unknown): string {
-  return JSON.stringify(asRecord(value));
-}
-
-function getValueAtPath(
-  object: Record<string, unknown>,
-  path: string,
-): unknown {
-  return path.split(".").reduce<unknown>((current, segment) => {
-    if (!current || typeof current !== "object") return undefined;
-    return (current as Record<string, unknown>)[segment];
-  }, object);
-}
-
-function collectConfigPaths(
-  value: unknown,
-  prefix = "",
-  paths = new Set<string>(),
-): Set<string> {
-  if (!value || typeof value !== "object" || Array.isArray(value)) {
-    if (prefix) paths.add(prefix);
-    return paths;
-  }
-
-  const entries = Object.entries(value as Record<string, unknown>);
-  if (entries.length === 0 && prefix) {
-    paths.add(prefix);
-    return paths;
-  }
-
-  for (const [key, child] of entries) {
-    const nextPrefix = prefix ? `${prefix}.${key}` : key;
-    collectConfigPaths(child, nextPrefix, paths);
-  }
-
-  return paths;
-}
-
-function labelFromPath(path: string): string {
-  const leaf = path.split(".").at(-1) ?? path;
-  return leaf
-    .replace(/([a-z0-9])([A-Z])/g, "$1 $2")
-    .replace(/[_-]+/g, " ")
-    .replace(/^\w/, (char) => char.toUpperCase());
-}
-
-function formatConfigValue(
-  value: unknown,
-  options?: {
-    valueFormat?: "raw" | "fraction-percent" | "percent";
-    suffix?: string;
-    decimals?: number;
-  },
-): string {
-  if (typeof value === "number" && Number.isFinite(value)) {
-    let display = value;
-    if (options?.valueFormat === "fraction-percent") {
-      display = value * 100;
-    }
-    const fixed =
-      typeof options?.decimals === "number"
-        ? display.toFixed(options.decimals)
-        : String(display);
-    const compact = fixed.replace(/\.0+$/, "").replace(/(\.\d*?)0+$/, "$1");
-    return `${compact}${options?.suffix ?? ""}`;
-  }
-
-  if (typeof value === "boolean") {
-    return value ? "Enabled" : "Disabled";
-  }
-
-  if (typeof value === "string") {
-    return value;
-  }
-
-  if (Array.isArray(value)) {
-    return value.length > 0 ? value.join(", ") : "[]";
-  }
-
-  if (value === undefined) return "Not set";
-  if (value === null) return "null";
-  return JSON.stringify(value);
-}
-
 export function BotBacktestsPage() {
   const { botId } = useParams<{ botId: string }>();
+  const navigate = useNavigate();
   const { mutate } = useSWRConfig();
   const botStrategyConfigEditorRef = useRef<StrategyConfigEditorHandle>(null);
-  const backtestStrategyConfigEditorRef =
-    useRef<StrategyConfigEditorHandle>(null);
   const [drawerMode, setDrawerMode] = useState<DrawerMode>(null);
   const [botSettingsFeedback, setBotSettingsFeedback] = useState<
     string | undefined
@@ -186,29 +105,9 @@ export function BotBacktestsPage() {
   const [draftBotStrategyConfig, setDraftBotStrategyConfig] = useState<
     Record<string, unknown>
   >({});
-  const [draftBacktestStrategyConfig, setDraftBacktestStrategyConfig] =
-    useState<Record<string, unknown>>({});
-  const [backtestFromDate, setBacktestFromDate] = useState<string>(() =>
-    dateInputDaysAgo(30),
-  );
-  const [backtestToDate, setBacktestToDate] = useState<string>(() =>
-    dateInputDaysAgo(0),
-  );
-  const [backtestInitialEquity, setBacktestInitialEquity] =
-    useState<number>(1000);
-  const [backtestUseAi, setBacktestUseAi] = useState<boolean>(false);
-  const [backtestAiLookbackCandles, setBacktestAiLookbackCandles] =
-    useState<number>(240);
-  const [backtestAiCadenceBars, setBacktestAiCadenceBars] = useState<number>(1);
-  const [backtestAiMaxEvaluations, setBacktestAiMaxEvaluations] =
-    useState<number>(50);
-  const [backtestAiConfidenceThreshold, setBacktestAiConfidenceThreshold] =
-    useState<number>(0.72);
-  const [creatingBacktest, setCreatingBacktest] = useState(false);
   const [backtestFeedback, setBacktestFeedback] = useState<
     string | undefined
   >();
-  const [applyingBacktestId, setApplyingBacktestId] = useState<string>();
   const [selectedBacktestId, setSelectedBacktestId] = useState<string>();
   const [validationTimeframe, setValidationTimeframe] = useState<string>("15m");
   const [validationFromDate, setValidationFromDate] = useState<string>(() =>
@@ -272,9 +171,7 @@ export function BotBacktestsPage() {
 
     const nextConfig = cloneRecord(asRecord(botDetails.bot.runtime.strategyConfig));
     setDraftBotStrategyConfig(nextConfig);
-    setDraftBacktestStrategyConfig(nextConfig);
     botStrategyConfigEditorRef.current?.resetDrafts();
-    backtestStrategyConfigEditorRef.current?.resetDrafts();
     setBotSettingsError(undefined);
     setBotSettingsFeedback(undefined);
   }, [botDetails]);
@@ -296,36 +193,6 @@ export function BotBacktestsPage() {
     selectedBacktestId !== undefined
       ? (backtests ?? []).find((entry) => entry.id === selectedBacktestId)
       : undefined;
-  const selectedBacktestStrategyConfig = asRecord(selectedBacktest?.strategyConfig);
-  const configUiByPath = new Map(
-    (strategySummary?.configUi ?? []).map((field) => [field.path, field]),
-  );
-  const selectedConfigDiff = (() => {
-    if (!selectedBacktest) return [];
-
-    return [...collectConfigPaths(currentBotStrategyConfig), ...collectConfigPaths(selectedBacktestStrategyConfig)]
-      .filter((path, index, values) => values.indexOf(path) === index)
-      .map((path) => {
-        const currentValue = getValueAtPath(currentBotStrategyConfig, path);
-        const backtestValue = getValueAtPath(selectedBacktestStrategyConfig, path);
-        return {
-          path,
-          field: configUiByPath.get(path),
-          currentValue,
-          backtestValue,
-          changed:
-            normalizeConfigString({ value: currentValue }) !==
-            normalizeConfigString({ value: backtestValue }),
-        };
-      })
-      .filter((entry) => entry.changed)
-      .sort((left, right) => {
-        const leftOrder = left.field?.order ?? Number.MAX_SAFE_INTEGER;
-        const rightOrder = right.field?.order ?? Number.MAX_SAFE_INTEGER;
-        return leftOrder - rightOrder || left.path.localeCompare(right.path);
-      });
-  })();
-
   function openBotSettingsDrawer() {
     const nextConfig = cloneRecord(currentBotStrategyConfig);
     setDraftBotStrategyConfig(nextConfig);
@@ -336,10 +203,8 @@ export function BotBacktestsPage() {
   }
 
   function openBacktestDrawer() {
-    const nextConfig = cloneRecord(currentBotStrategyConfig);
-    setDraftBacktestStrategyConfig(nextConfig);
-    backtestStrategyConfigEditorRef.current?.resetDrafts();
     setBacktestFeedback(undefined);
+    setSelectedBacktestId(undefined);
     setDrawerMode("new-backtest");
   }
 
@@ -365,7 +230,6 @@ export function BotBacktestsPage() {
     try {
       await patchBot(botId, { strategyConfig: resolved.config });
       setDraftBotStrategyConfig(cloneRecord(resolved.config));
-      setDraftBacktestStrategyConfig(cloneRecord(resolved.config));
       setBotSettingsFeedback("Bot strategy settings updated.");
       await Promise.all([
         mutate(["bot-details", botId]),
@@ -382,115 +246,10 @@ export function BotBacktestsPage() {
     }
   }
 
-  async function applyBacktestSettings(
-    strategyConfig: Record<string, unknown> | undefined,
-    backtestId: string,
-  ) {
-    if (!botId) return;
-    if (!strategyConfig || Object.keys(strategyConfig).length === 0) {
-      setBacktestFeedback("This backtest does not contain a strategy snapshot.");
-      return;
-    }
-
-    setApplyingBacktestId(backtestId);
-    setBacktestFeedback(undefined);
-
-    try {
-      await patchBot(botId, { strategyConfig });
-      setDraftBotStrategyConfig(cloneRecord(strategyConfig));
-      setDraftBacktestStrategyConfig(cloneRecord(strategyConfig));
-      setBacktestFeedback(
-        `Applied settings from backtest ${backtestId} to the bot.`,
-      );
-      await Promise.all([
-        mutate(["bot-details", botId]),
-        mutate(["bot-stats", botId]),
-        mutate("ranging-dashboard"),
-      ]);
-      setDrawerMode(null);
-    } catch (error) {
-      setBacktestFeedback(
-        `Failed to apply settings: ${error instanceof Error ? error.message : String(error)}`,
-      );
-    } finally {
-      setApplyingBacktestId(undefined);
-    }
-  }
-
-  function openCompareBacktest(backtestId: string) {
+  function openBacktestFromConfig(backtestId: string) {
     setSelectedBacktestId(backtestId);
     setBacktestFeedback(undefined);
-    setDrawerMode("compare-backtest");
-  }
-
-  async function onCreateBacktest() {
-    if (creatingBacktest) return;
-
-    const fromMs = parseDateStartMs(backtestFromDate);
-    const toMs = parseDateEndMs(backtestToDate);
-    if (!fromMs || !toMs) {
-      setBacktestFeedback("Select a valid start and end date.");
-      return;
-    }
-    if (fromMs >= toMs) {
-      setBacktestFeedback("The start date must be before the end date.");
-      return;
-    }
-
-    const resolved =
-      backtestStrategyConfigEditorRef.current?.resolveForSubmit() ?? {
-        valid: true,
-        config: asRecord(draftBacktestStrategyConfig),
-      };
-    if (!resolved.valid) {
-      setBacktestFeedback(
-        "Fix the highlighted strategy parameters before queuing the backtest.",
-      );
-      return;
-    }
-
-    setCreatingBacktest(true);
-    setBacktestFeedback(undefined);
-
-    try {
-      const backtest = await createBacktest(botId, {
-        fromMs,
-        toMs,
-        initialEquity: backtestInitialEquity,
-        strategyConfig: resolved.config,
-        ai: {
-          enabled: backtestUseAi,
-          lookbackCandles: backtestAiLookbackCandles,
-          cadenceBars: backtestAiCadenceBars,
-          maxEvaluations: backtestAiMaxEvaluations,
-          confidenceThreshold: backtestAiConfidenceThreshold,
-        },
-      });
-
-      setDraftBacktestStrategyConfig(cloneRecord(resolved.config));
-      setBacktestFeedback(
-        backtest.status === "running"
-          ? backtest.ai?.enabled
-            ? "AI-integrated backtest queued. It will appear in the list shortly."
-            : "Backtest queued. It will appear in the list shortly."
-          : backtest.status === "completed"
-            ? `Backtest ready: net ${formatCurrency(backtest.netPnl)} on ${backtest.totalTrades} trades.`
-            : `Backtest failed: ${backtest.errorMessage ?? "Unknown error"}`,
-      );
-
-      await Promise.all([
-        mutateBacktests(),
-        mutateStats(),
-        mutate(["bot-details", botId]),
-      ]);
-      setDrawerMode(null);
-    } catch (error) {
-      setBacktestFeedback(
-        `Backtest request failed: ${error instanceof Error ? error.message : String(error)}`,
-      );
-    } finally {
-      setCreatingBacktest(false);
-    }
+    setDrawerMode("rerun-backtest");
   }
 
   async function onCreateValidation() {
@@ -602,7 +361,7 @@ export function BotBacktestsPage() {
       <div className="panel p-5">
         <SectionHeader
           title="Backtests"
-          description="Each backtest stores its own strategy settings snapshot so you can compare variants and apply the winner to the bot later."
+          description="Each backtest stores its own strategy settings snapshot so you can fork variants, rerun them, and jump straight into the new replay."
           aside={
             <div className="flex flex-wrap items-center gap-2">
               {backtestFeedback ? (
@@ -725,10 +484,10 @@ export function BotBacktestsPage() {
                           size="sm"
                           variant="secondary"
                           className="whitespace-nowrap"
-                          onClick={() => openCompareBacktest(backtest.id)}
+                          onClick={() => openBacktestFromConfig(backtest.id)}
                           disabled={!hasSnapshot}
                         >
-                          {hasSnapshot ? "Compare" : "No Snapshot"}
+                          {hasSnapshot ? "Edit & Rerun" : "No Snapshot"}
                         </Button>
                       </div>
                     </td>
@@ -968,289 +727,52 @@ export function BotBacktestsPage() {
         </div>
       </Drawer>
 
-      <Drawer
-        open={drawerMode === "new-backtest"}
+      <BacktestConfigDrawer
+        open={drawerMode === "new-backtest" || drawerMode === "rerun-backtest"}
         onClose={() => setDrawerMode(null)}
-        title="Create Backtest"
-        description="Queue a historical backtest with its own strategy settings snapshot. If the result is better, you can apply those settings back to the bot."
-        footer={
-          <div className="flex flex-wrap justify-end gap-2">
-            <Button onClick={() => setDrawerMode(null)}>Cancel</Button>
-            <Button
-              variant="primary"
-              onClick={() => {
-                void onCreateBacktest();
-              }}
-              disabled={creatingBacktest}
-            >
-              {creatingBacktest ? "Queueing..." : "Queue Backtest"}
-            </Button>
-          </div>
+        botId={botId}
+        symbol={symbol}
+        strategy={strategySummary}
+        seedKey={selectedBacktest?.id ?? "current-bot"}
+        seed={
+          selectedBacktest
+            ? {
+                strategyConfig: selectedBacktest.strategyConfig,
+                fromMs: selectedBacktest.fromMs,
+                toMs: selectedBacktest.toMs,
+                initialEquity: selectedBacktest.initialEquity,
+                ai: selectedBacktest.ai,
+              }
+            : {
+                strategyConfig: currentBotStrategyConfig,
+              }
         }
-      >
-        <div className="space-y-5">
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-            <label className="inline-flex flex-col gap-1 text-xs text-slate-300">
-              From
-              <input
-                type="date"
-                value={backtestFromDate}
-                onChange={(event) => setBacktestFromDate(event.target.value)}
-                className="rounded bg-slate-950/60 px-3 py-2 text-sm text-slate-100 outline-none"
-              />
-            </label>
-
-            <label className="inline-flex flex-col gap-1 text-xs text-slate-300">
-              To
-              <input
-                type="date"
-                value={backtestToDate}
-                onChange={(event) => setBacktestToDate(event.target.value)}
-                className="rounded bg-slate-950/60 px-3 py-2 text-sm text-slate-100 outline-none"
-              />
-            </label>
-
-            <label className="inline-flex flex-col gap-1 text-xs text-slate-300">
-              Initial Equity
-              <input
-                type="number"
-                min={100}
-                value={backtestInitialEquity}
-                onChange={(event) =>
-                  setBacktestInitialEquity(
-                    Math.max(100, Number(event.target.value) || 1000),
-                  )
-                }
-                className="rounded bg-slate-950/60 px-3 py-2 text-right text-sm text-slate-100 outline-none"
-              />
-            </label>
-
-            <label className="inline-flex h-[72px] items-end gap-2 pb-2 text-xs text-slate-200">
-              <input
-                type="checkbox"
-                checked={backtestUseAi}
-                onChange={(event) => setBacktestUseAi(event.target.checked)}
-                className="h-3.5 w-3.5 rounded border-white/20 bg-slate-950/60 text-cyan-300"
-              />
-              AI range validation
-            </label>
-          </div>
-
-          {backtestUseAi ? (
-            <div className="grid grid-cols-1 gap-4 rounded-xl border border-white/10 bg-white/5 p-4 md:grid-cols-2">
-              <label className="inline-flex flex-col gap-1 text-xs text-slate-300">
-                AI Lookback
-                <input
-                  type="number"
-                  min={60}
-                  max={600}
-                  value={backtestAiLookbackCandles}
-                  onChange={(event) =>
-                    setBacktestAiLookbackCandles(
-                      Math.max(
-                        60,
-                        Math.min(600, Number(event.target.value) || 240),
-                      ),
-                    )
-                  }
-                  className="rounded bg-slate-950/60 px-3 py-2 text-right text-sm text-slate-100 outline-none"
-                />
-              </label>
-              <label className="inline-flex flex-col gap-1 text-xs text-slate-300">
-                AI Cadence
-                <input
-                  type="number"
-                  min={1}
-                  max={24}
-                  value={backtestAiCadenceBars}
-                  onChange={(event) =>
-                    setBacktestAiCadenceBars(
-                      Math.max(
-                        1,
-                        Math.min(24, Number(event.target.value) || 1),
-                      ),
-                    )
-                  }
-                  className="rounded bg-slate-950/60 px-3 py-2 text-right text-sm text-slate-100 outline-none"
-                />
-              </label>
-              <label className="inline-flex flex-col gap-1 text-xs text-slate-300">
-                AI Max Calls
-                <input
-                  type="number"
-                  min={1}
-                  max={400}
-                  value={backtestAiMaxEvaluations}
-                  onChange={(event) =>
-                    setBacktestAiMaxEvaluations(
-                      Math.max(
-                        1,
-                        Math.min(400, Number(event.target.value) || 50),
-                      ),
-                    )
-                  }
-                  className="rounded bg-slate-950/60 px-3 py-2 text-right text-sm text-slate-100 outline-none"
-                />
-              </label>
-              <label className="inline-flex flex-col gap-1 text-xs text-slate-300">
-                AI Min Conf
-                <input
-                  type="number"
-                  min={0}
-                  max={1}
-                  step={0.01}
-                  value={backtestAiConfidenceThreshold}
-                  onChange={(event) =>
-                    setBacktestAiConfidenceThreshold(
-                      Math.max(
-                        0,
-                        Math.min(1, Number(event.target.value) || 0.72),
-                      ),
-                    )
-                  }
-                  className="rounded bg-slate-950/60 px-3 py-2 text-right text-sm text-slate-100 outline-none"
-                />
-              </label>
-            </div>
-          ) : null}
-
-          <StrategyConfigEditor
-            ref={backtestStrategyConfigEditorRef}
-            strategy={strategySummary}
-            value={draftBacktestStrategyConfig}
-            onChange={setDraftBacktestStrategyConfig}
-            emptyState="No strategy metadata is available for this bot."
-          />
-
-          {backtestFeedback ? (
-            <div className="rounded-xl border border-cyan-300/20 bg-cyan-400/10 px-4 py-3 text-sm text-cyan-100">
-              {backtestFeedback}
-            </div>
-          ) : null}
-        </div>
-      </Drawer>
-
-      <Drawer
-        open={drawerMode === "compare-backtest"}
-        onClose={() => setDrawerMode(null)}
-        title="Compare Backtest Settings"
-        description="Review the exact parameter changes between the current bot settings and this backtest snapshot before applying them."
-        footer={
-          <div className="flex flex-wrap justify-between gap-2">
-            <div className="text-xs text-slate-400">
-              {selectedConfigDiff.length} changed field
-              {selectedConfigDiff.length === 1 ? "" : "s"}
-            </div>
-            <div className="flex flex-wrap gap-2">
-              <Button onClick={() => setDrawerMode(null)}>Close</Button>
-              <Button
-                variant="primary"
-                onClick={() =>
-                  void applyBacktestSettings(
-                    selectedBacktest?.strategyConfig,
-                    selectedBacktest?.id ?? "",
-                  )
-                }
-                disabled={
-                  !selectedBacktest ||
-                  selectedConfigDiff.length === 0 ||
-                  applyingBacktestId === selectedBacktest.id
-                }
-              >
-                {applyingBacktestId === selectedBacktest?.id
-                  ? "Applying..."
-                  : "Apply To Bot"}
-              </Button>
-            </div>
-          </div>
+        title={
+          selectedBacktest
+            ? `Edit ${selectedBacktest.id} And Run`
+            : "Create Backtest"
         }
-      >
-        <div className="space-y-4">
-          {selectedBacktest ? (
-            <Panel className="grid grid-cols-1 gap-3 p-4 text-sm text-slate-300 md:grid-cols-3">
-              <div>
-                <p className="text-xs uppercase tracking-[0.18em] text-slate-400">
-                  Backtest
-                </p>
-                <p className="mt-1 font-medium text-slate-100">
-                  {selectedBacktest.id}
-                </p>
-              </div>
-              <div>
-                <p className="text-xs uppercase tracking-[0.18em] text-slate-400">
-                  Net PnL
-                </p>
-                <p className="mt-1 font-medium text-slate-100">
-                  {formatCurrency(selectedBacktest.netPnl)}
-                </p>
-              </div>
-              <div>
-                <p className="text-xs uppercase tracking-[0.18em] text-slate-400">
-                  Created
-                </p>
-                <p className="mt-1 font-medium text-slate-100">
-                  {formatDateTime(selectedBacktest.createdAtMs)}
-                </p>
-              </div>
-            </Panel>
-          ) : null}
-
-          {selectedConfigDiff.length === 0 ? (
-            <Panel className="px-4 py-3 text-sm text-slate-300" tone="muted">
-              This backtest snapshot matches the current bot settings.
-            </Panel>
-          ) : (
-            <div className="space-y-3">
-              {selectedConfigDiff.map((entry) => (
-                <Panel
-                  key={entry.path}
-                  className="space-y-3 p-4"
-                  tone="muted"
-                >
-                  <div>
-                    <p className="text-sm font-medium text-slate-100">
-                      {entry.field?.label ?? labelFromPath(entry.path)}
-                    </p>
-                    <p className="mt-1 text-xs text-slate-400">
-                      {entry.field?.description ?? entry.path}
-                    </p>
-                  </div>
-
-                  <div className="grid grid-cols-1 gap-3 md:grid-cols-[1fr_auto_1fr]">
-                    <div className="rounded-xl border border-white/10 bg-white/5 p-3">
-                      <p className="text-[11px] uppercase tracking-[0.18em] text-slate-400">
-                        Current Bot
-                      </p>
-                      <p className="mt-2 text-sm font-medium text-slate-100">
-                        {formatConfigValue(entry.currentValue, entry.field)}
-                      </p>
-                    </div>
-
-                    <div className="flex items-center justify-center text-slate-500">
-                      →
-                    </div>
-
-                    <div className="rounded-xl border border-cyan-300/20 bg-cyan-400/10 p-3">
-                      <p className="text-[11px] uppercase tracking-[0.18em] text-cyan-200/80">
-                        Backtest Snapshot
-                      </p>
-                      <p className="mt-2 text-sm font-medium text-cyan-50">
-                        {formatConfigValue(entry.backtestValue, entry.field)}
-                      </p>
-                    </div>
-                  </div>
-                </Panel>
-              ))}
-            </div>
-          )}
-
-          {backtestFeedback ? (
-            <div className="rounded-xl border border-cyan-300/20 bg-cyan-400/10 px-4 py-3 text-sm text-cyan-100">
-              {backtestFeedback}
-            </div>
-          ) : null}
-        </div>
-      </Drawer>
+        description={
+          selectedBacktest
+            ? "This drawer is seeded with the configuration used by the selected backtest. Edit the values, queue a new run, and jump straight to the new replay."
+            : "Run a new backtest from the bot’s current strategy configuration."
+        }
+        onCreated={async (backtest: BacktestRecord) => {
+          setBacktestFeedback(
+            backtest.ai?.enabled
+              ? "AI-integrated backtest queued. Opening replay."
+              : "Backtest queued. Opening replay.",
+          );
+          await Promise.all([
+            mutateBacktests(),
+            mutateStats(),
+            mutate(["bot-details", botId]),
+          ]);
+          navigate(
+            `/bots/${encodeURIComponent(botId)}/backtests/${encodeURIComponent(backtest.id)}`,
+          );
+        }}
+      />
     </div>
   );
 }

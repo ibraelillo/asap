@@ -678,7 +678,6 @@ const strategyDetails = {
 
 const backtestDetailsBase = {
   generatedAt: iso(NOW),
-  backtest: completedBacktest,
   candles: backtestCandles,
   trades: [
     {
@@ -728,6 +727,13 @@ const backtestDetailsBase = {
   ],
 };
 
+function buildBacktestDetails(backtest: typeof completedBacktest) {
+  return {
+    ...backtestDetailsBase,
+    backtest,
+  };
+}
+
 const tradeAnalysis = {
   generatedAt: iso(NOW),
   trade: trades[0],
@@ -741,6 +747,8 @@ const tradeAnalysis = {
 export async function mockRangingApi(page: Page) {
   let accounts = [{ ...initialAccount }];
   let bot = { ...botRecord };
+  let backtestsState = [{ ...runningBacktest }, { ...completedBacktest }];
+  let createdBacktests = 0;
 
   await page.route("**/v1/**", async (route) => {
     const request = route.request();
@@ -888,7 +896,7 @@ export async function mockRangingApi(page: Page) {
         bot,
         summary: botSummary,
         openPosition: position,
-        backtests: [runningBacktest, completedBacktest],
+        backtests: backtestsState,
         validations,
       });
     }
@@ -909,19 +917,35 @@ export async function mockRangingApi(page: Page) {
     }
 
     if (method === "GET" && pathname === `/v1/bots/${BOT_ID}/backtests`) {
-      return json(route, { backtests: [runningBacktest, completedBacktest] });
+      return json(route, { backtests: backtestsState });
     }
 
     if (method === "POST" && pathname === `/v1/bots/${BOT_ID}/backtests`) {
       const body = JSON.parse(request.postData() ?? "{}") as {
+        fromMs?: number;
+        toMs?: number;
+        initialEquity?: number;
         strategyConfig?: Record<string, unknown>;
+        ai?: typeof runningBacktest.ai;
       };
-      return json(route, {
-        backtest: {
-          ...runningBacktest,
-          createdAtMs: NOW,
-          strategyConfig: body.strategyConfig ?? runningBacktest.strategyConfig,
+      createdBacktests += 1;
+      const createdBacktest = {
+        ...runningBacktest,
+        id: `bt-sui-rerun-${createdBacktests}`,
+        createdAtMs: NOW + createdBacktests * 60_000,
+        fromMs: body.fromMs ?? runningBacktest.fromMs,
+        toMs: body.toMs ?? runningBacktest.toMs,
+        initialEquity: body.initialEquity ?? runningBacktest.initialEquity,
+        strategyConfig: body.strategyConfig ?? runningBacktest.strategyConfig,
+        ai: {
+          ...runningBacktest.ai,
+          ...body.ai,
+          enabled: Boolean(body.ai?.enabled),
         },
+      };
+      backtestsState = [createdBacktest, ...backtestsState];
+      return json(route, {
+        backtest: createdBacktest,
       });
     }
 
@@ -942,10 +966,17 @@ export async function mockRangingApi(page: Page) {
       return json(route, { runs });
     }
 
-    if (method === "GET" && pathname === `/v1/backtests/${BACKTEST_ID}`) {
+    if (method === "GET" && pathname.startsWith("/v1/backtests/")) {
+      const requestedId = decodeURIComponent(pathname.split("/").pop() ?? "");
+      const targetBacktest =
+        backtestsState.find((entry) => entry.id === requestedId) ??
+        (requestedId === BACKTEST_ID ? completedBacktest : undefined);
+      if (!targetBacktest) {
+        return json(route, { error: "Backtest not found" }, 404);
+      }
       const chartTimeframe = url.searchParams.get("chartTimeframe") ?? "4h";
       return json(route, {
-        ...backtestDetailsBase,
+        ...buildBacktestDetails(targetBacktest),
         chartTimeframe,
       });
     }
