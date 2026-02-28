@@ -1040,6 +1040,30 @@ export async function mockRangingApi(page: Page) {
       });
     }
 
+    if (method === "DELETE" && pathname.startsWith("/v1/backtests/")) {
+      const requestedId = decodeURIComponent(pathname.split("/").pop() ?? "");
+      const existing = backtestsState.find((entry) => entry.id === requestedId);
+      if (!existing) {
+        return json(route, { error: "Backtest not found" }, 404);
+      }
+      if (existing.status === "running") {
+        return json(
+          route,
+          {
+            error: "backtest_running",
+            details: "Running backtests cannot be removed.",
+          },
+          409,
+        );
+      }
+      backtestsState = backtestsState.filter((entry) => entry.id !== requestedId);
+      return json(route, {
+        generatedAt: iso(NOW),
+        deleted: true,
+        backtestId: requestedId,
+      });
+    }
+
     if (method === "GET" && pathname === `/v1/bots/${BOT_ID}/validations`) {
       return json(route, { validations });
     }

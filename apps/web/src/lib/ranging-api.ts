@@ -156,6 +156,34 @@ async function postJson<T>(path: string, body: unknown): Promise<T> {
   return response.json() as Promise<T>;
 }
 
+async function deleteJson<T>(path: string): Promise<T> {
+  const response = await fetch(`${API_URL}${path}`, {
+    method: "DELETE",
+  });
+
+  if (!response.ok) {
+    let details = "";
+    try {
+      const payload = (await response.json()) as {
+        error?: unknown;
+        details?: unknown;
+      };
+      const error =
+        typeof payload.error === "string" ? payload.error : undefined;
+      const reason =
+        typeof payload.details === "string" ? payload.details : undefined;
+      details = [error, reason].filter(Boolean).join(": ");
+    } catch {
+      // ignore parsing failures and keep default message
+    }
+    throw new Error(
+      `API request failed (${response.status})${details ? `: ${details}` : ""}`,
+    );
+  }
+
+  return response.json() as Promise<T>;
+}
+
 export function getApiUrl(): string {
   return API_URL;
 }
@@ -545,6 +573,15 @@ export async function createBacktest(
     request,
   );
   return payload.backtest;
+}
+
+export async function deleteBacktest(
+  backtestId: string,
+): Promise<{ deleted: boolean; backtestId: string }> {
+  const encodedId = encodeURIComponent(backtestId);
+  return deleteJson<{ deleted: boolean; backtestId: string }>(
+    `/v1/backtests/${encodedId}`,
+  );
 }
 
 export async function createRangeValidation(

@@ -9,6 +9,7 @@ import {
 import { Button, MetricCard, Panel, Select } from "@repo/ui";
 import { Link, useNavigate } from "react-router-dom";
 import {
+  deleteBacktest,
   fetchBotDetails,
   fetchBacktestDetails,
   fetchStrategyDetails,
@@ -78,6 +79,8 @@ export function BacktestDetailsPage({
   const navigate = useNavigate();
   const [chartTimeframe, setChartTimeframe] = useState<ChartTimeframe>("4h");
   const [rerunOpen, setRerunOpen] = useState(false);
+  const [deleteFeedback, setDeleteFeedback] = useState<string>();
+  const [deleting, setDeleting] = useState(false);
 
   const {
     data: details,
@@ -160,6 +163,28 @@ export function BacktestDetailsPage({
     hasSnapshot &&
     configsEqual(effectiveBacktestStrategyConfig, currentBotStrategyConfig);
 
+  async function removeBacktest() {
+    if (backtest.status === "running" || deleting) return;
+    const confirmed = window.confirm(
+      `Remove backtest ${backtest.id}? This only deletes the saved backtest record.`,
+    );
+    if (!confirmed) return;
+
+    setDeleting(true);
+    setDeleteFeedback(undefined);
+    try {
+      await deleteBacktest(backtest.id);
+      navigate(`/bots/${encodeURIComponent(botId)}/backtests`, {
+        replace: true,
+      });
+    } catch (nextError) {
+      setDeleteFeedback(
+        nextError instanceof Error ? nextError.message : String(nextError),
+      );
+      setDeleting(false);
+    }
+  }
+
   return (
     <div className="space-y-6">
       <Panel as="header" className="p-6">
@@ -215,9 +240,30 @@ export function BacktestDetailsPage({
             >
               {hasSnapshot ? "Edit & Rerun" : "No Snapshot"}
             </Button>
+            <Button
+              size="sm"
+              variant="danger"
+              onClick={() => {
+                void removeBacktest();
+              }}
+              disabled={backtest.status === "running" || deleting}
+              title={
+                backtest.status === "running"
+                  ? "Running backtests cannot be removed."
+                  : "Remove this backtest"
+              }
+            >
+              {deleting ? "Removing..." : "Remove"}
+            </Button>
           </div>
         </div>
       </Panel>
+
+      {deleteFeedback ? (
+        <Panel className="p-4" tone="danger">
+          <p className="text-sm text-rose-100">{deleteFeedback}</p>
+        </Panel>
+      ) : null}
 
       <section className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-6">
         <MetricCard

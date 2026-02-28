@@ -192,7 +192,7 @@ export default $config({
         accountsEncryptionKey,
       ],
       cors: {
-        allowMethods: ["GET", "POST", "PATCH", "OPTIONS"],
+        allowMethods: ["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
         allowOrigins: ["*"],
         allowHeaders: ["*"],
       },
@@ -264,8 +264,14 @@ export default $config({
     api.route("GET /v1/ranging/backtests/{id}", {
       handler: "apps/ranging-bot/src/results-api.backtestDetailsHandler",
     });
+    api.route("DELETE /v1/ranging/backtests/{id}", {
+      handler: "apps/ranging-bot/src/results-api.deleteBacktestHandler",
+    });
     api.route("GET /v1/backtests/{id}", {
       handler: "apps/ranging-bot/src/results-api.backtestDetailsHandler",
+    });
+    api.route("DELETE /v1/backtests/{id}", {
+      handler: "apps/ranging-bot/src/results-api.deleteBacktestHandler",
     });
     api.route("POST /v1/ranging/backtests", {
       handler: "apps/ranging-bot/src/results-api.createBacktestHandler",

@@ -188,6 +188,11 @@ test("bot backtests page can queue jobs without browser errors", async ({
   await expect(
     compareDrawer.getByRole("columnheader", { name: BACKTEST_ID }),
   ).toBeVisible();
+  await page.getByRole("button", { name: "Close" }).click();
+
+  page.once("dialog", (dialog) => dialog.accept());
+  await page.getByRole("button", { name: "Remove" }).nth(2).click();
+  await expect(page.getByRole("button", { name: "Remove" })).toHaveCount(2);
 
   await assertNoBrowserErrors();
 });
@@ -220,6 +225,11 @@ test("backtest replay page renders charts without browser errors", async ({
   await expect(
     rerunDrawer.getByRole("button", { name: /Run Backtest/i }),
   ).toBeVisible();
+  await page.getByRole("button", { name: "Close" }).click();
+
+  page.once("dialog", (dialog) => dialog.accept());
+  await page.getByRole("button", { name: "Remove" }).click();
+  await expect(page).toHaveURL(`/bots/${BOT_ID}/backtests`);
 
   await assertNoBrowserErrors();
 });

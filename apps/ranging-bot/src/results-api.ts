@@ -37,6 +37,7 @@ import {
   getBotRecordById,
   getBotRecordBySymbol,
   getBacktestById,
+  deleteBacktestRecord,
   getLatestOpenPositionByBot,
   getRangeValidationById,
   getRunBySymbolAndTime,
@@ -2780,6 +2781,47 @@ export async function backtestDetailsHandler(
     backtestId,
     event.queryStringParameters?.chartTimeframe?.trim(),
   );
+}
+
+export async function deleteBacktestHandler(
+  event: APIGatewayProxyEventV2,
+): Promise<APIGatewayProxyResultV2> {
+  const rawBacktestId = event.pathParameters?.id?.trim();
+  if (!rawBacktestId) {
+    return json(400, { error: "missing_backtest_id" });
+  }
+
+  const backtestId = decodeURIComponent(rawBacktestId);
+
+  try {
+    const backtest = await getBacktestById(backtestId);
+    if (!backtest) {
+      return json(404, { error: "backtest_not_found" });
+    }
+
+    if (backtest.status === "running") {
+      return json(409, {
+        error: "backtest_running",
+        details: "Running backtests cannot be removed.",
+      });
+    }
+
+    await deleteBacktestRecord(backtestId);
+    return json(200, {
+      generatedAt: new Date().toISOString(),
+      deleted: true,
+      backtestId,
+    });
+  } catch (error) {
+    console.error("[ranging-api] delete backtest failed", {
+      backtestId,
+      error,
+    });
+    return json(500, {
+      error: "failed_to_delete_backtest",
+      details: error instanceof Error ? error.message : String(error),
+    });
+  }
 }
 
 export async function tradeDetailsHandler(

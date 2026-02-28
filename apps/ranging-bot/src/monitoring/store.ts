@@ -1480,6 +1480,38 @@ export async function putBacktestRecord(record: BacktestRecord): Promise<void> {
   );
 }
 
+export async function deleteBacktestRecord(id: string): Promise<boolean> {
+  const createdAtMs = parseCreatedAtMsFromEntityId(id);
+  if (!createdAtMs) return false;
+
+  const client = getDocClient();
+  const tableName = getTableName();
+
+  const existing = await client.send(
+    new GetCommand({
+      TableName: tableName,
+      Key: {
+        PK: PK_BACKTEST,
+        SK: sortKey(createdAtMs, id),
+      },
+    }),
+  );
+
+  if (!existing.Item) return false;
+
+  await client.send(
+    new DeleteCommand({
+      TableName: tableName,
+      Key: {
+        PK: PK_BACKTEST,
+        SK: sortKey(createdAtMs, id),
+      },
+    }),
+  );
+
+  return true;
+}
+
 export async function putRangeValidationRecord(
   record: RangeValidationRecord,
 ): Promise<void> {

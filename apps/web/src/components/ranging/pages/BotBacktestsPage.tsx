@@ -14,6 +14,7 @@ import { Button, Checkbox, DatePicker, Drawer, Select } from "@repo/ui";
 import { Link, Navigate, useNavigate, useParams } from "react-router-dom";
 import {
   createRangeValidation,
+  deleteBacktest,
   fetchBacktests,
   fetchBotDetails,
   fetchBotStats,
@@ -100,6 +101,9 @@ export function BotBacktestsPage() {
     Record<string, unknown>
   >({});
   const [backtestFeedback, setBacktestFeedback] = useState<
+    string | undefined
+  >();
+  const [deletingBacktestId, setDeletingBacktestId] = useState<
     string | undefined
   >();
   const [selectedBacktestId, setSelectedBacktestId] = useState<string>();
@@ -315,6 +319,38 @@ export function BotBacktestsPage() {
       );
     } finally {
       setCreatingValidation(false);
+    }
+  }
+
+  async function removeBacktest(backtest: BacktestRecord) {
+    if (backtest.status === "running") return;
+    const confirmed = window.confirm(
+      `Remove backtest ${backtest.id}? This only deletes the saved backtest record.`,
+    );
+    if (!confirmed) return;
+
+    setDeletingBacktestId(backtest.id);
+    setBacktestFeedback(undefined);
+    try {
+      await deleteBacktest(backtest.id);
+      setBacktestFeedback(`Backtest ${backtest.id} removed.`);
+      setSelectedComparisonIds((current) =>
+        current.filter((value) => value !== backtest.id),
+      );
+      if (selectedBacktestId === backtest.id) {
+        setSelectedBacktestId(undefined);
+      }
+      await Promise.all([
+        mutateBacktests(),
+        mutate(["bot-stats", botId]),
+        mutate(["strategy-details", botDetails?.bot.strategyId]),
+      ]);
+    } catch (error) {
+      setBacktestFeedback(
+        error instanceof Error ? error.message : String(error),
+      );
+    } finally {
+      setDeletingBacktestId(undefined);
     }
   }
 
@@ -540,6 +576,27 @@ export function BotBacktestsPage() {
                           disabled={!hasSnapshot}
                         >
                           {hasSnapshot ? "Edit & Rerun" : "No Snapshot"}
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="danger"
+                          className="whitespace-nowrap"
+                          onClick={() => {
+                            void removeBacktest(backtest);
+                          }}
+                          disabled={
+                            backtest.status === "running" ||
+                            deletingBacktestId === backtest.id
+                          }
+                          title={
+                            backtest.status === "running"
+                              ? "Running backtests cannot be removed."
+                              : "Remove this backtest"
+                          }
+                        >
+                          {deletingBacktestId === backtest.id
+                            ? "Removing..."
+                            : "Remove"}
                         </Button>
                       </div>
                     </td>
