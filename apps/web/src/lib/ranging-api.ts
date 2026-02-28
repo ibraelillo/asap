@@ -24,6 +24,9 @@ const API_URL = (
 const KLINES_BASE_URL = (
   import.meta.env.VITE_RANGING_KLINES_BASE_URL || ""
 ).replace(/\/+$/, "");
+const SYMBOLS_BASE_URL = (
+  import.meta.env.VITE_RANGING_SYMBOLS_BASE_URL || ""
+).replace(/\/+$/, "");
 
 function encodePath(path: string): string {
   return path
@@ -225,7 +228,27 @@ export async function fetchAccounts(
 
 export async function fetchAccountSymbols(
   accountId: string,
+  exchangeId?: string,
 ): Promise<AccountSymbolSummary[]> {
+  if (exchangeId && SYMBOLS_BASE_URL) {
+    try {
+      const response = await fetch(
+        `${SYMBOLS_BASE_URL}/${encodeURIComponent(exchangeId)}/latest.json`,
+      );
+
+      if (response.ok) {
+        const payload = (await response.json()) as {
+          symbols?: AccountSymbolSummary[];
+        };
+        if (Array.isArray(payload.symbols)) {
+          return payload.symbols;
+        }
+      }
+    } catch {
+      // fall through to API fallback
+    }
+  }
+
   const payload = await getJson<{ symbols: AccountSymbolSummary[] }>(
     `/v1/accounts/${encodeURIComponent(accountId)}/symbols`,
   );

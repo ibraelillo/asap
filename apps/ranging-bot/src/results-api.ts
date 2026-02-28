@@ -88,6 +88,10 @@ import {
 } from "./runtime-config";
 import { loadConfiguredBots } from "./runtime-bots";
 import {
+  getCachedExchangeSymbols,
+  refreshExchangeSymbolsForAccount,
+} from "./symbol-catalog";
+import {
   createFailedValidationRecord,
   createPendingValidationRecord,
   createValidationIdentity,
@@ -1155,6 +1159,15 @@ export async function createAccountHandler(
     };
 
     await putAccountRecord(account);
+    try {
+      await refreshExchangeSymbolsForAccount(account);
+    } catch (error) {
+      console.warn("[account-api] symbol cache prime failed", {
+        accountId: account.id,
+        exchangeId: account.exchangeId,
+        error,
+      });
+    }
     return json(201, {
       generatedAt: new Date().toISOString(),
       account: toAccountSummary(account),
@@ -1225,6 +1238,17 @@ export async function patchAccountHandler(
     };
 
     await putAccountRecord(updated);
+    if (updated.status === "active") {
+      try {
+        await refreshExchangeSymbolsForAccount(updated);
+      } catch (error) {
+        console.warn("[account-api] symbol cache refresh failed", {
+          accountId: updated.id,
+          exchangeId: updated.exchangeId,
+          error,
+        });
+      }
+    }
     return json(200, {
       generatedAt: new Date().toISOString(),
       account: toAccountSummary(updated),
@@ -1253,20 +1277,34 @@ export async function accountSymbolsHandler(
       return json(409, { error: "account_not_active" });
     }
 
+    const cached = await getCachedExchangeSymbols(account.exchangeId);
+    if (cached && cached.symbols.length > 0) {
+      return json(200, {
+        generatedAt: new Date().toISOString(),
+        accountId: account.id,
+        exchangeId: account.exchangeId,
+        count: cached.symbols.length,
+        generatedAtSource: cached.generatedAt,
+        source: "cache",
+        symbols: cached.symbols,
+      });
+    }
+
     const adapter = exchangeAdapterRegistry.get(account.exchangeId);
     if (!adapter.createSymbolReader) {
       return json(400, { error: "symbol_listing_not_supported" });
     }
 
-    const reader = adapter.createSymbolReader(
-      createAccountExecutionContext(account),
-    );
-    const symbols = (await reader.listSymbols()) as AccountSymbolSummary[];
+    const refreshed = await refreshExchangeSymbolsForAccount(account);
+    const symbols = refreshed.symbols as AccountSymbolSummary[];
 
     return json(200, {
       generatedAt: new Date().toISOString(),
       accountId: account.id,
+      exchangeId: account.exchangeId,
       count: symbols.length,
+      generatedAtSource: refreshed.generatedAt,
+      source: "live",
       symbols,
     });
   } catch (error) {

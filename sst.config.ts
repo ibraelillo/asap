@@ -53,6 +53,8 @@ export default $config({
     const schedule = process.env.RANGING_SCHEDULE ?? "cron(0 * * * ? *)";
     const reconciliationSchedule =
       process.env.RANGING_RECONCILIATION_SCHEDULE ?? "rate(5 minutes)";
+    const symbolsRefreshSchedule =
+      process.env.RANGING_SYMBOLS_REFRESH_SCHEDULE ?? "rate(1 day)";
     const realtimeToken = process.env.RANGING_REALTIME_TOKEN ?? "";
     const realtimeTopicPrefix = `${$app.name}/${$app.stage}/ranging-bot`;
 
@@ -114,9 +116,18 @@ export default $config({
         to: "/$1",
       },
     });
+    router.routeBucket("/symbols", klineCacheBucket, {
+      rewrite: {
+        regex: "^/symbols/(.*)$",
+        to: "/$1",
+      },
+    });
 
     const klinesBaseUrl = router.url.apply(
       (url) => `${url.replace(/\/+$/, "")}/klines`,
+    );
+    const symbolsBaseUrl = router.url.apply(
+      (url) => `${url.replace(/\/+$/, "")}/symbols`,
     );
 
     const realtime = new sst.aws.Realtime("RangingRealtime", {
@@ -143,6 +154,7 @@ export default $config({
       RANGING_BOTS_JSON: botsJson,
       RANGING_KLINES_BUCKET: klineCacheBucket.name,
       RANGING_KLINES_PUBLIC_BASE_URL: klinesBaseUrl,
+      RANGING_SYMBOLS_PUBLIC_BASE_URL: symbolsBaseUrl,
       RANGING_BACKTEST_BUS_NAME: backtestBus.name,
       RANGING_VALIDATION_MODEL_PRIMARY: validationModelPrimary,
       RANGING_VALIDATION_MODEL_FALLBACK: validationModelFallback,
@@ -339,6 +351,7 @@ export default $config({
         VITE_RANGING_REALTIME_TOKEN: realtimeToken,
         VITE_RANGING_REALTIME_TOPIC_PREFIX: realtimeTopicPrefix,
         VITE_RANGING_KLINES_BASE_URL: klinesBaseUrl,
+        VITE_RANGING_SYMBOLS_BASE_URL: symbolsBaseUrl,
       },
       build: {
         command: "bun run build",
@@ -394,6 +407,23 @@ export default $config({
       },
     });
 
+    new sst.aws.Cron("RangingSymbolCatalogRefresh", {
+      schedule: symbolsRefreshSchedule,
+      function: {
+        handler: "apps/ranging-bot/src/symbol-catalog-worker.handler",
+        timeout: "2 minutes",
+        link: [runsTable, klineCacheBucket],
+        environment: {
+          RANGING_BOT_RUNS_TABLE: runsTable.name,
+          RANGING_KLINES_BUCKET: klineCacheBucket.name,
+          RANGING_SYMBOLS_PUBLIC_BASE_URL: symbolsBaseUrl,
+        },
+      },
+      event: {
+        trigger: "ranging-symbol-catalog-refresh",
+      },
+    });
+
     let botCount = DEFAULT_BOTS.length;
     try {
       const parsed = JSON.parse(botsJson);
@@ -408,6 +438,7 @@ export default $config({
       mode: "ranging-bot-scheduler",
       schedule,
       reconciliationSchedule,
+      symbolsRefreshSchedule,
       botCount,
       dryRun: process.env.RANGING_DRY_RUN ?? "true",
       webUrl: web.url,
@@ -417,6 +448,7 @@ export default $config({
       realtimeTopicPrefix,
       klineCacheBucket: klineCacheBucket.name,
       klinesBaseUrl,
+      symbolsBaseUrl,
       backtestBusName: backtestBus.name,
     };
   },

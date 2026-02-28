@@ -19,6 +19,7 @@ export interface ComboboxProps<T extends string = string> {
   className?: string;
   emptyState?: string;
   searchPlaceholder?: string;
+  maxVisibleOptions?: number;
 }
 
 function normalizeSearch(value: string): string {
@@ -33,6 +34,7 @@ export function Combobox<T extends string = string>({
   disabled = false,
   className,
   emptyState = "No matches found",
+  maxVisibleOptions = 50,
 }: ComboboxProps<T>) {
   const [query, setQuery] = useState("");
   const selectedOption =
@@ -48,6 +50,7 @@ export function Combobox<T extends string = string>({
       return haystack.includes(normalizedQuery);
     });
   }, [normalizedQuery, options]);
+  const visibleOptions = filteredOptions.slice(0, maxVisibleOptions);
   const ComboboxRoot = HeadlessCombobox as unknown as ComponentType<{
     value: SelectOption<T> | null;
     onChange: (option: SelectOption<T> | null) => void;
@@ -88,24 +91,32 @@ export function Combobox<T extends string = string>({
           {filteredOptions.length === 0 ? (
             <div className="px-3 py-2 text-sm text-slate-400">{emptyState}</div>
           ) : (
-            filteredOptions.map((option) => (
-              <ComboboxOption
-                key={option.value}
-                value={option}
-                disabled={option.disabled}
-                className="group flex cursor-default items-center justify-between rounded-xl px-3 py-2 text-sm text-slate-200 outline-none transition data-[focus]:bg-cyan-400/12 data-[focus]:text-cyan-50 data-[disabled]:cursor-not-allowed data-[disabled]:opacity-40"
-              >
-                <div>
-                  <div className="font-medium">{option.label}</div>
-                  {option.description ? (
-                    <div className="text-xs text-slate-400 group-data-[focus]:text-cyan-100/70">
-                      {option.description}
-                    </div>
-                  ) : null}
+            <>
+              {visibleOptions.map((option) => (
+                <ComboboxOption
+                  key={option.value}
+                  value={option}
+                  disabled={option.disabled}
+                  className="group flex cursor-default items-center justify-between rounded-xl px-3 py-2 text-sm text-slate-200 outline-none transition data-[focus]:bg-cyan-400/12 data-[focus]:text-cyan-50 data-[disabled]:cursor-not-allowed data-[disabled]:opacity-40"
+                >
+                  <div>
+                    <div className="font-medium">{option.label}</div>
+                    {option.description ? (
+                      <div className="text-xs text-slate-400 group-data-[focus]:text-cyan-100/70">
+                        {option.description}
+                      </div>
+                    ) : null}
+                  </div>
+                  <CheckIcon className="hidden h-4 w-4 text-cyan-300 group-data-[selected]:block" />
+                </ComboboxOption>
+              ))}
+              {filteredOptions.length > visibleOptions.length ? (
+                <div className="px-3 py-2 text-xs text-slate-400">
+                  Showing first {visibleOptions.length} matches out of{" "}
+                  {filteredOptions.length}. Keep typing to narrow the list.
                 </div>
-                <CheckIcon className="hidden h-4 w-4 text-cyan-300 group-data-[selected]:block" />
-              </ComboboxOption>
-            ))
+              ) : null}
+            </>
           )}
         </ComboboxOptions>
       </div>

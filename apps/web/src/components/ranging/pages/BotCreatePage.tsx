@@ -299,9 +299,10 @@ export function BotCreatePage() {
     isLoading: accountSymbolsLoading,
   } = useSWR(
     accountMode === "existing" && form.accountId
-      ? ["account-symbols", form.accountId]
+      ? ["account-symbols", form.accountId, form.exchangeId]
       : null,
-    ([, accountId]) => fetchAccountSymbols(String(accountId)),
+    ([, accountId, exchangeId]) =>
+      fetchAccountSymbols(String(accountId), String(exchangeId)),
     { revalidateOnFocus: false },
   );
 
