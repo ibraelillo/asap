@@ -32,7 +32,10 @@ export default $config({
     const kucoinApiKey = process.env.KUCOIN_API_KEY ?? "";
     const kucoinApiSecret = process.env.KUCOIN_API_SECRET ?? "";
     const kucoinApiPassphrase = process.env.KUCOIN_API_PASSPHRASE ?? "";
-    const openAiApiKey = new sst.Secret("OpenAiApiKey", "");
+    const openAiApiKey = new sst.Secret(
+      "OpenAiApiKey",
+      process.env.OPENAI_API_KEY?.trim() || "set-me-with-sst-secret",
+    );
     const validationModelPrimary =
       process.env.RANGING_VALIDATION_MODEL_PRIMARY ?? "gpt-5-nano-2025-08-07";
     const validationModelFallback =
