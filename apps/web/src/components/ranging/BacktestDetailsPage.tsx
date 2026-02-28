@@ -16,6 +16,7 @@ import type { BacktestRecord, BacktestTrade } from "../../types/ranging-dashboar
 import { BacktestReplayChart } from "./BacktestReplayChart";
 import { BacktestConfigDrawer } from "./BacktestConfigDrawer";
 import { StrategyConfigSnapshot } from "./StrategyConfigSnapshot";
+import { asRecord, mergeConfigDefaults } from "./config-utils";
 
 interface BacktestDetailsPageProps {
   botId: string;
@@ -137,10 +138,14 @@ export function BacktestDetailsPage({
 
   const { backtest } = details;
   const strategySummary = strategyDetails?.strategy;
-  const backtestStrategyConfig =
-    backtest.strategyConfig && typeof backtest.strategyConfig === "object"
-      ? backtest.strategyConfig
-      : {};
+  const backtestStrategyConfig = useMemo(
+    () =>
+      mergeConfigDefaults(
+        asRecord(strategySummary?.configDefaults),
+        asRecord(backtest.strategyConfig),
+      ),
+    [strategySummary, backtest.strategyConfig],
+  );
   const hasSnapshot = Object.keys(backtestStrategyConfig).length > 0;
 
   return (

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import useSWR, { useSWRConfig } from "swr";
 import {
   CheckCircle2,
@@ -28,18 +28,9 @@ import {
   type StrategyConfigEditorHandle,
 } from "../StrategyConfigEditor";
 import { BacktestConfigDrawer } from "../BacktestConfigDrawer";
+import { asRecord, cloneRecord, mergeConfigDefaults } from "../config-utils";
 
 type DrawerMode = "bot-settings" | "new-backtest" | "rerun-backtest" | null;
-
-function asRecord(value: unknown): Record<string, unknown> {
-  return value && typeof value === "object"
-    ? (value as Record<string, unknown>)
-    : {};
-}
-
-function cloneRecord<T extends Record<string, unknown>>(value: T): T {
-  return JSON.parse(JSON.stringify(value)) as T;
-}
 
 function normalizeConfigString(value: unknown): string {
   return JSON.stringify(asRecord(value));
@@ -166,13 +157,22 @@ export function BotBacktestsPage() {
     { revalidateOnFocus: false },
   );
 
+  const currentBotStrategyConfig = useMemo(
+    () =>
+      mergeConfigDefaults(
+        asRecord(strategyDetails?.strategy.configDefaults),
+        asRecord(botDetails?.bot.runtime.strategyConfig),
+      ),
+    [strategyDetails, botDetails],
+  );
+
   useEffect(() => {
     if (!botDetails) return;
 
-    const nextConfig = cloneRecord(asRecord(botDetails.bot.runtime.strategyConfig));
+    const nextConfig = cloneRecord(currentBotStrategyConfig);
     setDraftBotStrategyConfig(nextConfig);
     botStrategyConfigEditorRef.current?.resetDrafts();
-  }, [botDetails]);
+  }, [botDetails?.bot.updatedAtMs, strategyDetails?.strategy.strategyId]);
 
   if (!botId) {
     return <Navigate to="/bots" replace />;
@@ -185,12 +185,19 @@ export function BotBacktestsPage() {
         ? botDetails.bot.symbol
         : botId;
   const strategySummary = strategyDetails?.strategy;
-  const currentBotStrategyConfig = asRecord(botDetails?.bot.runtime.strategyConfig);
   const currentBotConfigString = normalizeConfigString(currentBotStrategyConfig);
   const selectedBacktest =
     selectedBacktestId !== undefined
       ? (backtests ?? []).find((entry) => entry.id === selectedBacktestId)
       : undefined;
+  const selectedBacktestStrategyConfig = useMemo(
+    () =>
+      mergeConfigDefaults(
+        asRecord(strategySummary?.configDefaults),
+        asRecord(selectedBacktest?.strategyConfig),
+      ),
+    [strategySummary, selectedBacktest],
+  );
   function openBotSettingsDrawer() {
     const nextConfig = cloneRecord(currentBotStrategyConfig);
     setDraftBotStrategyConfig(nextConfig);
@@ -734,7 +741,7 @@ export function BotBacktestsPage() {
         seed={
           selectedBacktest
             ? {
-                strategyConfig: selectedBacktest.strategyConfig,
+                strategyConfig: selectedBacktestStrategyConfig,
                 fromMs: selectedBacktest.fromMs,
                 toMs: selectedBacktest.toMs,
                 initialEquity: selectedBacktest.initialEquity,

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import useSWR, { useSWRConfig } from "swr";
 import {
   Activity,
@@ -29,16 +29,7 @@ import {
   StrategyConfigEditor,
   type StrategyConfigEditorHandle,
 } from "../StrategyConfigEditor";
-
-function asRecord(value: unknown): Record<string, unknown> {
-  return value && typeof value === "object"
-    ? (value as Record<string, unknown>)
-    : {};
-}
-
-function cloneRecord<T extends Record<string, unknown>>(value: T): T {
-  return JSON.parse(JSON.stringify(value)) as T;
-}
+import { asRecord, cloneRecord, mergeConfigDefaults } from "../config-utils";
 
 export function BotDetailsPage() {
   const { botId } = useParams<{ botId: string }>();
@@ -88,14 +79,21 @@ export function BotDetailsPage() {
     { revalidateOnFocus: false },
   );
 
+  const effectiveBotStrategyConfig = useMemo(
+    () =>
+      mergeConfigDefaults(
+        asRecord(strategyDetails?.strategy.configDefaults),
+        asRecord(botDetails?.bot.runtime.strategyConfig),
+      ),
+    [strategyDetails, botDetails],
+  );
+
   useEffect(() => {
     if (!botDetails) return;
 
-    setDraftStrategyConfig(
-      cloneRecord(asRecord(botDetails.bot.runtime.strategyConfig)),
-    );
+    setDraftStrategyConfig(cloneRecord(effectiveBotStrategyConfig));
     strategyConfigEditorRef.current?.resetDrafts();
-  }, [botDetails]);
+  }, [botDetails?.bot.updatedAtMs, strategyDetails?.strategy.strategyId]);
 
   if (!botId) {
     return <Navigate to="/bots" replace />;
@@ -443,9 +441,7 @@ export function BotDetailsPage() {
                     setConfigError(undefined);
                     setConfigSuccess(undefined);
                     setDraftStrategyConfig(
-                      cloneRecord(
-                        asRecord(botDetails.bot.runtime.strategyConfig),
-                      ),
+                      cloneRecord(effectiveBotStrategyConfig),
                     );
                   }}
                 >
