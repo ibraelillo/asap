@@ -2174,14 +2174,25 @@ async function enqueueBacktestForBot(
     return json(400, { error: "invalid_ai_config" });
   }
 
+  const defaultStrategyConfig = toStrategyConfigRecord(
+    manifest.getDefaultConfig(),
+  );
+  const botEffectiveStrategyConfig = mergeStrategyConfigDefaults(
+    defaultStrategyConfig,
+    toStrategyConfigRecord(bot.runtime.strategyConfig ?? bot.strategyConfig),
+  );
+  const requestedStrategyConfig =
+    body.strategyConfig !== undefined
+      ? mergeStrategyConfigDefaults(
+          botEffectiveStrategyConfig,
+          toStrategyConfigRecord(body.strategyConfig),
+        )
+      : botEffectiveStrategyConfig;
+
   let resolvedStrategyConfig: Record<string, unknown>;
   try {
     resolvedStrategyConfig = toStrategyConfigRecord(
-      manifest.resolveConfig(
-        body.strategyConfig !== undefined
-          ? toStrategyConfigRecord(body.strategyConfig)
-          : toStrategyConfigRecord(bot.strategyConfig),
-      ),
+      manifest.resolveConfig(requestedStrategyConfig),
     );
   } catch (error) {
     return json(400, {

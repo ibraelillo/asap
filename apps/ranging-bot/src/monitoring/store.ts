@@ -583,6 +583,10 @@ function fromBacktestItem(item: Record<string, unknown>): BacktestRecord {
       item.secondaryRangeTimeframe,
     ) as BacktestRecord["secondaryRangeTimeframe"],
     initialEquity: Number(item.initialEquity),
+    strategyConfig:
+      item.strategyConfig && typeof item.strategyConfig === "object"
+        ? (item.strategyConfig as Record<string, unknown>)
+        : {},
     totalTrades: Number(item.totalTrades),
     wins: Number(item.wins),
     losses: Number(item.losses),
