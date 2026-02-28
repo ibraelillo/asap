@@ -36,6 +36,11 @@ export default $config({
       "OpenAiApiKey",
       process.env.OPENAI_API_KEY?.trim() || "set-me-with-sst-secret",
     );
+    const accountsEncryptionKey = new sst.Secret(
+      "AccountsEncryptionKey",
+      process.env.ACCOUNTS_ENCRYPTION_KEY?.trim() ||
+        "set-me-with-sst-account-key",
+    );
     const validationModelPrimary =
       process.env.RANGING_VALIDATION_MODEL_PRIMARY ?? "gpt-5-nano-2025-08-07";
     const validationModelFallback =
@@ -66,6 +71,24 @@ export default $config({
       },
       globalIndexes: {
         BySymbol: {
+          hashKey: "GSI1PK",
+          rangeKey: "GSI1SK",
+        },
+      },
+    });
+    const accountsTable = new sst.aws.Dynamo("RangingAccounts", {
+      fields: {
+        PK: "string",
+        SK: "string",
+        GSI1PK: "string",
+        GSI1SK: "string",
+      },
+      primaryIndex: {
+        hashKey: "PK",
+        rangeKey: "SK",
+      },
+      globalIndexes: {
+        ByName: {
           hashKey: "GSI1PK",
           rangeKey: "GSI1SK",
         },
@@ -137,7 +160,14 @@ export default $config({
     });
 
     const api = new sst.aws.ApiGatewayV2("RangingBotApi", {
-      link: [runsTable, klineCacheBucket, backtestBus, runtimeConfig],
+      link: [
+        runsTable,
+        accountsTable,
+        klineCacheBucket,
+        backtestBus,
+        runtimeConfig,
+        accountsEncryptionKey,
+      ],
       cors: {
         allowMethods: ["GET", "POST", "PATCH", "OPTIONS"],
         allowOrigins: ["*"],
@@ -300,7 +330,13 @@ export default $config({
       function: {
         handler: "apps/ranging-bot/src/tick.handler",
         timeout: "55 seconds",
-        link: [runsTable, realtime, runtimeConfig],
+        link: [
+          runsTable,
+          accountsTable,
+          realtime,
+          runtimeConfig,
+          accountsEncryptionKey,
+        ],
         environment: {
           KUCOIN_API_KEY: kucoinApiKey,
           KUCOIN_API_SECRET: kucoinApiSecret,
@@ -317,7 +353,7 @@ export default $config({
       function: {
         handler: "apps/ranging-bot/src/reconciliation-worker.handler",
         timeout: "55 seconds",
-        link: [runsTable, runtimeConfig],
+        link: [runsTable, accountsTable, runtimeConfig, accountsEncryptionKey],
         environment: {
           KUCOIN_API_KEY: kucoinApiKey,
           KUCOIN_API_SECRET: kucoinApiSecret,
@@ -354,6 +390,7 @@ export default $config({
       realtimeEndpoint: realtime.endpoint,
       realtimeTopicPrefix,
       klineCacheBucket: klineCacheBucket.name,
+      accountsTable: accountsTable.name,
       klinesBaseUrl,
       symbolsBaseUrl,
       backtestBusName: backtestBus.name,

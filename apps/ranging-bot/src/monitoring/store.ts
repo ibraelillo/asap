@@ -1,5 +1,6 @@
 import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
 import {
+  DeleteCommand,
   DynamoDBDocumentClient,
   GetCommand,
   PutCommand,
@@ -8,6 +9,11 @@ import {
   type QueryCommandInput,
 } from "@aws-sdk/lib-dynamodb";
 import { Resource } from "sst";
+import {
+  decryptAccountAuth,
+  encryptAccountAuth,
+  type EncryptedAccountAuthPayload,
+} from "../account-crypto";
 import type {
   AccountRecord,
   BacktestAiEvaluation,
@@ -33,6 +39,7 @@ const PK_CURSOR = "CURSOR";
 const PK_BOT_PREFIX = "BOT#";
 const PK_ACCOUNT_PREFIX = "ACCOUNT#";
 const GSI_BY_SYMBOL = "BySymbol";
+const ACCOUNTS_GSI_BY_NAME = "ByName";
 
 let cachedDocClient: DynamoDBDocumentClient | null = null;
 
@@ -58,6 +65,17 @@ function getTableName(): string {
   if (fromResource) return fromResource;
 
   throw new Error("Missing linked Resource.RangingBotRuns");
+}
+
+function getAccountsTableName(): string {
+  const resources = Resource as unknown as Record<
+    string,
+    { name?: string } | undefined
+  >;
+  const fromResource = resources.RangingAccounts?.name;
+  if (fromResource) return fromResource;
+
+  throw new Error("Missing linked Resource.RangingAccounts");
 }
 
 function normalizeLimit(limit?: number): number {
@@ -141,12 +159,29 @@ function toBotItem(record: BotRecord): Record<string, unknown> {
 }
 
 function toAccountItem(record: AccountRecord): Record<string, unknown> {
+  const encryptedAuth = encryptAccountAuth(record.auth, {
+    accountId: record.id,
+    exchangeId: record.exchangeId,
+  });
+
   return {
     PK: accountPartitionKey(record.id),
     SK: accountSortKey(record.id),
     GSI1PK: "ACCOUNTDEF",
     GSI1SK: `${record.exchangeId}#${record.name}#${record.id}`,
-    ...record,
+    accountId: record.id,
+    name: record.name,
+    exchangeId: record.exchangeId,
+    status: record.status,
+    createdAtMs: record.createdAtMs,
+    updatedAtMs: record.updatedAtMs,
+    metadata: record.metadata,
+    hasAuth: {
+      apiKey: record.auth.apiKey.trim().length > 0,
+      apiSecret: record.auth.apiSecret.trim().length > 0,
+      apiPassphrase: (record.auth.apiPassphrase?.trim().length ?? 0) > 0,
+    },
+    encryptedAuth,
   };
 }
 
@@ -847,6 +882,80 @@ function fromAccountItem(
       : undefined;
   const createdAtMs = Number(item.createdAtMs);
   const updatedAtMs = Number(item.updatedAtMs);
+  if (!id || !name || !exchangeId || !status) return undefined;
+  if (!Number.isFinite(createdAtMs) || !Number.isFinite(updatedAtMs))
+    return undefined;
+
+  const encryptedAuth =
+    item.encryptedAuth && typeof item.encryptedAuth === "object"
+      ? (item.encryptedAuth as Record<string, unknown>)
+      : undefined;
+  const alg =
+    typeof encryptedAuth?.alg === "string" ? encryptedAuth.alg : undefined;
+  const v = Number(encryptedAuth?.v);
+  const iv =
+    typeof encryptedAuth?.iv === "string" ? encryptedAuth.iv : undefined;
+  const tag =
+    typeof encryptedAuth?.tag === "string" ? encryptedAuth.tag : undefined;
+  const ciphertext =
+    typeof encryptedAuth?.ciphertext === "string"
+      ? encryptedAuth.ciphertext
+      : undefined;
+
+  if (!alg || !Number.isFinite(v) || !iv || !tag || !ciphertext) {
+    return undefined;
+  }
+
+  let auth;
+  try {
+    if (v !== 1) {
+      return undefined;
+    }
+    auth = decryptAccountAuth(
+      {
+        alg: alg as EncryptedAccountAuthPayload["alg"],
+        v: 1,
+        iv,
+        tag,
+        ciphertext,
+      },
+      {
+        accountId: id,
+        exchangeId,
+      },
+    );
+  } catch {
+    return undefined;
+  }
+
+  return {
+    id,
+    name,
+    exchangeId,
+    status,
+    auth,
+    metadata:
+      item.metadata && typeof item.metadata === "object"
+        ? (item.metadata as Record<string, unknown>)
+        : undefined,
+    createdAtMs,
+    updatedAtMs,
+  };
+}
+
+function fromLegacyAccountItem(
+  item: Record<string, unknown>,
+): AccountRecord | undefined {
+  const id = typeof item.id === "string" ? item.id : undefined;
+  const name = typeof item.name === "string" ? item.name : undefined;
+  const exchangeId =
+    typeof item.exchangeId === "string" ? item.exchangeId : undefined;
+  const status =
+    item.status === "active" || item.status === "archived"
+      ? item.status
+      : undefined;
+  const createdAtMs = Number(item.createdAtMs);
+  const updatedAtMs = Number(item.updatedAtMs);
   const auth =
     item.auth && typeof item.auth === "object"
       ? (item.auth as Record<string, unknown>)
@@ -872,6 +981,10 @@ function fromAccountItem(
       apiSecret,
       apiPassphrase,
     },
+    metadata:
+      item.metadata && typeof item.metadata === "object"
+        ? (item.metadata as Record<string, unknown>)
+        : undefined,
     createdAtMs,
     updatedAtMs,
   };
@@ -1169,11 +1282,25 @@ async function queryBots(input: QueryCommandInput): Promise<BotRecord[]> {
 }
 
 async function queryAccounts(
+  input: Omit<QueryCommandInput, "TableName">,
+): Promise<AccountRecord[]> {
+  const tableName = getAccountsTableName();
+  const items = await queryItems({
+    ...input,
+    TableName: tableName,
+  });
+  return items
+    .map((item) => fromAccountItem(item))
+    .filter((item): item is AccountRecord => Boolean(item))
+    .sort((a, b) => a.name.localeCompare(b.name));
+}
+
+async function queryLegacyAccounts(
   input: QueryCommandInput,
 ): Promise<AccountRecord[]> {
   const items = await queryItems(input);
   return items
-    .map((item) => fromAccountItem(item))
+    .map((item) => fromLegacyAccountItem(item))
     .filter((item): item is AccountRecord => Boolean(item))
     .sort((a, b) => a.name.localeCompare(b.name));
 }
@@ -1218,6 +1345,29 @@ async function queryReconciliations(
     .sort((a, b) => b.createdAtMs - a.createdAtMs);
 }
 
+async function migrateLegacyAccountIfNeeded(
+  record: AccountRecord,
+): Promise<void> {
+  try {
+    await putAccountRecord(record);
+    await getDocClient().send(
+      new DeleteCommand({
+        TableName: getTableName(),
+        Key: {
+          PK: accountPartitionKey(record.id),
+          SK: accountSortKey(record.id),
+        },
+      }),
+    );
+  } catch (error) {
+    console.warn("[store] failed to migrate legacy account to secure store", {
+      accountId: record.id,
+      exchangeId: record.exchangeId,
+      error,
+    });
+  }
+}
+
 export async function putRunRecord(record: BotRunRecord): Promise<void> {
   const client = getDocClient();
   const tableName = getTableName();
@@ -1244,7 +1394,7 @@ export async function putBotRecord(record: BotRecord): Promise<void> {
 
 export async function putAccountRecord(record: AccountRecord): Promise<void> {
   const client = getDocClient();
-  const tableName = getTableName();
+  const tableName = getAccountsTableName();
 
   await client.send(
     new PutCommand({
@@ -1434,28 +1584,50 @@ export async function listBotRecords(limit?: number): Promise<BotRecord[]> {
 export async function listAccountRecords(
   limit?: number,
 ): Promise<AccountRecord[]> {
-  const tableName = getTableName();
-  return queryAccounts({
-    TableName: tableName,
+  const normalizedLimit = normalizeLimit(limit);
+  const secureAccounts = await queryAccounts({
+    IndexName: ACCOUNTS_GSI_BY_NAME,
+    KeyConditionExpression: "GSI1PK = :pk",
+    ExpressionAttributeValues: {
+      ":pk": "ACCOUNTDEF",
+    },
+    ScanIndexForward: true,
+    Limit: normalizedLimit,
+  });
+  const legacyAccounts = await queryLegacyAccounts({
+    TableName: getTableName(),
     IndexName: GSI_BY_SYMBOL,
     KeyConditionExpression: "GSI1PK = :pk",
     ExpressionAttributeValues: {
       ":pk": "ACCOUNTDEF",
     },
     ScanIndexForward: true,
-    Limit: normalizeLimit(limit),
+    Limit: normalizedLimit,
   });
+
+  const merged = new Map(
+    secureAccounts.map((account) => [account.id, account]),
+  );
+  for (const account of legacyAccounts) {
+    if (!merged.has(account.id)) {
+      merged.set(account.id, account);
+      await migrateLegacyAccountIfNeeded(account);
+    }
+  }
+
+  return [...merged.values()]
+    .sort((a, b) => a.name.localeCompare(b.name))
+    .slice(0, normalizedLimit);
 }
 
 export async function getAccountRecordById(
   accountId: string,
 ): Promise<AccountRecord | undefined> {
-  const tableName = getTableName();
   const client = getDocClient();
 
-  const result = await client.send(
+  const secureResult = await client.send(
     new GetCommand({
-      TableName: tableName,
+      TableName: getAccountsTableName(),
       Key: {
         PK: accountPartitionKey(accountId),
         SK: accountSortKey(accountId),
@@ -1463,8 +1635,28 @@ export async function getAccountRecordById(
     }),
   );
 
-  if (!result.Item) return undefined;
-  return fromAccountItem(result.Item as Record<string, unknown>);
+  if (secureResult.Item) {
+    return fromAccountItem(secureResult.Item as Record<string, unknown>);
+  }
+
+  const legacyResult = await client.send(
+    new GetCommand({
+      TableName: getTableName(),
+      Key: {
+        PK: accountPartitionKey(accountId),
+        SK: accountSortKey(accountId),
+      },
+    }),
+  );
+
+  if (!legacyResult.Item) return undefined;
+  const legacy = fromLegacyAccountItem(
+    legacyResult.Item as Record<string, unknown>,
+  );
+  if (legacy) {
+    await migrateLegacyAccountIfNeeded(legacy);
+  }
+  return legacy;
 }
 
 export async function getBotRecordById(
