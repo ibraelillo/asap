@@ -146,17 +146,19 @@ export function BacktestDetailsPage({
 
   const { backtest } = details;
   const strategySummary = strategyDetails?.strategy;
-  const backtestStrategyConfig = mergeConfigDefaults(
+  const storedBacktestStrategyConfig = asRecord(backtest.strategyConfig);
+  const effectiveBacktestStrategyConfig = mergeConfigDefaults(
     asRecord(strategySummary?.configDefaults),
-    asRecord(backtest.strategyConfig),
+    storedBacktestStrategyConfig,
   );
   const currentBotStrategyConfig = mergeConfigDefaults(
     asRecord(strategySummary?.configDefaults),
     asRecord(botDetails?.bot.runtime.strategyConfig),
   );
-  const hasSnapshot = Object.keys(backtestStrategyConfig).length > 0;
+  const hasSnapshot = Object.keys(storedBacktestStrategyConfig).length > 0;
   const isLiveConfig =
-    hasSnapshot && configsEqual(backtestStrategyConfig, currentBotStrategyConfig);
+    hasSnapshot &&
+    configsEqual(effectiveBacktestStrategyConfig, currentBotStrategyConfig);
 
   return (
     <div className="space-y-6">
@@ -284,10 +286,10 @@ export function BacktestDetailsPage({
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
           <div>
             <h3 className="text-lg font-semibold text-slate-100">
-              Strategy Snapshot
+              Backtest Settings
             </h3>
             <p className="text-xs text-slate-400">
-              Settings frozen into this backtest at queue time.
+              Persisted settings frozen into this backtest at queue time.
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
@@ -307,12 +309,13 @@ export function BacktestDetailsPage({
         {hasSnapshot ? (
           <>
             <p className="mb-4 text-sm text-slate-400">
-              Use the edit-and-rerun flow to fork this exact snapshot, adjust
-              the parameters, and open the new replay immediately.
+              This panel shows the exact settings stored on this backtest.
+              Use edit-and-rerun to fork this snapshot, change values, and open
+              the new replay immediately.
             </p>
             <StrategySummaryConfigSnapshot
               strategy={strategySummary}
-              config={backtestStrategyConfig}
+              config={storedBacktestStrategyConfig}
             />
           </>
         ) : (

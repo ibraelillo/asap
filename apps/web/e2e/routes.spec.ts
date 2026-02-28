@@ -210,7 +210,7 @@ test("backtest replay page renders charts without browser errors", async ({
     ),
   ).toBeVisible();
   await expect(page.getByText("AI-integrated")).toBeVisible();
-  await expect(page.getByText("Strategy Snapshot")).toBeVisible();
+  await expect(page.getByText("Backtest Settings")).toBeVisible();
   await expect(page.getByRole("button", { name: "Edit & Rerun" })).toBeVisible();
   await page.getByRole("button", { name: "Edit & Rerun" }).click();
   const rerunDrawer = page.getByRole("dialog");
