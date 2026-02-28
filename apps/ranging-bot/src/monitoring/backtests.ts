@@ -14,6 +14,7 @@ import {
   normalizeKlineReference,
   saveBacktestKlineCache,
 } from "./kline-cache";
+import { getOpenAiApiKey } from "../openai-secret";
 import type {
   BacktestAiConfig,
   BacktestAiEvaluation,
@@ -388,11 +389,7 @@ function normalizeValidationResult(
 }
 
 function requireOpenAiApiKey(): string {
-  const apiKey = process.env.OPENAI_API_KEY;
-  if (!apiKey || apiKey.trim().length === 0) {
-    throw new Error("Missing OPENAI_API_KEY in backtest worker environment");
-  }
-  return apiKey.trim();
+  return getOpenAiApiKey();
 }
 
 async function callOpenAiModel(

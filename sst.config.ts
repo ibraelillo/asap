@@ -32,7 +32,7 @@ export default $config({
     const kucoinApiKey = process.env.KUCOIN_API_KEY ?? "";
     const kucoinApiSecret = process.env.KUCOIN_API_SECRET ?? "";
     const kucoinApiPassphrase = process.env.KUCOIN_API_PASSPHRASE ?? "";
-    const openAiApiKey = process.env.OPENAI_API_KEY ?? "";
+    const openAiApiKey = new sst.Secret("OpenAiApiKey", "");
     const validationModelPrimary =
       process.env.RANGING_VALIDATION_MODEL_PRIMARY ?? "gpt-5-nano-2025-08-07";
     const validationModelFallback =
@@ -242,10 +242,7 @@ export default $config({
       {
         handler: "apps/ranging-bot/src/backtest-worker.handler",
         timeout: "15 minutes",
-        link: [runsTable, klineCacheBucket, runtimeConfig],
-        environment: {
-          OPENAI_API_KEY: openAiApiKey,
-        },
+        link: [runsTable, klineCacheBucket, runtimeConfig, openAiApiKey],
       },
       {
         pattern: {
@@ -260,10 +257,7 @@ export default $config({
       {
         handler: "apps/ranging-bot/src/validation-worker.handler",
         timeout: "2 minutes",
-        link: [runsTable, runtimeConfig],
-        environment: {
-          OPENAI_API_KEY: openAiApiKey,
-        },
+        link: [runsTable, runtimeConfig, openAiApiKey],
       },
       {
         pattern: {

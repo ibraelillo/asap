@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import useSWR, { useSWRConfig } from "swr";
 import {
   Activity,
@@ -12,6 +12,7 @@ import { Link, Navigate, useNavigate, useParams } from "react-router-dom";
 import { Button } from "@repo/ui";
 import { MetricCard } from "../../trade-results/MetricCard";
 import {
+  fetchStrategyDetails,
   fetchBotDetails,
   fetchBotPositions,
   fetchBotStats,
@@ -24,15 +25,36 @@ import {
   formatCurrency,
   formatDateTime,
 } from "../BotUi";
+import {
+  StrategyConfigEditor,
+  type StrategyConfigEditorHandle,
+} from "../StrategyConfigEditor";
+
+function asRecord(value: unknown): Record<string, unknown> {
+  return value && typeof value === "object"
+    ? (value as Record<string, unknown>)
+    : {};
+}
+
+function cloneRecord<T extends Record<string, unknown>>(value: T): T {
+  return JSON.parse(JSON.stringify(value)) as T;
+}
 
 export function BotDetailsPage() {
   const { botId } = useParams<{ botId: string }>();
   const navigate = useNavigate();
   const { mutate } = useSWRConfig();
+  const strategyConfigEditorRef = useRef<StrategyConfigEditorHandle>(null);
   const [actionError, setActionError] = useState<string | undefined>();
   const [actionLoading, setActionLoading] = useState<
     "pause" | "resume" | "archive" | null
   >(null);
+  const [configError, setConfigError] = useState<string | undefined>();
+  const [configSuccess, setConfigSuccess] = useState<string | undefined>();
+  const [configSaving, setConfigSaving] = useState(false);
+  const [draftStrategyConfig, setDraftStrategyConfig] = useState<
+    Record<string, unknown>
+  >({});
 
   const {
     data: botDetails,
@@ -58,6 +80,24 @@ export function BotDetailsPage() {
     ([, id]) => fetchBotPositions(String(id)),
     { refreshInterval: 20_000, revalidateOnFocus: false },
   );
+  const { data: strategyDetails } = useSWR(
+    botDetails?.bot.strategyId
+      ? ["strategy-details", botDetails.bot.strategyId]
+      : null,
+    ([, strategyId]) => fetchStrategyDetails(String(strategyId)),
+    { revalidateOnFocus: false },
+  );
+
+  useEffect(() => {
+    if (!botDetails) return;
+
+    setDraftStrategyConfig(
+      cloneRecord(asRecord(botDetails.bot.runtime.strategyConfig)),
+    );
+    strategyConfigEditorRef.current?.resetDrafts();
+    setConfigError(undefined);
+    setConfigSuccess(undefined);
+  }, [botDetails]);
 
   if (!botId) {
     return <Navigate to="/bots" replace />;
@@ -90,10 +130,9 @@ export function BotDetailsPage() {
   const recentBacktests = botDetails.backtests.slice(0, 6);
   const recentValidations = botDetails.validations.slice(0, 6);
   const botStatus = botDetails.bot.status;
+  const strategySummary = strategyDetails?.strategy;
 
-  async function updateBotStatus(
-    nextStatus: "active" | "paused" | "archived",
-  ) {
+  async function updateBotStatus(nextStatus: "active" | "paused" | "archived") {
     if (!botId) return;
     setActionError(undefined);
     setActionLoading(
@@ -119,6 +158,41 @@ export function BotDetailsPage() {
       setActionError(error instanceof Error ? error.message : String(error));
     } finally {
       setActionLoading(null);
+    }
+  }
+
+  async function saveStrategyConfig() {
+    if (!botId) return;
+
+    const resolved = strategyConfigEditorRef.current?.resolveForSubmit() ?? {
+      valid: true,
+      config: asRecord(draftStrategyConfig),
+    };
+    if (!resolved.valid) {
+      setConfigError("Fix the highlighted strategy parameters before saving.");
+      setConfigSuccess(undefined);
+      return;
+    }
+
+    setConfigSaving(true);
+    setConfigError(undefined);
+    setConfigSuccess(undefined);
+
+    try {
+      await patchBot(botId, {
+        strategyConfig: resolved.config,
+      });
+      setDraftStrategyConfig(cloneRecord(resolved.config));
+      setConfigSuccess("Strategy config updated.");
+      await Promise.all([
+        mutate(["bot-details", botId]),
+        mutate(["bot-stats", botId]),
+        mutate("ranging-dashboard"),
+      ]);
+    } catch (error) {
+      setConfigError(error instanceof Error ? error.message : String(error));
+    } finally {
+      setConfigSaving(false);
     }
   }
 
@@ -314,7 +388,9 @@ export function BotDetailsPage() {
           <div className="grid grid-cols-2 gap-4 text-sm text-slate-200">
             <div>
               <p className="text-xs text-slate-400">Execution TF</p>
-              <p className="mt-1">{botDetails.bot.runtime.executionTimeframe}</p>
+              <p className="mt-1">
+                {botDetails.bot.runtime.executionTimeframe}
+              </p>
             </div>
             <div>
               <p className="text-xs text-slate-400">Execution Limit</p>
@@ -322,7 +398,9 @@ export function BotDetailsPage() {
             </div>
             <div>
               <p className="text-xs text-slate-400">Primary Range TF</p>
-              <p className="mt-1">{botDetails.bot.runtime.primaryRangeTimeframe}</p>
+              <p className="mt-1">
+                {botDetails.bot.runtime.primaryRangeTimeframe}
+              </p>
             </div>
             <div>
               <p className="text-xs text-slate-400">Secondary Range TF</p>
@@ -340,6 +418,63 @@ export function BotDetailsPage() {
               <p className="text-xs text-slate-400">Value Qty</p>
               <p className="mt-1">{botDetails.bot.runtime.valueQty ?? "-"}</p>
             </div>
+          </div>
+
+          <div className="mt-6 space-y-4 border-t border-white/10 pt-5">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <p className="text-xs uppercase tracking-[0.18em] text-slate-400">
+                  Strategy Parameters
+                </p>
+                <h3 className="mt-1 text-lg font-semibold text-slate-100">
+                  {strategySummary?.label ?? botDetails.bot.strategyId}
+                </h3>
+                <p className="mt-1 text-sm text-slate-300/80">
+                  {strategySummary?.description ??
+                    "Bot-scoped strategy config persisted with this runtime contract."}
+                </p>
+              </div>
+
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  disabled={configSaving}
+                  onClick={() => {
+                    strategyConfigEditorRef.current?.resetDrafts();
+                    setDraftStrategyConfig(
+                      cloneRecord(
+                        asRecord(botDetails.bot.runtime.strategyConfig),
+                      ),
+                    );
+                  }}
+                >
+                  Reset
+                </Button>
+                <Button
+                  size="sm"
+                  disabled={configSaving || !strategySummary}
+                  onClick={() => void saveStrategyConfig()}
+                >
+                  {configSaving ? "Saving..." : "Save Strategy Config"}
+                </Button>
+              </div>
+            </div>
+
+            <StrategyConfigEditor
+              ref={strategyConfigEditorRef}
+              strategy={strategySummary}
+              value={draftStrategyConfig}
+              onChange={setDraftStrategyConfig}
+              emptyState="Loading strategy schema..."
+            />
+
+            {configError ? (
+              <p className="text-sm text-rose-300">{configError}</p>
+            ) : null}
+            {configSuccess ? (
+              <p className="text-sm text-emerald-300">{configSuccess}</p>
+            ) : null}
           </div>
         </div>
 

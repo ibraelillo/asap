@@ -23,6 +23,7 @@ import {
   type CreateValidationInput,
   type ValidationIdentity,
 } from "./monitoring/validations";
+import { getOpenAiApiKey } from "./openai-secret";
 
 const MIN_REQUIRED_CANDLES = 60;
 
@@ -372,10 +373,7 @@ async function callOpenAiModel(
   candles: Candle[],
   maxOutputTokensOverride?: number,
 ): Promise<RangeValidationResult> {
-  const apiKey = process.env.OPENAI_API_KEY;
-  if (!apiKey || apiKey.trim().length === 0) {
-    throw new Error("Missing OPENAI_API_KEY in validation worker environment");
-  }
+  const apiKey = getOpenAiApiKey();
   const defaults = getValidationDefaults();
 
   const payload = buildPromptPayload(detail, candles);
@@ -387,7 +385,7 @@ async function callOpenAiModel(
       method: "POST",
       headers: {
         "content-type": "application/json",
-        authorization: `Bearer ${apiKey.trim()}`,
+        authorization: `Bearer ${apiKey}`,
       },
       body: JSON.stringify({
         model,
