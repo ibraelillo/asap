@@ -12,4 +12,5 @@ export * from "./page-header.js";
 export * from "./panel.js";
 export * from "./section-header.js";
 export * from "./select.js";
+export * from "./switch.js";
 export * from "./lib/cn.js";

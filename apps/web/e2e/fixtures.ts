@@ -810,12 +810,15 @@ export async function mockRangingApi(page: Page) {
       const body = JSON.parse(request.postData() ?? "{}") as {
         status?: "active" | "paused" | "archived";
         strategyConfig?: Record<string, unknown>;
+        dryRun?: boolean;
       };
       bot = {
         ...bot,
         status: body.status ?? bot.status,
         runtime: {
           ...bot.runtime,
+          dryRun:
+            typeof body.dryRun === "boolean" ? body.dryRun : bot.runtime.dryRun,
           strategyConfig: body.strategyConfig ?? bot.runtime.strategyConfig,
         },
       };

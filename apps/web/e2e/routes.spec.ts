@@ -113,6 +113,11 @@ test("bot overview and positions pages render cleanly", async ({ page }) => {
   await page.goto(`/bots/${BOT_ID}`);
   await expect(page.getByRole("heading", { name: "SUIUSDTM" })).toBeVisible();
   await expect(page.getByText(`ID: ${BOT_ID}`)).toBeVisible();
+  const runtimeSwitch = page.locator('[role="switch"]').first();
+  await expect(runtimeSwitch).toHaveAttribute("aria-checked", "true");
+  await runtimeSwitch.click();
+  await expect(page.getByText("Bot is now allowed to place live orders.")).toBeVisible();
+  await expect(runtimeSwitch).toHaveAttribute("aria-checked", "false");
   await page.getByRole("link", { name: "Positions" }).first().click();
 
   await expect(page).toHaveURL(`/bots/${BOT_ID}/positions`);

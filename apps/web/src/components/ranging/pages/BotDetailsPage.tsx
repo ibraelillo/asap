@@ -9,7 +9,7 @@ import {
   Shield,
 } from "lucide-react";
 import { Link, Navigate, useNavigate, useParams } from "react-router-dom";
-import { Button } from "@repo/ui";
+import { Button, Switch } from "@repo/ui";
 import { MetricCard } from "../../trade-results/MetricCard";
 import {
   fetchStrategyDetails,
@@ -43,6 +43,9 @@ export function BotDetailsPage() {
   const [configError, setConfigError] = useState<string | undefined>();
   const [configSuccess, setConfigSuccess] = useState<string | undefined>();
   const [configSaving, setConfigSaving] = useState(false);
+  const [modeError, setModeError] = useState<string | undefined>();
+  const [modeSuccess, setModeSuccess] = useState<string | undefined>();
+  const [modeSaving, setModeSaving] = useState(false);
   const [draftStrategyConfig, setDraftStrategyConfig] = useState<
     Record<string, unknown>
   >({});
@@ -186,6 +189,33 @@ export function BotDetailsPage() {
       setConfigError(error instanceof Error ? error.message : String(error));
     } finally {
       setConfigSaving(false);
+    }
+  }
+
+  async function updateDryRun(nextDryRun: boolean) {
+    if (!botId) return;
+
+    setModeSaving(true);
+    setModeError(undefined);
+    setModeSuccess(undefined);
+
+    try {
+      await patchBot(botId, { dryRun: nextDryRun });
+      setModeSuccess(
+        nextDryRun
+          ? "Bot is now running in simulated mode."
+          : "Bot is now allowed to place live orders.",
+      );
+      await Promise.all([
+        mutate(["bot-details", botId]),
+        mutate(["bot-stats", botId]),
+        mutate(["bot-runs", botId]),
+        mutate("ranging-dashboard"),
+      ]);
+    } catch (error) {
+      setModeError(error instanceof Error ? error.message : String(error));
+    } finally {
+      setModeSaving(false);
     }
   }
 
@@ -402,15 +432,55 @@ export function BotDetailsPage() {
               </p>
             </div>
             <div>
-              <p className="text-xs text-slate-400">Dry Run</p>
+              <p className="text-xs text-slate-400">Execution Mode</p>
               <p className="mt-1">
-                {botDetails.bot.runtime.dryRun === false ? "false" : "true"}
+                {botDetails.bot.runtime.dryRun === false
+                  ? "Live"
+                  : "Simulated"}
               </p>
             </div>
             <div>
               <p className="text-xs text-slate-400">Value Qty</p>
               <p className="mt-1">{botDetails.bot.runtime.valueQty ?? "-"}</p>
             </div>
+          </div>
+
+          <div className="mt-5 border-t border-white/10 pt-5">
+            <Switch
+              checked={botDetails.bot.runtime.dryRun !== false}
+              disabled={modeSaving}
+              label="Simulated Execution"
+              description={
+                botDetails.bot.runtime.dryRun === false
+                  ? "Live orders are enabled. The bot can place real exchange orders while remaining active."
+                  : "The bot stays active but only produces fake trades and dry-run order flows."
+              }
+              onChange={(checked) => {
+                void updateDryRun(checked);
+              }}
+            />
+            <div className="mt-3 flex flex-wrap items-center gap-2 text-xs">
+              <span
+                className={
+                  botDetails.bot.runtime.dryRun === false
+                    ? "rounded-full border border-rose-300/30 bg-rose-400/10 px-2 py-1 text-rose-100"
+                    : "rounded-full border border-emerald-300/30 bg-emerald-400/10 px-2 py-1 text-emerald-100"
+                }
+              >
+                {botDetails.bot.runtime.dryRun === false
+                  ? "live orders enabled"
+                  : "dry-run enabled"}
+              </span>
+              {modeSaving ? (
+                <span className="text-slate-400">Updating runtime mode...</span>
+              ) : null}
+            </div>
+            {modeError ? (
+              <p className="mt-3 text-sm text-rose-300">{modeError}</p>
+            ) : null}
+            {modeSuccess ? (
+              <p className="mt-3 text-sm text-emerald-300">{modeSuccess}</p>
+            ) : null}
           </div>
 
           <div className="mt-6 space-y-4 border-t border-white/10 pt-5">
