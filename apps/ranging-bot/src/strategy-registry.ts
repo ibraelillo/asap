@@ -15,9 +15,7 @@ import {
   type IndicatorBotConfig,
 } from "@repo/indicator-bot-core";
 import {
-  runBacktestEngine,
   type BacktestMetrics,
-  type BotDefinition,
   type Candle,
   type EquityPoint,
   type StrategyConfigJsonSchema,
@@ -85,41 +83,6 @@ export interface StrategyRegistry {
   get(bot: BotRecord): ResolvedStrategy;
   getManifest(strategyId: string): StrategyManifest;
   listManifests(): StrategyManifest[];
-}
-
-function createSyntheticBacktestBotDefinition(input: {
-  botId: string;
-  symbol: string;
-  strategyId: string;
-  strategyVersion: string;
-  executionTimeframe: Timeframe;
-}): BotDefinition {
-  const nowMs = Date.now();
-  return {
-    id: input.botId,
-    name: input.symbol,
-    strategyId: input.strategyId,
-    strategyVersion: input.strategyVersion,
-    exchangeId: "paper",
-    accountId: "default",
-    symbol: input.symbol,
-    marketType: "futures",
-    status: "active",
-    execution: {
-      trigger: "event",
-      executionTimeframe: input.executionTimeframe,
-      warmupBars: 0,
-    },
-    context: {
-      primaryPriceTimeframe: input.executionTimeframe,
-      additionalTimeframes: [],
-      providers: [],
-    },
-    riskProfileId: `${input.botId}:risk`,
-    strategyConfig: {},
-    createdAtMs: nowMs,
-    updatedAtMs: nowMs,
-  };
 }
 
 function toVolumeProfileRange(candles: Candle[]): StrategyRangeEstimate {
@@ -246,7 +209,7 @@ const indicatorManifest: StrategyManifest<IndicatorBotConfig> = {
   version: "1",
   label: "Indicator Bot",
   description:
-    "Scaffold strategy for future indicator confluence systems. Currently hold-only.",
+    "Low-frequency indicator confluence strategy using EMA trend, RSI pullback, ATR risk, and higher-timeframe confirmation.",
   configJsonSchema: indicatorBotConfigJsonSchema,
   configUi: indicatorBotConfigUi,
   getDefaultConfig() {
@@ -262,51 +225,18 @@ const indicatorManifest: StrategyManifest<IndicatorBotConfig> = {
     return createConfiguredIndicatorBotStrategy(config).strategy;
   },
   runBacktest(input, config) {
-    const configured = createConfiguredIndicatorBotStrategy(config);
-    const bot = createSyntheticBacktestBotDefinition({
-      botId: input.botId,
-      symbol: input.symbol,
-      strategyId: configured.strategy.id,
-      strategyVersion: configured.strategy.version,
-      executionTimeframe: input.executionTimeframe,
-    });
-    const request = {
-      id: `${input.botId}-indicator-backtest`,
-      botId: input.botId,
-      fromMs: input.executionCandles[0]?.time ?? 0,
-      toMs:
-        input.executionCandles[input.executionCandles.length - 1]?.time ?? 0,
-      chartTimeframe: input.executionTimeframe,
-      initialEquity: input.initialEquity,
-      slippageModel: { type: "none" as const },
-      feeModel: { type: "fixed-rate" as const, rate: 0 },
-      createdAtMs: Date.now(),
-    };
-
-    const result = runBacktestEngine({
-      request,
-      bot,
-      config: configured.config,
-      strategy: configured.strategy,
-      market: {
-        executionCandles: input.executionCandles,
-        series: {
-          primaryRange: input.primaryRangeCandles,
-          secondaryRange: input.secondaryRangeCandles,
-        },
-      },
-      positionSizer: () => ({
-        quantity: 1,
-      }),
-    });
+    const result = createConfiguredIndicatorBotStrategy(config).runBacktest(
+      input,
+      config,
+    );
 
     return {
-      metrics: result.metrics,
-      equityCurve: result.equityCurve,
-      trades: [],
+      metrics: result.result.metrics,
+      equityCurve: result.result.equityCurve,
+      trades: result.trades,
       diagnostics: {
         strategyId: "indicator-bot",
-        positions: result.positions.length,
+        positions: result.result.positions.length,
       },
     };
   },
