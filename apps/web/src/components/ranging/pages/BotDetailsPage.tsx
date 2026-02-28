@@ -223,7 +223,7 @@ export function BotDetailsPage() {
   return (
     <div className="space-y-6">
       <header className="panel p-6">
-        <div className="flex flex-wrap items-start justify-between gap-4">
+        <div className="flex flex-col gap-6 xl:flex-row xl:items-start xl:justify-between">
           <div>
             <p className="text-xs uppercase tracking-[0.2em] text-cyan-300/80">
               Bot
@@ -256,8 +256,8 @@ export function BotDetailsPage() {
             </div>
           </div>
 
-          <div className="flex flex-wrap gap-2">
-            <div className="min-w-[320px]">
+          <div className="w-full space-y-3 xl:max-w-[760px]">
+            <div className="xl:ml-auto xl:max-w-[540px]">
               <Switch
                 checked={botDetails.bot.runtime.dryRun !== false}
                 disabled={modeSaving}
@@ -296,52 +296,57 @@ export function BotDetailsPage() {
                 <p className="mt-2 text-sm text-emerald-300">{modeSuccess}</p>
               ) : null}
             </div>
-            {botStatus === "active" ? (
-              <Button
-                size="sm"
-                onClick={() => void updateBotStatus("paused")}
-                disabled={actionLoading !== null}
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-5">
+              {botStatus === "active" ? (
+                <Button
+                  size="sm"
+                  className="h-11 w-full"
+                  onClick={() => void updateBotStatus("paused")}
+                  disabled={actionLoading !== null}
+                >
+                  Pause
+                </Button>
+              ) : null}
+              {botStatus === "paused" ? (
+                <Button
+                  size="sm"
+                  className="h-11 w-full"
+                  onClick={() => void updateBotStatus("active")}
+                  disabled={actionLoading !== null}
+                >
+                  Resume
+                </Button>
+              ) : null}
+              {botStatus !== "archived" ? (
+                <Button
+                  size="sm"
+                  variant="danger"
+                  className="h-11 w-full"
+                  onClick={() => void updateBotStatus("archived")}
+                  disabled={actionLoading !== null}
+                >
+                  Archive
+                </Button>
+              ) : null}
+              <Link
+                to={`/bots/${encodeURIComponent(botId)}/backtests`}
+                className="inline-flex h-11 w-full items-center justify-center rounded-lg border border-cyan-300/30 bg-cyan-400/15 px-3 py-2 text-center text-xs text-cyan-100 transition hover:bg-cyan-400/20"
               >
-                Pause
-              </Button>
-            ) : null}
-            {botStatus === "paused" ? (
-              <Button
-                size="sm"
-                onClick={() => void updateBotStatus("active")}
-                disabled={actionLoading !== null}
+                Open Backtests
+              </Link>
+              <Link
+                to={`/bots/${encodeURIComponent(botId)}/positions`}
+                className="inline-flex h-11 w-full items-center justify-center rounded-lg border border-white/15 bg-white/5 px-3 py-2 text-center text-xs text-slate-200 transition hover:bg-white/10"
               >
-                Resume
-              </Button>
-            ) : null}
-            {botStatus !== "archived" ? (
-              <Button
-                size="sm"
-                variant="danger"
-                onClick={() => void updateBotStatus("archived")}
-                disabled={actionLoading !== null}
+                Positions
+              </Link>
+              <Link
+                to="/bots"
+                className="inline-flex h-11 w-full items-center justify-center rounded-lg border border-white/15 bg-white/5 px-3 py-2 text-center text-xs text-slate-200 transition hover:bg-white/10"
               >
-                Archive
-              </Button>
-            ) : null}
-            <Link
-              to={`/bots/${encodeURIComponent(botId)}/backtests`}
-              className="rounded-lg border border-cyan-300/30 bg-cyan-400/15 px-3 py-2 text-xs text-cyan-100 transition hover:bg-cyan-400/20"
-            >
-              Open Backtests
-            </Link>
-            <Link
-              to={`/bots/${encodeURIComponent(botId)}/positions`}
-              className="rounded-lg border border-white/15 bg-white/5 px-3 py-2 text-xs text-slate-200 transition hover:bg-white/10"
-            >
-              Positions
-            </Link>
-            <Link
-              to="/bots"
-              className="rounded-lg border border-white/15 bg-white/5 px-3 py-2 text-xs text-slate-200 transition hover:bg-white/10"
-            >
-              Back To Bots
-            </Link>
+                Back To Bots
+              </Link>
+            </div>
           </div>
         </div>
         {actionError ? (
