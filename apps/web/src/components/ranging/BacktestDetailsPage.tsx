@@ -138,13 +138,9 @@ export function BacktestDetailsPage({
 
   const { backtest } = details;
   const strategySummary = strategyDetails?.strategy;
-  const backtestStrategyConfig = useMemo(
-    () =>
-      mergeConfigDefaults(
-        asRecord(strategySummary?.configDefaults),
-        asRecord(backtest.strategyConfig),
-      ),
-    [strategySummary, backtest.strategyConfig],
+  const backtestStrategyConfig = mergeConfigDefaults(
+    asRecord(strategySummary?.configDefaults),
+    asRecord(backtest.strategyConfig),
   );
   const hasSnapshot = Object.keys(backtestStrategyConfig).length > 0;
 

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import useSWR, { useSWRConfig } from "swr";
 import {
   CheckCircle2,
@@ -157,14 +157,11 @@ export function BotBacktestsPage() {
     { revalidateOnFocus: false },
   );
 
-  const currentBotStrategyConfig = useMemo(
-    () =>
-      mergeConfigDefaults(
-        asRecord(strategyDetails?.strategy.configDefaults),
-        asRecord(botDetails?.bot.runtime.strategyConfig),
-      ),
-    [strategyDetails, botDetails],
+  const currentBotStrategyConfig = mergeConfigDefaults(
+    asRecord(strategyDetails?.strategy.configDefaults),
+    asRecord(botDetails?.bot.runtime.strategyConfig),
   );
+  const configSyncKey = `${botDetails?.bot.updatedAtMs ?? "none"}:${strategyDetails?.strategy.strategyId ?? "none"}`;
 
   useEffect(() => {
     if (!botDetails) return;
@@ -172,7 +169,7 @@ export function BotBacktestsPage() {
     const nextConfig = cloneRecord(currentBotStrategyConfig);
     setDraftBotStrategyConfig(nextConfig);
     botStrategyConfigEditorRef.current?.resetDrafts();
-  }, [botDetails?.bot.updatedAtMs, strategyDetails?.strategy.strategyId]);
+  }, [configSyncKey]);
 
   if (!botId) {
     return <Navigate to="/bots" replace />;
@@ -190,13 +187,9 @@ export function BotBacktestsPage() {
     selectedBacktestId !== undefined
       ? (backtests ?? []).find((entry) => entry.id === selectedBacktestId)
       : undefined;
-  const selectedBacktestStrategyConfig = useMemo(
-    () =>
-      mergeConfigDefaults(
-        asRecord(strategySummary?.configDefaults),
-        asRecord(selectedBacktest?.strategyConfig),
-      ),
-    [strategySummary, selectedBacktest],
+  const selectedBacktestStrategyConfig = mergeConfigDefaults(
+    asRecord(strategySummary?.configDefaults),
+    asRecord(selectedBacktest?.strategyConfig),
   );
   function openBotSettingsDrawer() {
     const nextConfig = cloneRecord(currentBotStrategyConfig);

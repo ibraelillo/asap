@@ -144,8 +144,10 @@ test("bot backtests page can queue jobs without browser errors", async ({
   ).toBeVisible();
   await page.getByRole("button", { name: /Run Backtest/i }).click();
   await expect(page).toHaveURL(/\/bots\/.+\/backtests\/bt-sui-rerun-1$/);
+  await page.waitForLoadState("networkidle");
   await expect(
     page.getByRole("heading", { name: "SUIUSDTM Replay" }),
+    { timeout: 10_000 },
   ).toBeVisible();
 
   await page.goto(`/bots/${BOT_ID}/backtests`);
@@ -176,8 +178,10 @@ test("backtest replay page renders charts without browser errors", async ({
   const assertNoBrowserErrors = attachBrowserErrorGuards(page);
 
   await page.goto(`/bots/${BOT_ID}/backtests/${BACKTEST_ID}`);
+  await page.waitForLoadState("networkidle");
   await expect(
     page.getByRole("heading", { name: "SUIUSDTM Replay" }),
+    { timeout: 10_000 },
   ).toBeVisible();
   await expect(page.getByText("Backtest Replay")).toBeVisible();
   await expect(

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import useSWR, { useSWRConfig } from "swr";
 import {
   Activity,
@@ -79,21 +79,18 @@ export function BotDetailsPage() {
     { revalidateOnFocus: false },
   );
 
-  const effectiveBotStrategyConfig = useMemo(
-    () =>
-      mergeConfigDefaults(
-        asRecord(strategyDetails?.strategy.configDefaults),
-        asRecord(botDetails?.bot.runtime.strategyConfig),
-      ),
-    [strategyDetails, botDetails],
+  const effectiveBotStrategyConfig = mergeConfigDefaults(
+    asRecord(strategyDetails?.strategy.configDefaults),
+    asRecord(botDetails?.bot.runtime.strategyConfig),
   );
+  const configSyncKey = `${botDetails?.bot.updatedAtMs ?? "none"}:${strategyDetails?.strategy.strategyId ?? "none"}`;
 
   useEffect(() => {
     if (!botDetails) return;
 
     setDraftStrategyConfig(cloneRecord(effectiveBotStrategyConfig));
     strategyConfigEditorRef.current?.resetDrafts();
-  }, [botDetails?.bot.updatedAtMs, strategyDetails?.strategy.strategyId]);
+  }, [configSyncKey]);
 
   if (!botId) {
     return <Navigate to="/bots" replace />;
