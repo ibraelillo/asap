@@ -26,6 +26,7 @@ interface StrategyConfigEditorProps {
   value: Record<string, unknown>;
   onChange(nextValue: Record<string, unknown>): void;
   emptyState?: string;
+  compact?: boolean;
 }
 
 function asRecord(value: unknown): Record<string, unknown> {
@@ -228,6 +229,7 @@ export const StrategyConfigEditor = forwardRef(function StrategyConfigEditor(
     value,
     onChange,
     emptyState = "Select a bot type to load strategy-specific parameters.",
+    compact = false,
   }: StrategyConfigEditorProps,
   ref: ForwardedRef<StrategyConfigEditorHandle>,
 ) {
@@ -387,7 +389,11 @@ export const StrategyConfigEditor = forwardRef(function StrategyConfigEditor(
   }
 
   return (
-    <>
+    <div
+      className={
+        compact ? "grid grid-cols-1 gap-4 xl:grid-cols-2" : "space-y-4"
+      }
+    >
       {sections.map(([section, fields]) => (
         <Panel key={section} className="space-y-4 p-5" tone="muted">
           <div>
@@ -396,7 +402,7 @@ export const StrategyConfigEditor = forwardRef(function StrategyConfigEditor(
             </p>
           </div>
 
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
             {fields.map((field) => {
               const schemaNode = getSchemaNode(
                 strategy.configJsonSchema,
@@ -464,7 +470,7 @@ export const StrategyConfigEditor = forwardRef(function StrategyConfigEditor(
                     key={field.path}
                     label={label}
                     description={description}
-                    className="md:col-span-2 xl:col-span-4"
+                    className="md:col-span-2"
                   >
                     <Input
                       value={
@@ -558,6 +564,6 @@ export const StrategyConfigEditor = forwardRef(function StrategyConfigEditor(
           </div>
         </Panel>
       ))}
-    </>
+    </div>
   );
 });

@@ -433,7 +433,50 @@ export function BotDetailsPage() {
         </div>
       </section>
 
-      <section className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+      <section className="panel p-5">
+        <SectionHeader
+          title="Position"
+          description="Locally persisted lifecycle state."
+        />
+        {openPosition ? (
+          <div className="grid grid-cols-2 gap-4 text-sm text-slate-200 lg:grid-cols-3 xl:grid-cols-6">
+            <div>
+              <p className="text-xs text-slate-400">Side</p>
+              <p className="mt-1">{openPosition.side}</p>
+            </div>
+            <div>
+              <p className="text-xs text-slate-400">Status</p>
+              <p className="mt-1">{openPosition.status}</p>
+            </div>
+            <div>
+              <p className="text-xs text-slate-400">Quantity</p>
+              <p className="mt-1">{openPosition.quantity}</p>
+            </div>
+            <div>
+              <p className="text-xs text-slate-400">Remaining</p>
+              <p className="mt-1">{openPosition.remainingQuantity}</p>
+            </div>
+            <div>
+              <p className="text-xs text-slate-400">Avg Entry</p>
+              <p className="mt-1">
+                {openPosition.avgEntryPrice?.toLocaleString() ?? "-"}
+              </p>
+            </div>
+            <div>
+              <p className="text-xs text-slate-400">Stop</p>
+              <p className="mt-1">
+                {openPosition.stopPrice?.toLocaleString() ?? "-"}
+              </p>
+            </div>
+          </div>
+        ) : (
+          <p className="text-sm text-slate-400">
+            No open position recorded for this bot.
+          </p>
+        )}
+      </section>
+
+      <section className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,2fr)_minmax(320px,1fr)]">
         <div className="panel p-5">
           <SectionHeader
             title="Configuration"
@@ -465,9 +508,7 @@ export function BotDetailsPage() {
             <div>
               <p className="text-xs text-slate-400">Execution Mode</p>
               <p className="mt-1">
-                {botDetails.bot.runtime.dryRun === false
-                  ? "Live"
-                  : "Simulated"}
+                {botDetails.bot.runtime.dryRun === false ? "Live" : "Simulated"}
               </p>
             </div>
             <div>
@@ -523,6 +564,7 @@ export function BotDetailsPage() {
               value={draftStrategyConfig}
               onChange={setDraftStrategyConfig}
               emptyState="Loading strategy schema..."
+              compact
             />
 
             {configError ? (
@@ -532,49 +574,6 @@ export function BotDetailsPage() {
               <p className="text-sm text-emerald-300">{configSuccess}</p>
             ) : null}
           </div>
-        </div>
-
-        <div className="panel p-5">
-          <SectionHeader
-            title="Position"
-            description="Locally persisted lifecycle state."
-          />
-          {openPosition ? (
-            <div className="grid grid-cols-2 gap-4 text-sm text-slate-200">
-              <div>
-                <p className="text-xs text-slate-400">Side</p>
-                <p className="mt-1">{openPosition.side}</p>
-              </div>
-              <div>
-                <p className="text-xs text-slate-400">Status</p>
-                <p className="mt-1">{openPosition.status}</p>
-              </div>
-              <div>
-                <p className="text-xs text-slate-400">Quantity</p>
-                <p className="mt-1">{openPosition.quantity}</p>
-              </div>
-              <div>
-                <p className="text-xs text-slate-400">Remaining</p>
-                <p className="mt-1">{openPosition.remainingQuantity}</p>
-              </div>
-              <div>
-                <p className="text-xs text-slate-400">Avg Entry</p>
-                <p className="mt-1">
-                  {openPosition.avgEntryPrice?.toLocaleString() ?? "-"}
-                </p>
-              </div>
-              <div>
-                <p className="text-xs text-slate-400">Stop</p>
-                <p className="mt-1">
-                  {openPosition.stopPrice?.toLocaleString() ?? "-"}
-                </p>
-              </div>
-            </div>
-          ) : (
-            <p className="text-sm text-slate-400">
-              No open position recorded for this bot.
-            </p>
-          )}
         </div>
 
         <div className="panel p-5">
