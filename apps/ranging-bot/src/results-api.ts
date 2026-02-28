@@ -15,7 +15,6 @@ import {
 import {
   getRuntimeBotById,
   getRuntimeBotBySymbol,
-  listActiveRuntimeBots,
 } from "./bot-registry";
 import {
   createBacktestIdentity,
@@ -84,6 +83,7 @@ import {
   toBotDefinition,
   type RuntimeBotConfig,
 } from "./runtime-config";
+import { loadConfiguredBots } from "./runtime-bots";
 import {
   createFailedValidationRecord,
   createPendingValidationRecord,
@@ -371,6 +371,14 @@ function normalizeNonEmptyString(raw: unknown): string | undefined {
   return normalized.length > 0 ? normalized : undefined;
 }
 
+function normalizeStatus(
+  raw: unknown,
+): "active" | "paused" | "archived" | undefined {
+  return raw === "active" || raw === "paused" || raw === "archived"
+    ? raw
+    : undefined;
+}
+
 function isSupportedExchangeId(exchangeId: string): boolean {
   return SUPPORTED_EXCHANGE_IDS.has(exchangeId);
 }
@@ -506,20 +514,7 @@ async function persistBacktestRefsIfNeeded(
 }
 
 async function syncConfiguredBots(): Promise<BotRecord[]> {
-  const runtimeBots = listActiveRuntimeBots();
-  await Promise.allSettled(runtimeBots.map((bot) => putBotRecord(bot)));
-
-  const stored = await listBotRecords(MAX_LIMIT);
-  const byId = new Map<string, BotRecord>();
-
-  for (const bot of stored) {
-    byId.set(bot.id, bot);
-  }
-  for (const bot of runtimeBots) {
-    byId.set(bot.id, bot);
-  }
-
-  return [...byId.values()].sort((a, b) => a.name.localeCompare(b.name));
+  return loadConfiguredBots();
 }
 
 function completedBacktests(backtests: BacktestRecord[]): BacktestRecord[] {
@@ -1004,6 +999,76 @@ export async function createAccountHandler(
   }
 }
 
+export async function patchAccountHandler(
+  event: APIGatewayProxyEventV2,
+): Promise<APIGatewayProxyResultV2> {
+  const rawAccountId = event.pathParameters?.accountId?.trim();
+  if (!rawAccountId) {
+    return json(400, { error: "missing_account_id" });
+  }
+
+  try {
+    const body = parseJsonBody<PatchAccountBody>(event);
+    if (!body) {
+      return json(400, { error: "invalid_json_body" });
+    }
+
+    const accountId = decodeURIComponent(rawAccountId);
+    const existing = await getAccountRecordById(accountId);
+    if (!existing) {
+      return json(404, { error: "account_not_found" });
+    }
+
+    const status = normalizeStatus(body.status);
+    if (body.status !== undefined && !status) {
+      return json(400, { error: "invalid_account_status" });
+    }
+    if (status === "paused") {
+      return json(400, { error: "invalid_account_status" });
+    }
+
+    const nextAuth = {
+      ...existing.auth,
+      ...(normalizeNonEmptyString(body.auth?.apiKey)
+        ? { apiKey: normalizeNonEmptyString(body.auth?.apiKey) }
+        : {}),
+      ...(normalizeNonEmptyString(body.auth?.apiSecret)
+        ? { apiSecret: normalizeNonEmptyString(body.auth?.apiSecret) }
+        : {}),
+      ...(body.auth?.apiPassphrase !== undefined
+        ? {
+            apiPassphrase: normalizeNonEmptyString(body.auth?.apiPassphrase),
+          }
+        : {}),
+    };
+
+    if (
+      (status ?? existing.status) === "active" &&
+      (!nextAuth.apiKey ||
+        !nextAuth.apiSecret ||
+        (existing.exchangeId === "kucoin" && !nextAuth.apiPassphrase))
+    ) {
+      return json(400, { error: "incomplete_account_auth" });
+    }
+
+    const updated: AccountRecord = {
+      ...existing,
+      status: status ?? existing.status,
+      auth: nextAuth,
+      updatedAtMs: Date.now(),
+    };
+
+    await putAccountRecord(updated);
+    return json(200, {
+      generatedAt: new Date().toISOString(),
+      account: toAccountSummary(updated),
+    });
+  } catch (error) {
+    console.error("[account-api] patch account failed", { error });
+    return json(500, { error: "failed_to_patch_account" });
+  }
+}
+
 export async function createBotHandler(
   event: APIGatewayProxyEventV2,
 ): Promise<APIGatewayProxyResultV2> {
@@ -1067,6 +1132,126 @@ export async function createBotHandler(
   } catch (error) {
     console.error("[bot-api] create bot failed", { error });
     return json(500, { error: "failed_to_create_bot" });
+  }
+}
+
+export async function patchBotHandler(
+  event: APIGatewayProxyEventV2,
+): Promise<APIGatewayProxyResultV2> {
+  const rawBotId = event.pathParameters?.botId?.trim();
+  if (!rawBotId) {
+    return json(400, { error: "missing_bot_id" });
+  }
+
+  try {
+    const body = parseJsonBody<PatchBotBody>(event);
+    if (!body) {
+      return json(400, { error: "invalid_json_body" });
+    }
+
+    const botId = decodeURIComponent(rawBotId);
+    const existing = await resolveBotById(botId);
+    if (!existing) {
+      return json(404, { error: "bot_not_found" });
+    }
+
+    if (
+      body.symbol !== undefined &&
+      normalizeNonEmptyString(body.symbol)?.toUpperCase() !== existing.symbol
+    ) {
+      return json(400, { error: "symbol_is_immutable" });
+    }
+    if (
+      body.exchangeId !== undefined &&
+      normalizeExchangeId(body.exchangeId) !== existing.exchangeId
+    ) {
+      return json(400, { error: "exchange_is_immutable" });
+    }
+    if (
+      body.strategyId !== undefined &&
+      normalizeNonEmptyString(body.strategyId) !== existing.strategyId
+    ) {
+      return json(400, { error: "strategy_is_immutable" });
+    }
+    if (
+      body.strategyVersion !== undefined &&
+      normalizeNonEmptyString(body.strategyVersion) !== existing.strategyVersion
+    ) {
+      return json(400, { error: "strategy_version_is_immutable" });
+    }
+
+    const requestedStatus = normalizeStatus(body.status);
+    if (body.status !== undefined && !requestedStatus) {
+      return json(400, { error: "invalid_bot_status" });
+    }
+
+    const accountId =
+      normalizeNonEmptyString(body.accountId) ?? existing.accountId;
+    const account = await getAccountRecordById(accountId);
+    if (!account) {
+      return json(400, { error: "unknown_account" });
+    }
+    if (account.status !== "active") {
+      return json(400, { error: "inactive_account" });
+    }
+    if (account.exchangeId !== existing.exchangeId) {
+      return json(400, { error: "account_exchange_mismatch" });
+    }
+
+    const normalized = normalizeBotConfig({
+      ...existing.runtime,
+      ...body,
+      id: existing.id,
+      name: normalizeNonEmptyString(body.name) ?? existing.name,
+      symbol: existing.symbol,
+      strategyId: existing.strategyId,
+      strategyVersion: existing.strategyVersion,
+      exchangeId: existing.exchangeId,
+      accountId,
+      enabled:
+        requestedStatus === "archived"
+          ? false
+          : requestedStatus === "active"
+            ? true
+            : requestedStatus === "paused"
+              ? false
+              : typeof body.enabled === "boolean"
+                ? body.enabled
+                : existing.status === "active",
+    });
+
+    if (!normalized) {
+      return json(400, { error: "invalid_bot_config" });
+    }
+
+    const status: BotRecord["status"] =
+      requestedStatus ??
+      (typeof body.enabled === "boolean"
+        ? body.enabled
+          ? "active"
+          : "paused"
+        : existing.status);
+
+    const { enabled: _enabled, ...normalizedRuntime } = normalized;
+
+    const updated: BotRecord = {
+      ...toBotDefinition(normalized),
+      id: existing.id,
+      name: normalizeNonEmptyString(body.name) ?? existing.name,
+      status,
+      createdAtMs: existing.createdAtMs,
+      updatedAtMs: Date.now(),
+      runtime: normalizedRuntime,
+    };
+
+    await putBotRecord(updated);
+    return json(200, {
+      generatedAt: new Date().toISOString(),
+      bot: updated,
+    });
+  } catch (error) {
+    console.error("[bot-api] patch bot failed", { error });
+    return json(500, { error: "failed_to_patch_bot" });
   }
 }
 
@@ -1457,9 +1642,22 @@ interface CreateBacktestBody {
 
 interface CreateBotBody extends Partial<RuntimeBotConfig> {}
 
+interface PatchBotBody extends Partial<RuntimeBotConfig> {
+  status?: "active" | "paused" | "archived";
+}
+
 interface CreateAccountBody {
   name?: string;
   exchangeId?: string;
+  auth?: {
+    apiKey?: string;
+    apiSecret?: string;
+    apiPassphrase?: string;
+  };
+}
+
+interface PatchAccountBody {
+  status?: "active" | "archived";
   auth?: {
     apiKey?: string;
     apiSecret?: string;

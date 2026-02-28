@@ -142,6 +142,7 @@ export interface BotAnalysisSummary {
   strategyVersion: string;
   exchangeId: string;
   accountId: string;
+  status?: "active" | "paused" | "archived";
   symbol: string;
   generatedAtMs?: number;
   signal: Side | null;

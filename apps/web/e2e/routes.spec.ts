@@ -45,6 +45,20 @@ test("strategies pages render cleanly", async ({ page }) => {
   await assertNoBrowserErrors();
 });
 
+test("accounts page renders and supports status actions without errors", async ({
+  page,
+}) => {
+  const assertNoBrowserErrors = attachBrowserErrorGuards(page);
+
+  await page.goto("/accounts");
+  await expect(page.getByRole("heading", { name: "Accounts" })).toBeVisible();
+  await expect(page.getByText("main-kucoin")).toBeVisible();
+  await page.getByRole("button", { name: "Archive" }).click();
+  await expect(page.getByRole("button", { name: "Reactivate" })).toBeVisible();
+
+  await assertNoBrowserErrors();
+});
+
 test("bot create page supports production form interactions without errors", async ({
   page,
 }) => {

@@ -125,6 +125,7 @@ export interface BotAnalysisSummary {
   strategyVersion: string;
   exchangeId: string;
   accountId: string;
+  status?: "active" | "paused" | "archived";
   symbol: string;
   generatedAtMs?: number;
   signal: Side | null;
@@ -143,6 +144,30 @@ export interface BotAnalysisSummary {
   processingStatus: ProcessingStatus | "idle";
   processingMessage?: string;
   orderId?: string;
+}
+
+export interface BotRecordView {
+  id: string;
+  name: string;
+  strategyId: string;
+  strategyVersion: string;
+  exchangeId: string;
+  accountId: string;
+  symbol: string;
+  status: "active" | "paused" | "archived";
+  runtime: {
+    executionTimeframe: string;
+    executionLimit: number;
+    primaryRangeTimeframe: string;
+    primaryRangeLimit: number;
+    secondaryRangeTimeframe: string;
+    secondaryRangeLimit: number;
+    dryRun?: boolean;
+    marginMode?: "CROSS" | "ISOLATED";
+    valueQty?: string;
+  };
+  createdAtMs: number;
+  updatedAtMs: number;
 }
 
 export interface TradeSignalRecord {

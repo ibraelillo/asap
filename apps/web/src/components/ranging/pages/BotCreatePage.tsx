@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, type FormEvent } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import {
   Button,
   Checkbox,
@@ -242,6 +242,14 @@ export function BotCreatePage() {
         kicker="Trading Engine"
         title="Create Bot"
         description="Persist a bot definition, bind it to an execution account, and make it eligible for scheduled runs."
+        actions={
+          <Link
+            to="/accounts"
+            className="inline-flex items-center gap-2 rounded-lg border border-white/15 bg-white/5 px-3 py-2 text-xs text-slate-200 transition hover:bg-white/10"
+          >
+            Manage Accounts
+          </Link>
+        }
       />
 
       <Panel as="form" className="space-y-6 p-6" onSubmit={onSubmit}>

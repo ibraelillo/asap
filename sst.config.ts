@@ -132,7 +132,7 @@ export default $config({
     const api = new sst.aws.ApiGatewayV2("RangingBotApi", {
       link: [runsTable, klineCacheBucket, backtestBus],
       cors: {
-        allowMethods: ["GET", "POST", "OPTIONS"],
+        allowMethods: ["GET", "POST", "PATCH", "OPTIONS"],
         allowOrigins: ["*"],
         allowHeaders: ["*"],
       },
@@ -174,12 +174,20 @@ export default $config({
       handler: "apps/ranging-bot/src/results-api.createBotHandler",
       environment: apiRouteEnv,
     });
+    api.route("PATCH /v1/bots/{botId}", {
+      handler: "apps/ranging-bot/src/results-api.patchBotHandler",
+      environment: apiRouteEnv,
+    });
     api.route("GET /v1/accounts", {
       handler: "apps/ranging-bot/src/results-api.accountsHandler",
       environment: apiRouteEnv,
     });
     api.route("POST /v1/accounts", {
       handler: "apps/ranging-bot/src/results-api.createAccountHandler",
+      environment: apiRouteEnv,
+    });
+    api.route("PATCH /v1/accounts/{accountId}", {
+      handler: "apps/ranging-bot/src/results-api.patchAccountHandler",
       environment: apiRouteEnv,
     });
     api.route("GET /v1/strategies", {

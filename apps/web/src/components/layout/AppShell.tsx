@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import useSWR from "swr";
-import { BarChart3, Bot, CandlestickChart, Layers3 } from "lucide-react";
+import { BarChart3, Bot, CandlestickChart, KeyRound, Layers3 } from "lucide-react";
 import { NavLink, Outlet, useOutletContext } from "react-router-dom";
 import {
   connectRealtime,
@@ -150,6 +150,15 @@ export function AppShell() {
             >
               <Bot className="h-4 w-4" />
               Bots
+            </NavLink>
+            <NavLink
+              to="/accounts"
+              className={(state) =>
+                `inline-flex items-center gap-2 rounded-lg border px-4 py-2 text-sm transition ${navClass(state)}`
+              }
+            >
+              <KeyRound className="h-4 w-4" />
+              Accounts
             </NavLink>
             <NavLink
               to="/trade-analysis"

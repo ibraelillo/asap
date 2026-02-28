@@ -128,9 +128,14 @@ export function BotsIndexPage() {
                   {bot.strategyId} / {bot.exchangeId} / {bot.accountId}
                 </p>
               </div>
-              <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs text-slate-200">
-                {bot.runStatus}
-              </span>
+              <div className="flex gap-2">
+                <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs text-slate-200">
+                  {bot.status ?? "active"}
+                </span>
+                <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs text-slate-200">
+                  {bot.runStatus}
+                </span>
+              </div>
             </div>
 
             <div className="mt-4 grid grid-cols-2 gap-3 text-xs text-slate-300 md:grid-cols-4">

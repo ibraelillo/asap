@@ -43,6 +43,11 @@ const BotCreatePage = lazy(() =>
     default: module.BotCreatePage,
   })),
 );
+const AccountsPage = lazy(() =>
+  import("./components/ranging/pages/AccountsPage").then((module) => ({
+    default: module.AccountsPage,
+  })),
+);
 const BotDetailsPage = lazy(() =>
   import("./components/ranging/pages/BotDetailsPage").then((module) => ({
     default: module.BotDetailsPage,
@@ -149,6 +154,14 @@ export default function Root() {
           element={
             <Suspense fallback={<RouteFallback />}>
               <BotsIndexPage />
+            </Suspense>
+          }
+        />
+        <Route
+          path="/accounts"
+          element={
+            <Suspense fallback={<RouteFallback />}>
+              <AccountsPage />
             </Suspense>
           }
         />

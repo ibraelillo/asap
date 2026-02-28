@@ -62,6 +62,7 @@ const botSummary = {
   strategyVersion: "1",
   exchangeId: "kucoin",
   accountId: ACCOUNT_ID,
+  status: "active",
   symbol: "SUIUSDTM",
   generatedAtMs: NOW,
   signal: "long",
@@ -80,6 +81,30 @@ const botSummary = {
   processingStatus: "order-submitted",
   processingMessage: "Entry routed to exchange",
   orderId: "ord-123",
+};
+
+const botRecord = {
+  id: BOT_ID,
+  name: "SUI Range Reversal",
+  strategyId: STRATEGY_ID,
+  strategyVersion: "1",
+  exchangeId: "kucoin",
+  accountId: ACCOUNT_ID,
+  symbol: "SUIUSDTM",
+  status: "active",
+  runtime: {
+    executionTimeframe: "1h",
+    executionLimit: 240,
+    primaryRangeTimeframe: "1d",
+    primaryRangeLimit: 90,
+    secondaryRangeTimeframe: "4h",
+    secondaryRangeLimit: 180,
+    dryRun: true,
+    marginMode: "CROSS",
+    valueQty: "100",
+  },
+  createdAtMs: NOW - 14 * HOUR_MS,
+  updatedAtMs: NOW - HOUR_MS,
 };
 
 const runs = [
@@ -234,7 +259,7 @@ const stats = {
   },
 };
 
-const account = {
+const initialAccount = {
   id: ACCOUNT_ID,
   name: "main-kucoin",
   exchangeId: "kucoin",
@@ -534,6 +559,9 @@ const tradeAnalysis = {
 };
 
 export async function mockRangingApi(page: Page) {
+  let account = { ...initialAccount };
+  let bot = { ...botRecord };
+
   await page.route("**/v1/**", async (route) => {
     const request = route.request();
     const url = new URL(request.url());
@@ -559,14 +587,21 @@ export async function mockRangingApi(page: Page) {
     if (method === "POST" && pathname === "/v1/bots") {
       return json(route, {
         generatedAt: iso(NOW),
-        bot: {
-          id: BOT_ID,
-          name: "SUI Range Reversal",
-          symbol: "SUIUSDTM",
-          strategyId: STRATEGY_ID,
-          exchangeId: "kucoin",
-          accountId: ACCOUNT_ID,
-        },
+        bot,
+      });
+    }
+
+    if (method === "PATCH" && pathname === `/v1/bots/${BOT_ID}`) {
+      const body = JSON.parse(request.postData() ?? "{}") as {
+        status?: "active" | "paused" | "archived";
+      };
+      bot = {
+        ...bot,
+        status: body.status ?? bot.status,
+      };
+      return json(route, {
+        generatedAt: iso(NOW),
+        bot,
       });
     }
 
@@ -581,16 +616,23 @@ export async function mockRangingApi(page: Page) {
       });
     }
 
+    if (method === "PATCH" && pathname === `/v1/accounts/${ACCOUNT_ID}`) {
+      const body = JSON.parse(request.postData() ?? "{}") as {
+        status?: "active" | "archived";
+      };
+      account = {
+        ...account,
+        status: body.status ?? account.status,
+      };
+      return json(route, {
+        generatedAt: iso(NOW),
+        account,
+      });
+    }
+
     if (method === "GET" && pathname === `/v1/bots/${BOT_ID}`) {
       return json(route, {
-        bot: {
-          id: BOT_ID,
-          name: "SUI Range Reversal",
-          symbol: "SUIUSDTM",
-          strategyId: STRATEGY_ID,
-          exchangeId: "kucoin",
-          accountId: ACCOUNT_ID,
-        },
+        bot,
         summary: botSummary,
         openPosition: position,
         backtests: [runningBacktest, completedBacktest],

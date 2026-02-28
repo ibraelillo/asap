@@ -1,4 +1,5 @@
-import useSWR from "swr";
+import { useState } from "react";
+import useSWR, { useSWRConfig } from "swr";
 import {
   Activity,
   ArrowRight,
@@ -7,13 +8,15 @@ import {
   Layers3,
   Shield,
 } from "lucide-react";
-import { Link, Navigate, useParams } from "react-router-dom";
+import { Link, Navigate, useNavigate, useParams } from "react-router-dom";
+import { Button } from "@repo/ui";
 import { MetricCard } from "../../trade-results/MetricCard";
 import {
   fetchBotDetails,
   fetchBotPositions,
   fetchBotStats,
   fetchRuns,
+  patchBot,
 } from "../../../lib/ranging-api";
 import {
   ReasonBadges,
@@ -24,6 +27,12 @@ import {
 
 export function BotDetailsPage() {
   const { botId } = useParams<{ botId: string }>();
+  const navigate = useNavigate();
+  const { mutate } = useSWRConfig();
+  const [actionError, setActionError] = useState<string | undefined>();
+  const [actionLoading, setActionLoading] = useState<
+    "pause" | "resume" | "archive" | null
+  >(null);
 
   const {
     data: botDetails,
@@ -80,6 +89,38 @@ export function BotDetailsPage() {
     positions?.positions?.find((position) => position.status !== "closed");
   const recentBacktests = botDetails.backtests.slice(0, 6);
   const recentValidations = botDetails.validations.slice(0, 6);
+  const botStatus = botDetails.bot.status;
+
+  async function updateBotStatus(
+    nextStatus: "active" | "paused" | "archived",
+  ) {
+    if (!botId) return;
+    setActionError(undefined);
+    setActionLoading(
+      nextStatus === "active"
+        ? "resume"
+        : nextStatus === "paused"
+          ? "pause"
+          : "archive",
+    );
+
+    try {
+      await patchBot(botId, { status: nextStatus });
+      await Promise.all([
+        mutate(["bot-details", botId]),
+        mutate(["bot-stats", botId]),
+        mutate(["bot-positions", botId]),
+        mutate("ranging-dashboard"),
+      ]);
+      if (nextStatus === "archived") {
+        navigate("/bots");
+      }
+    } catch (error) {
+      setActionError(error instanceof Error ? error.message : String(error));
+    } finally {
+      setActionLoading(null);
+    }
+  }
 
   return (
     <div className="space-y-6">
@@ -112,9 +153,40 @@ export function BotDetailsPage() {
                   : "-")}
             </p>
             <p className="mt-2 text-xs text-slate-400 mono">ID: {botId}</p>
+            <div className="mt-3 inline-flex rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs text-slate-200">
+              Status: {botStatus}
+            </div>
           </div>
 
           <div className="flex flex-wrap gap-2">
+            {botStatus === "active" ? (
+              <Button
+                size="sm"
+                onClick={() => void updateBotStatus("paused")}
+                disabled={actionLoading !== null}
+              >
+                Pause
+              </Button>
+            ) : null}
+            {botStatus === "paused" ? (
+              <Button
+                size="sm"
+                onClick={() => void updateBotStatus("active")}
+                disabled={actionLoading !== null}
+              >
+                Resume
+              </Button>
+            ) : null}
+            {botStatus !== "archived" ? (
+              <Button
+                size="sm"
+                variant="danger"
+                onClick={() => void updateBotStatus("archived")}
+                disabled={actionLoading !== null}
+              >
+                Archive
+              </Button>
+            ) : null}
             <Link
               to={`/bots/${encodeURIComponent(botId)}/backtests`}
               className="rounded-lg border border-cyan-300/30 bg-cyan-400/15 px-3 py-2 text-xs text-cyan-100 transition hover:bg-cyan-400/20"
@@ -135,6 +207,9 @@ export function BotDetailsPage() {
             </Link>
           </div>
         </div>
+        {actionError ? (
+          <p className="mt-4 text-sm text-rose-300">{actionError}</p>
+        ) : null}
       </header>
 
       <section className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-5">
@@ -231,6 +306,43 @@ export function BotDetailsPage() {
       </section>
 
       <section className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+        <div className="panel p-5">
+          <SectionHeader
+            title="Configuration"
+            description="Persisted runtime contract for this bot."
+          />
+          <div className="grid grid-cols-2 gap-4 text-sm text-slate-200">
+            <div>
+              <p className="text-xs text-slate-400">Execution TF</p>
+              <p className="mt-1">{botDetails.bot.runtime.executionTimeframe}</p>
+            </div>
+            <div>
+              <p className="text-xs text-slate-400">Execution Limit</p>
+              <p className="mt-1">{botDetails.bot.runtime.executionLimit}</p>
+            </div>
+            <div>
+              <p className="text-xs text-slate-400">Primary Range TF</p>
+              <p className="mt-1">{botDetails.bot.runtime.primaryRangeTimeframe}</p>
+            </div>
+            <div>
+              <p className="text-xs text-slate-400">Secondary Range TF</p>
+              <p className="mt-1">
+                {botDetails.bot.runtime.secondaryRangeTimeframe}
+              </p>
+            </div>
+            <div>
+              <p className="text-xs text-slate-400">Dry Run</p>
+              <p className="mt-1">
+                {botDetails.bot.runtime.dryRun === false ? "false" : "true"}
+              </p>
+            </div>
+            <div>
+              <p className="text-xs text-slate-400">Value Qty</p>
+              <p className="mt-1">{botDetails.bot.runtime.valueQty ?? "-"}</p>
+            </div>
+          </div>
+        </div>
+
         <div className="panel p-5">
           <SectionHeader
             title="Position"

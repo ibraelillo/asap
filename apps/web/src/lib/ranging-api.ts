@@ -13,6 +13,7 @@ import type {
   StrategySummary,
   RangeValidationRecord,
   TradeAnalysisPayload,
+  BotRecordView,
   PositionRecord,
 } from "../types/ranging-dashboard";
 
@@ -189,10 +190,10 @@ export async function fetchBots(
 
 export async function createBot(
   request: CreateBotRequest,
-): Promise<Record<string, unknown>> {
+): Promise<BotRecordView> {
   const payload = await postJson<{
     generatedAt: string;
-    bot: Record<string, unknown>;
+    bot: BotRecordView;
   }>("/v1/bots", request);
   return payload.bot;
 }
@@ -229,6 +230,49 @@ export async function createAccount(
   return payload.account;
 }
 
+export interface PatchAccountRequest {
+  status?: "active" | "archived";
+  auth?: {
+    apiKey?: string;
+    apiSecret?: string;
+    apiPassphrase?: string;
+  };
+}
+
+export async function patchAccount(
+  accountId: string,
+  request: PatchAccountRequest,
+): Promise<AccountSummary> {
+  const payload = await fetch(`${API_URL}/v1/accounts/${encodeURIComponent(accountId)}`, {
+    method: "PATCH",
+    headers: {
+      "content-type": "application/json",
+    },
+    body: JSON.stringify(request),
+  });
+
+  if (!payload.ok) {
+    let details = "";
+    try {
+      const body = (await payload.json()) as { error?: unknown; details?: unknown };
+      const error = typeof body.error === "string" ? body.error : undefined;
+      const reason = typeof body.details === "string" ? body.details : undefined;
+      details = [error, reason].filter(Boolean).join(": ");
+    } catch {
+      // ignore
+    }
+    throw new Error(
+      `API request failed (${payload.status})${details ? `: ${details}` : ""}`,
+    );
+  }
+
+  const result = (await payload.json()) as {
+    generatedAt: string;
+    account: AccountSummary;
+  };
+  return result.account;
+}
+
 export async function fetchStrategies(
   windowHours = 24,
 ): Promise<StrategySummary[]> {
@@ -250,7 +294,7 @@ export async function fetchStrategyDetails(
 }
 
 export async function fetchBotDetails(botId: string): Promise<{
-  bot: BotAnalysisSummary | Record<string, unknown>;
+  bot: BotRecordView;
   summary?: BotAnalysisSummary;
   openPosition?: PositionRecord | null;
   backtests: BacktestRecord[];
@@ -319,6 +363,61 @@ export interface CreateBotRequest {
   marginMode?: "CROSS" | "ISOLATED";
   valueQty?: string;
   strategyConfig?: Record<string, unknown>;
+}
+
+export interface PatchBotRequest {
+  name?: string;
+  accountId?: string;
+  status?: "active" | "paused" | "archived";
+  enabled?: boolean;
+  executionTimeframe?: string;
+  primaryRangeTimeframe?: string;
+  secondaryRangeTimeframe?: string;
+  executionLimit?: number;
+  primaryRangeLimit?: number;
+  secondaryRangeLimit?: number;
+  dryRun?: boolean;
+  marginMode?: "CROSS" | "ISOLATED";
+  valueQty?: string;
+  strategyConfig?: Record<string, unknown>;
+}
+
+export async function patchBot(
+  botId: string,
+  request: PatchBotRequest,
+): Promise<BotRecordView> {
+  const response = await fetch(`${API_URL}/v1/bots/${encodeURIComponent(botId)}`, {
+    method: "PATCH",
+    headers: {
+      "content-type": "application/json",
+    },
+    body: JSON.stringify(request),
+  });
+
+  if (!response.ok) {
+    let details = "";
+    try {
+      const payload = (await response.json()) as {
+        error?: unknown;
+        details?: unknown;
+      };
+      const error = typeof payload.error === "string" ? payload.error : undefined;
+      const reason =
+        typeof payload.details === "string" ? payload.details : undefined;
+      details = [error, reason].filter(Boolean).join(": ");
+    } catch {
+      // ignore
+    }
+    throw new Error(
+      `API request failed (${response.status})${details ? `: ${details}` : ""}`,
+    );
+  }
+
+  const payload = (await response.json()) as {
+    generatedAt: string;
+    bot: BotRecordView;
+  };
+  return payload.bot;
 }
 
 export interface CreateRangeValidationRequest {
