@@ -256,6 +256,45 @@ export function BotDetailsPage() {
           </div>
 
           <div className="flex flex-wrap gap-2">
+            <div className="min-w-[320px]">
+              <Switch
+                checked={botDetails.bot.runtime.dryRun !== false}
+                disabled={modeSaving}
+                label="Simulated Execution"
+                description={
+                  botDetails.bot.runtime.dryRun === false
+                    ? "Live orders are enabled. The bot can place real exchange orders while remaining active."
+                    : "The bot stays active but only produces fake trades and dry-run order flows."
+                }
+                onChange={(checked) => {
+                  void updateDryRun(checked);
+                }}
+              />
+              <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
+                <span
+                  className={
+                    botDetails.bot.runtime.dryRun === false
+                      ? "rounded-full border border-rose-300/30 bg-rose-400/10 px-2 py-1 text-rose-100"
+                      : "rounded-full border border-emerald-300/30 bg-emerald-400/10 px-2 py-1 text-emerald-100"
+                  }
+                >
+                  {botDetails.bot.runtime.dryRun === false
+                    ? "live orders enabled"
+                    : "dry-run enabled"}
+                </span>
+                {modeSaving ? (
+                  <span className="text-slate-400">
+                    Updating runtime mode...
+                  </span>
+                ) : null}
+              </div>
+              {modeError ? (
+                <p className="mt-2 text-sm text-rose-300">{modeError}</p>
+              ) : null}
+              {modeSuccess ? (
+                <p className="mt-2 text-sm text-emerald-300">{modeSuccess}</p>
+              ) : null}
+            </div>
             {botStatus === "active" ? (
               <Button
                 size="sm"
@@ -443,44 +482,6 @@ export function BotDetailsPage() {
               <p className="text-xs text-slate-400">Value Qty</p>
               <p className="mt-1">{botDetails.bot.runtime.valueQty ?? "-"}</p>
             </div>
-          </div>
-
-          <div className="mt-5 border-t border-white/10 pt-5">
-            <Switch
-              checked={botDetails.bot.runtime.dryRun !== false}
-              disabled={modeSaving}
-              label="Simulated Execution"
-              description={
-                botDetails.bot.runtime.dryRun === false
-                  ? "Live orders are enabled. The bot can place real exchange orders while remaining active."
-                  : "The bot stays active but only produces fake trades and dry-run order flows."
-              }
-              onChange={(checked) => {
-                void updateDryRun(checked);
-              }}
-            />
-            <div className="mt-3 flex flex-wrap items-center gap-2 text-xs">
-              <span
-                className={
-                  botDetails.bot.runtime.dryRun === false
-                    ? "rounded-full border border-rose-300/30 bg-rose-400/10 px-2 py-1 text-rose-100"
-                    : "rounded-full border border-emerald-300/30 bg-emerald-400/10 px-2 py-1 text-emerald-100"
-                }
-              >
-                {botDetails.bot.runtime.dryRun === false
-                  ? "live orders enabled"
-                  : "dry-run enabled"}
-              </span>
-              {modeSaving ? (
-                <span className="text-slate-400">Updating runtime mode...</span>
-              ) : null}
-            </div>
-            {modeError ? (
-              <p className="mt-3 text-sm text-rose-300">{modeError}</p>
-            ) : null}
-            {modeSuccess ? (
-              <p className="mt-3 text-sm text-emerald-300">{modeSuccess}</p>
-            ) : null}
           </div>
 
           <div className="mt-6 space-y-4 border-t border-white/10 pt-5">
