@@ -1,25 +1,38 @@
 import {
+  buildRangeReversalAnalysis,
   computeVolumeProfileLevels,
   createConfig as createRangeReversalConfig,
   createConfiguredRangeReversalStrategy,
+  rangeReversalAnalysisJsonSchema,
+  rangeReversalAnalysisUi,
   rangeReversalConfigJsonSchema,
   rangeReversalConfigUi,
   type BacktestCandle,
   type DeepPartial,
   type RangeReversalConfig,
+  type RangeReversalIntentMeta,
+  type RangeReversalSnapshot,
 } from "@repo/ranging-core";
 import {
+  buildIndicatorBotAnalysis,
   createConfiguredIndicatorBotStrategy,
+  indicatorBotAnalysisJsonSchema,
+  indicatorBotAnalysisUi,
   indicatorBotConfigJsonSchema,
   indicatorBotConfigUi,
   type IndicatorBotConfig,
+  type IndicatorBotIntentMeta,
+  type IndicatorBotSnapshot,
 } from "@repo/indicator-bot-core";
 import {
   type BacktestMetrics,
   type Candle,
   type EquityPoint,
+  type StrategyAnalysisJsonSchema,
+  type StrategyAnalysisUiField,
   type StrategyConfigJsonSchema,
   type StrategyConfigUiField,
+  type StrategyDecision,
   type Timeframe,
   type TradingStrategy,
 } from "@repo/trading-engine";
@@ -59,9 +72,15 @@ export interface StrategyManifest<
   description: string;
   configJsonSchema: StrategyConfigJsonSchema;
   configUi: StrategyConfigUiField[];
+  analysisJsonSchema: StrategyAnalysisJsonSchema;
+  analysisUi: StrategyAnalysisUiField[];
   getDefaultConfig(): TConfig;
   resolveConfig(raw?: Record<string, unknown>): TConfig;
   createStrategy(config: TConfig): TradingStrategy<TConfig, TSnapshot, TMeta>;
+  buildAnalysis(input: {
+    snapshot: TSnapshot;
+    decision: StrategyDecision<TMeta>;
+  }): Record<string, unknown>;
   runBacktest(
     input: StrategyBacktestInput,
     config: TConfig,
@@ -122,7 +141,11 @@ function toSimpleRange(candles: Candle[]): StrategyRangeEstimate {
   };
 }
 
-const rangeReversalManifest: StrategyManifest<RangeReversalConfig> = {
+const rangeReversalManifest: StrategyManifest<
+  RangeReversalConfig,
+  RangeReversalSnapshot,
+  RangeReversalIntentMeta
+> = {
   id: "range-reversal",
   version: "1",
   label: "Range Reversal",
@@ -130,6 +153,8 @@ const rangeReversalManifest: StrategyManifest<RangeReversalConfig> = {
     "Daily + 4h aligned value-area reversal strategy with divergence, money flow, and SFP confirmation.",
   configJsonSchema: rangeReversalConfigJsonSchema,
   configUi: rangeReversalConfigUi,
+  analysisJsonSchema: rangeReversalAnalysisJsonSchema,
+  analysisUi: rangeReversalAnalysisUi,
   getDefaultConfig() {
     return createRangeReversalConfig();
   },
@@ -140,6 +165,9 @@ const rangeReversalManifest: StrategyManifest<RangeReversalConfig> = {
   },
   createStrategy(config) {
     return createConfiguredRangeReversalStrategy(config).strategy;
+  },
+  buildAnalysis(input) {
+    return buildRangeReversalAnalysis(input);
   },
   runBacktest(input, config) {
     const configured = createConfiguredRangeReversalStrategy(config);
@@ -204,7 +232,11 @@ const rangeReversalManifest: StrategyManifest<RangeReversalConfig> = {
   },
 };
 
-const indicatorManifest: StrategyManifest<IndicatorBotConfig> = {
+const indicatorManifest: StrategyManifest<
+  IndicatorBotConfig,
+  IndicatorBotSnapshot,
+  IndicatorBotIntentMeta
+> = {
   id: "indicator-bot",
   version: "1",
   label: "Indicator Bot",
@@ -212,6 +244,8 @@ const indicatorManifest: StrategyManifest<IndicatorBotConfig> = {
     "Low-frequency indicator confluence strategy using EMA trend, RSI pullback, ATR risk, and higher-timeframe confirmation.",
   configJsonSchema: indicatorBotConfigJsonSchema,
   configUi: indicatorBotConfigUi,
+  analysisJsonSchema: indicatorBotAnalysisJsonSchema,
+  analysisUi: indicatorBotAnalysisUi,
   getDefaultConfig() {
     return createConfiguredIndicatorBotStrategy().config;
   },
@@ -223,6 +257,9 @@ const indicatorManifest: StrategyManifest<IndicatorBotConfig> = {
   },
   createStrategy(config) {
     return createConfiguredIndicatorBotStrategy(config).strategy;
+  },
+  buildAnalysis(input) {
+    return buildIndicatorBotAnalysis(input);
   },
   runBacktest(input, config) {
     const result = createConfiguredIndicatorBotStrategy(config).runBacktest(

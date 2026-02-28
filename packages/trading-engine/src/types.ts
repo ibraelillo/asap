@@ -51,6 +51,8 @@ export interface StrategyConfigUiField {
 }
 
 export type StrategyConfigJsonSchema = Record<string, unknown>;
+export type StrategyAnalysisUiField = StrategyConfigUiField;
+export type StrategyAnalysisJsonSchema = StrategyConfigJsonSchema;
 
 export interface BotDefinition {
   id: string;

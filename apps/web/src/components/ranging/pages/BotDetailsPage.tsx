@@ -29,6 +29,7 @@ import {
   StrategyConfigEditor,
   type StrategyConfigEditorHandle,
 } from "../StrategyConfigEditor";
+import { StrategyAnalysisSnapshot } from "../StrategyConfigSnapshot";
 import { asRecord, cloneRecord, mergeConfigDefaults } from "../config-utils";
 
 export function BotDetailsPage() {
@@ -409,35 +410,21 @@ export function BotDetailsPage() {
           </div>
         </div>
 
-        <div className="mt-4 grid grid-cols-1 gap-4 xl:grid-cols-4">
-          <div className="rounded-xl border border-white/10 bg-slate-950/40 p-4">
-            <p className="text-xs text-slate-400">VAL</p>
-            <p className="mt-2 text-sm font-semibold text-slate-100">
-              {summary?.rangeVal?.toLocaleString() ?? "-"}
-            </p>
-          </div>
-          <div className="rounded-xl border border-white/10 bg-slate-950/40 p-4">
-            <p className="text-xs text-slate-400">POC</p>
-            <p className="mt-2 text-sm font-semibold text-slate-100">
-              {summary?.rangePoc?.toLocaleString() ?? "-"}
-            </p>
-          </div>
-          <div className="rounded-xl border border-white/10 bg-slate-950/40 p-4">
-            <p className="text-xs text-slate-400">VAH</p>
-            <p className="mt-2 text-sm font-semibold text-slate-100">
-              {summary?.rangeVah?.toLocaleString() ?? "-"}
-            </p>
-          </div>
-          <div className="rounded-xl border border-white/10 bg-slate-950/40 p-4">
-            <p className="text-xs text-slate-400">Money Flow Slope</p>
-            <p className="mt-2 text-sm font-semibold text-slate-100">
-              {summary?.moneyFlowSlope?.toFixed(4) ?? "-"}
-            </p>
-          </div>
-        </div>
-
         <div className="mt-4">
           <ReasonBadges reasons={summary?.reasons ?? []} />
+        </div>
+
+        <div className="mt-6 border-t border-white/10 pt-5">
+          <SectionHeader
+            title="Strategy Analysis"
+            description={`Latest ${strategySummary?.label ?? botDetails.bot.strategyId} analysis output for this bot.`}
+          />
+          <div className="mt-4">
+            <StrategyAnalysisSnapshot
+              strategy={strategySummary}
+              analysis={asRecord(summary?.strategyAnalysis)}
+            />
+          </div>
         </div>
       </section>
 

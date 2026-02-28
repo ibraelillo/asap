@@ -44,6 +44,7 @@ export interface BotRunRecord {
   signal: Side | null;
   reasons: string[];
   price?: number;
+  strategyAnalysis?: Record<string, unknown>;
   rangeVal?: number;
   rangeVah?: number;
   rangePoc?: number;
@@ -161,15 +162,7 @@ export interface BotAnalysisSummary {
   runStatus: "ok" | "failed" | "idle";
   reasons: string[];
   price?: number;
-  rangeVal?: number;
-  rangeVah?: number;
-  rangePoc?: number;
-  rangeIsAligned?: boolean;
-  moneyFlowSlope?: number;
-  bullishDivergence?: boolean;
-  bearishDivergence?: boolean;
-  bullishSfp?: boolean;
-  bearishSfp?: boolean;
+  strategyAnalysis?: Record<string, unknown>;
   processingStatus: ProcessingStatus | "idle";
   processingMessage?: string;
   orderId?: string;
@@ -318,6 +311,8 @@ export interface StrategySummary {
   configJsonSchema: Record<string, unknown>;
   configUi: StrategyConfigUiField[];
   configDefaults: Record<string, unknown>;
+  analysisJsonSchema: Record<string, unknown>;
+  analysisUi: StrategyConfigUiField[];
   configuredVersions: string[];
   configuredBots: number;
   activeBots: number;

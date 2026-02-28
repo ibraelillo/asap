@@ -69,6 +69,30 @@ const botSummary = {
   runStatus: "ok",
   reasons: ["range_aligned", "bullish_divergence", "bullish_sfp"],
   price: 82.45,
+  strategyAnalysis: {
+    signal: "long",
+    price: 82.45,
+    range: {
+      val: 79.2,
+      poc: 84.1,
+      vah: 88.8,
+      isAligned: true,
+      overlapRatio: 0.82,
+    },
+    confirmations: {
+      bullishDivergence: true,
+      bearishDivergence: false,
+      bullishSfp: true,
+      bearishSfp: false,
+      moneyFlowSlope: 0.1842,
+      recentLowBrokeVal: true,
+      recentHighBrokeVah: false,
+    },
+    blockers: {
+      long: [],
+      short: ["missing_bearish_divergence"],
+    },
+  },
   rangeVal: 79.2,
   rangeVah: 88.8,
   rangePoc: 84.1,
@@ -589,6 +613,28 @@ const strategies = [
         runnerExitOnOppositeSignal: true,
       },
     },
+    analysisJsonSchema: {
+      type: "object",
+      properties: {
+        signal: { type: ["string", "null"] },
+      },
+    },
+    analysisUi: [
+      {
+        path: "signal",
+        widget: "text",
+        label: "Signal Bias",
+        section: "Decision",
+        order: 1,
+      },
+      {
+        path: "range.val",
+        widget: "number",
+        label: "VAL",
+        section: "Range",
+        order: 10,
+      },
+    ],
     configuredVersions: ["1"],
     configuredBots: 1,
     activeBots: 1,
@@ -626,6 +672,21 @@ const strategies = [
     configDefaults: {
       indicators: [],
     },
+    analysisJsonSchema: {
+      type: "object",
+      properties: {
+        signal: { type: ["string", "null"] },
+      },
+    },
+    analysisUi: [
+      {
+        path: "signal",
+        widget: "text",
+        label: "Signal Bias",
+        section: "Decision",
+        order: 1,
+      },
+    ],
     configuredVersions: [],
     configuredBots: 0,
     activeBots: 0,

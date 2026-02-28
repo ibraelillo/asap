@@ -32,6 +32,7 @@ import {
 import { createBotRuntime } from "./runtime-orchestrator-factory";
 import { loadActiveBots } from "./runtime-bots";
 import { getRuntimeSettings } from "./runtime-settings";
+import { strategyRegistry } from "./strategy-registry";
 import {
   getClosedCandleEndTime,
   getTimeframeDurationMs,
@@ -145,11 +146,16 @@ function toRunRecord(
   positionBefore: PositionRecord | null,
   event: StrategySignalEvent,
 ): BotRunRecord {
+  const manifest = strategyRegistry.getManifest(bot.strategyId);
   const processing = event.processing ?? {
     status: extractEntrySide(event.decision) ? "error" : "no-signal",
     side: extractEntrySide(event.decision) ?? undefined,
     message: "Missing processing result",
   };
+  const strategyAnalysis = manifest.buildAnalysis({
+    snapshot: event.snapshot,
+    decision: event.decision,
+  });
 
   const snapshot = event.snapshot as {
     price?: number;
@@ -207,6 +213,7 @@ function toRunRecord(
     signal: extractEntrySide(event.decision),
     reasons: event.decision.reasons,
     price: snapshot.price,
+    strategyAnalysis,
     rangeVal: snapshot.range?.effective?.val,
     rangeVah: snapshot.range?.effective?.vah,
     rangePoc: snapshot.range?.effective?.poc,

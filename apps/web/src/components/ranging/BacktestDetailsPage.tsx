@@ -16,7 +16,7 @@ import {
 import type { BacktestRecord, BacktestTrade } from "../../types/ranging-dashboard";
 import { BacktestReplayChart } from "./BacktestReplayChart";
 import { BacktestConfigDrawer } from "./BacktestConfigDrawer";
-import { StrategyConfigSnapshot } from "./StrategyConfigSnapshot";
+import { StrategySummaryConfigSnapshot } from "./StrategyConfigSnapshot";
 import { asRecord, configsEqual, mergeConfigDefaults } from "./config-utils";
 
 interface BacktestDetailsPageProps {
@@ -310,7 +310,7 @@ export function BacktestDetailsPage({
               Use the edit-and-rerun flow to fork this exact snapshot, adjust
               the parameters, and open the new replay immediately.
             </p>
-            <StrategyConfigSnapshot
+            <StrategySummaryConfigSnapshot
               strategy={strategySummary}
               config={backtestStrategyConfig}
             />

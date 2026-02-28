@@ -859,6 +859,8 @@ async function loadStrategySummaries(
         configJsonSchema: manifest.configJsonSchema,
         configUi: manifest.configUi,
         configDefaults: toStrategyConfigRecord(manifest.getDefaultConfig()),
+        analysisJsonSchema: manifest.analysisJsonSchema,
+        analysisUi: manifest.analysisUi,
         configuredVersions: [
           ...new Set(strategyBots.map((bot) => bot.strategyVersion)),
         ].sort(),
@@ -939,6 +941,8 @@ async function loadStrategyDetails(
       configJsonSchema: manifest.configJsonSchema,
       configUi: manifest.configUi,
       configDefaults,
+      analysisJsonSchema: manifest.analysisJsonSchema,
+      analysisUi: manifest.analysisUi,
       configuredVersions: [
         ...new Set(bots.map((bot) => bot.strategyVersion)),
       ].sort(),

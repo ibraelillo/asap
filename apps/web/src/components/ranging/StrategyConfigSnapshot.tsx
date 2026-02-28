@@ -82,9 +82,10 @@ function formatConfigValue(
 }
 
 interface StrategyConfigSnapshotProps {
-  strategy?: StrategySummary;
+  fields?: StrategyConfigUiField[];
   config: Record<string, unknown>;
   emptyMessage?: string;
+  itemLabel?: string;
 }
 
 type SnapshotRow = {
@@ -94,13 +95,14 @@ type SnapshotRow = {
 };
 
 export function StrategyConfigSnapshot({
-  strategy,
+  fields,
   config,
   emptyMessage = "No strategy snapshot was stored on this backtest.",
+  itemLabel = "parameter",
 }: StrategyConfigSnapshotProps) {
   const normalizedConfig = asRecord(config);
   const configUiByPath = new Map(
-    (strategy?.configUi ?? []).map((field) => [field.path, field]),
+    (fields ?? []).map((field) => [field.path, field]),
   );
   const rows: SnapshotRow[] = [...collectConfigPaths(normalizedConfig)]
     .map((path) => ({
@@ -133,7 +135,7 @@ export function StrategyConfigSnapshot({
           <div className="border-b border-white/10 bg-white/5 px-4 py-3">
             <h4 className="text-sm font-semibold text-slate-100">{section}</h4>
             <p className="mt-1 text-xs text-slate-400">
-              {sectionRows.length} parameter
+              {sectionRows.length} {itemLabel}
               {sectionRows.length === 1 ? "" : "s"}
             </p>
           </div>
@@ -179,5 +181,47 @@ export function StrategyConfigSnapshot({
         </Panel>
       ))}
     </div>
+  );
+}
+
+interface StrategySummaryConfigSnapshotProps {
+  strategy?: StrategySummary;
+  config: Record<string, unknown>;
+  emptyMessage?: string;
+}
+
+export function StrategySummaryConfigSnapshot({
+  strategy,
+  config,
+  emptyMessage,
+}: StrategySummaryConfigSnapshotProps) {
+  return (
+    <StrategyConfigSnapshot
+      fields={strategy?.configUi}
+      config={config}
+      emptyMessage={emptyMessage}
+      itemLabel="parameter"
+    />
+  );
+}
+
+interface StrategyAnalysisSnapshotProps {
+  strategy?: StrategySummary;
+  analysis: Record<string, unknown>;
+  emptyMessage?: string;
+}
+
+export function StrategyAnalysisSnapshot({
+  strategy,
+  analysis,
+  emptyMessage = "No strategy analysis was produced for this run yet.",
+}: StrategyAnalysisSnapshotProps) {
+  return (
+    <StrategyConfigSnapshot
+      fields={strategy?.analysisUi}
+      config={analysis}
+      emptyMessage={emptyMessage}
+      itemLabel="analysis field"
+    />
   );
 }

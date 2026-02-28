@@ -4,7 +4,7 @@ import { Bot, Layers3, TrendingDown, TrendingUp } from "lucide-react";
 import { MetricCard } from "../../trade-results/MetricCard";
 import { fetchStrategyDetails } from "../../../lib/ranging-api";
 import { formatCurrency, formatDateTime } from "../BotUi";
-import { StrategyConfigSnapshot } from "../StrategyConfigSnapshot";
+import { StrategySummaryConfigSnapshot } from "../StrategyConfigSnapshot";
 
 export function StrategyDetailsPage() {
   const { strategyId } = useParams<{ strategyId: string }>();
@@ -319,7 +319,7 @@ export function StrategyDetailsPage() {
                     </Link>
                   ) : null}
                 </div>
-                <StrategyConfigSnapshot
+                <StrategySummaryConfigSnapshot
                   strategy={strategy}
                   config={variant.strategyConfig}
                   emptyMessage="No saved config for this variant."
