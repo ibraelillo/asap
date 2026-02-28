@@ -89,7 +89,6 @@ export function DatePicker({
             className="z-50 mt-2 rounded-2xl border border-white/10 bg-slate-950/95 p-3 shadow-[0_24px_80px_-30px_rgba(0,0,0,0.85)] backdrop-blur-xl [--anchor-gap:0.5rem]"
           >
             <DayPicker
-              animate
               mode="single"
               selected={selectedDate}
               onSelect={(nextDate) => {
@@ -99,13 +98,14 @@ export function DatePicker({
               }}
               fromDate={minDate}
               toDate={maxDate}
+              navLayout="around"
               showOutsideDays
               fixedWeeks
               className="text-sm text-slate-100"
               classNames={{
                 months: "flex flex-col",
                 month: "space-y-3",
-                caption:
+                month_caption:
                   "relative flex items-center justify-center px-8 text-sm font-medium text-slate-100",
                 caption_label: "text-sm font-medium text-slate-100",
                 nav: "flex items-center gap-1",
