@@ -1,14 +1,15 @@
-import { useState } from "react";
-import useSWR from "swr";
+import { useEffect, useRef, useState } from "react";
+import useSWR, { useSWRConfig } from "swr";
 import {
   CheckCircle2,
   History,
   Loader2,
   Play,
+  Settings2,
   WandSparkles,
   XCircle,
 } from "lucide-react";
-import { Select } from "@repo/ui";
+import { Button, Drawer, Select } from "@repo/ui";
 import { Link, Navigate, useParams } from "react-router-dom";
 import {
   createBacktest,
@@ -17,9 +18,17 @@ import {
   fetchBotDetails,
   fetchBotStats,
   fetchRangeValidations,
+  fetchStrategyDetails,
+  patchBot,
 } from "../../../lib/ranging-api";
 import { MetricCard } from "../../trade-results/MetricCard";
 import { SectionHeader, formatCurrency, formatDateTime } from "../BotUi";
+import {
+  StrategyConfigEditor,
+  type StrategyConfigEditorHandle,
+} from "../StrategyConfigEditor";
+
+type DrawerMode = "bot-settings" | "new-backtest" | null;
 
 function toDateInputValue(date: Date): string {
   const year = date.getFullYear();
@@ -37,28 +46,67 @@ function dateInputDaysAgo(days: number): string {
 
 function parseDateStartMs(value: string): number | undefined {
   const parts = value.split("-").map((part) => Number(part));
-  if (parts.length !== 3 || parts.some((part) => !Number.isFinite(part)))
+  if (parts.length !== 3 || parts.some((part) => !Number.isFinite(part))) {
     return undefined;
+  }
+
   const [year, month, day] = parts;
-  if (year === undefined || month === undefined || day === undefined)
+  if (year === undefined || month === undefined || day === undefined) {
     return undefined;
+  }
+
   const parsed = new Date(year, month - 1, day, 0, 0, 0, 0).getTime();
   return Number.isFinite(parsed) ? parsed : undefined;
 }
 
 function parseDateEndMs(value: string): number | undefined {
   const parts = value.split("-").map((part) => Number(part));
-  if (parts.length !== 3 || parts.some((part) => !Number.isFinite(part)))
+  if (parts.length !== 3 || parts.some((part) => !Number.isFinite(part))) {
     return undefined;
+  }
+
   const [year, month, day] = parts;
-  if (year === undefined || month === undefined || day === undefined)
+  if (year === undefined || month === undefined || day === undefined) {
     return undefined;
+  }
+
   const parsed = new Date(year, month - 1, day, 23, 59, 59, 999).getTime();
   return Number.isFinite(parsed) ? parsed : undefined;
 }
 
+function asRecord(value: unknown): Record<string, unknown> {
+  return value && typeof value === "object"
+    ? (value as Record<string, unknown>)
+    : {};
+}
+
+function cloneRecord<T extends Record<string, unknown>>(value: T): T {
+  return JSON.parse(JSON.stringify(value)) as T;
+}
+
+function normalizeConfigString(value: unknown): string {
+  return JSON.stringify(asRecord(value));
+}
+
 export function BotBacktestsPage() {
   const { botId } = useParams<{ botId: string }>();
+  const { mutate } = useSWRConfig();
+  const botStrategyConfigEditorRef = useRef<StrategyConfigEditorHandle>(null);
+  const backtestStrategyConfigEditorRef =
+    useRef<StrategyConfigEditorHandle>(null);
+  const [drawerMode, setDrawerMode] = useState<DrawerMode>(null);
+  const [botSettingsFeedback, setBotSettingsFeedback] = useState<
+    string | undefined
+  >();
+  const [botSettingsError, setBotSettingsError] = useState<
+    string | undefined
+  >();
+  const [botSettingsSaving, setBotSettingsSaving] = useState(false);
+  const [draftBotStrategyConfig, setDraftBotStrategyConfig] = useState<
+    Record<string, unknown>
+  >({});
+  const [draftBacktestStrategyConfig, setDraftBacktestStrategyConfig] =
+    useState<Record<string, unknown>>({});
   const [backtestFromDate, setBacktestFromDate] = useState<string>(() =>
     dateInputDaysAgo(30),
   );
@@ -77,6 +125,9 @@ export function BotBacktestsPage() {
     useState<number>(0.72);
   const [creatingBacktest, setCreatingBacktest] = useState(false);
   const [backtestFeedback, setBacktestFeedback] = useState<
+    string | undefined
+  >();
+  const [applyingBacktestId, setApplyingBacktestId] = useState<
     string | undefined
   >();
   const [validationTimeframe, setValidationTimeframe] = useState<string>("15m");
@@ -128,6 +179,25 @@ export function BotBacktestsPage() {
     ([, id]) => fetchBotStats(String(id), 24),
     { refreshInterval: 60_000, revalidateOnFocus: false },
   );
+  const { data: strategyDetails } = useSWR(
+    botDetails?.bot.strategyId
+      ? ["strategy-details", botDetails.bot.strategyId]
+      : null,
+    ([, strategyId]) => fetchStrategyDetails(String(strategyId)),
+    { revalidateOnFocus: false },
+  );
+
+  useEffect(() => {
+    if (!botDetails) return;
+
+    const nextConfig = cloneRecord(asRecord(botDetails.bot.runtime.strategyConfig));
+    setDraftBotStrategyConfig(nextConfig);
+    setDraftBacktestStrategyConfig(nextConfig);
+    botStrategyConfigEditorRef.current?.resetDrafts();
+    backtestStrategyConfigEditorRef.current?.resetDrafts();
+    setBotSettingsError(undefined);
+    setBotSettingsFeedback(undefined);
+  }, [botDetails]);
 
   if (!botId) {
     return <Navigate to="/bots" replace />;
@@ -139,6 +209,99 @@ export function BotBacktestsPage() {
       : botDetails?.bot && typeof botDetails.bot.symbol === "string"
         ? botDetails.bot.symbol
         : botId;
+  const strategySummary = strategyDetails?.strategy;
+  const currentBotStrategyConfig = asRecord(botDetails?.bot.runtime.strategyConfig);
+  const currentBotConfigString = normalizeConfigString(currentBotStrategyConfig);
+
+  function openBotSettingsDrawer() {
+    const nextConfig = cloneRecord(currentBotStrategyConfig);
+    setDraftBotStrategyConfig(nextConfig);
+    botStrategyConfigEditorRef.current?.resetDrafts();
+    setBotSettingsError(undefined);
+    setBotSettingsFeedback(undefined);
+    setDrawerMode("bot-settings");
+  }
+
+  function openBacktestDrawer() {
+    const nextConfig = cloneRecord(currentBotStrategyConfig);
+    setDraftBacktestStrategyConfig(nextConfig);
+    backtestStrategyConfigEditorRef.current?.resetDrafts();
+    setBacktestFeedback(undefined);
+    setDrawerMode("new-backtest");
+  }
+
+  async function saveBotSettings() {
+    if (!botId) return;
+
+    const resolved = botStrategyConfigEditorRef.current?.resolveForSubmit() ?? {
+      valid: true,
+      config: asRecord(draftBotStrategyConfig),
+    };
+    if (!resolved.valid) {
+      setBotSettingsError(
+        "Fix the highlighted strategy parameters before saving.",
+      );
+      setBotSettingsFeedback(undefined);
+      return;
+    }
+
+    setBotSettingsSaving(true);
+    setBotSettingsError(undefined);
+    setBotSettingsFeedback(undefined);
+
+    try {
+      await patchBot(botId, { strategyConfig: resolved.config });
+      setDraftBotStrategyConfig(cloneRecord(resolved.config));
+      setDraftBacktestStrategyConfig(cloneRecord(resolved.config));
+      setBotSettingsFeedback("Bot strategy settings updated.");
+      await Promise.all([
+        mutate(["bot-details", botId]),
+        mutate(["bot-stats", botId]),
+        mutate("ranging-dashboard"),
+      ]);
+      setDrawerMode(null);
+    } catch (error) {
+      setBotSettingsError(
+        error instanceof Error ? error.message : String(error),
+      );
+    } finally {
+      setBotSettingsSaving(false);
+    }
+  }
+
+  async function applyBacktestSettings(
+    strategyConfig: Record<string, unknown> | undefined,
+    backtestId: string,
+  ) {
+    if (!botId) return;
+    if (!strategyConfig || Object.keys(strategyConfig).length === 0) {
+      setBacktestFeedback("This backtest does not contain a strategy snapshot.");
+      return;
+    }
+
+    setApplyingBacktestId(backtestId);
+    setBacktestFeedback(undefined);
+
+    try {
+      await patchBot(botId, { strategyConfig });
+      setDraftBotStrategyConfig(cloneRecord(strategyConfig));
+      setDraftBacktestStrategyConfig(cloneRecord(strategyConfig));
+      setBacktestFeedback(
+        `Applied settings from backtest ${backtestId} to the bot.`,
+      );
+      await Promise.all([
+        mutate(["bot-details", botId]),
+        mutate(["bot-stats", botId]),
+        mutate("ranging-dashboard"),
+      ]);
+    } catch (error) {
+      setBacktestFeedback(
+        `Failed to apply settings: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    } finally {
+      setApplyingBacktestId(undefined);
+    }
+  }
 
   async function onCreateBacktest() {
     if (creatingBacktest) return;
@@ -154,6 +317,18 @@ export function BotBacktestsPage() {
       return;
     }
 
+    const resolved =
+      backtestStrategyConfigEditorRef.current?.resolveForSubmit() ?? {
+        valid: true,
+        config: asRecord(draftBacktestStrategyConfig),
+      };
+    if (!resolved.valid) {
+      setBacktestFeedback(
+        "Fix the highlighted strategy parameters before queuing the backtest.",
+      );
+      return;
+    }
+
     setCreatingBacktest(true);
     setBacktestFeedback(undefined);
 
@@ -162,6 +337,7 @@ export function BotBacktestsPage() {
         fromMs,
         toMs,
         initialEquity: backtestInitialEquity,
+        strategyConfig: resolved.config,
         ai: {
           enabled: backtestUseAi,
           lookbackCandles: backtestAiLookbackCandles,
@@ -171,6 +347,7 @@ export function BotBacktestsPage() {
         },
       });
 
+      setDraftBacktestStrategyConfig(cloneRecord(resolved.config));
       setBacktestFeedback(
         backtest.status === "running"
           ? backtest.ai?.enabled
@@ -181,7 +358,12 @@ export function BotBacktestsPage() {
             : `Backtest failed: ${backtest.errorMessage ?? "Unknown error"}`,
       );
 
-      await Promise.all([mutateBacktests(), mutateStats()]);
+      await Promise.all([
+        mutateBacktests(),
+        mutateStats(),
+        mutate(["bot-details", botId]),
+      ]);
+      setDrawerMode(null);
     } catch (error) {
       setBacktestFeedback(
         `Backtest request failed: ${error instanceof Error ? error.message : String(error)}`,
@@ -250,7 +432,22 @@ export function BotBacktestsPage() {
               jobs.
             </p>
           </div>
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
+            <Button
+              size="sm"
+              leadingIcon={<Settings2 className="h-3.5 w-3.5" />}
+              onClick={openBotSettingsDrawer}
+            >
+              Edit Bot Settings
+            </Button>
+            <Button
+              size="sm"
+              variant="primary"
+              leadingIcon={<Play className="h-3.5 w-3.5" />}
+              onClick={openBacktestDrawer}
+            >
+              New Backtest
+            </Button>
             <Link
               to={`/bots/${encodeURIComponent(botId)}`}
               className="rounded-lg border border-white/15 bg-white/5 px-3 py-2 text-xs text-slate-200 transition hover:bg-white/10"
@@ -285,156 +482,21 @@ export function BotBacktestsPage() {
       <div className="panel p-5">
         <SectionHeader
           title="Backtests"
-          description="Run historical backtests in backend and track performance for this bot."
+          description="Each backtest stores its own strategy settings snapshot so you can compare variants and apply the winner to the bot later."
           aside={
-            backtestFeedback ? (
-              <p className="text-xs text-cyan-200">{backtestFeedback}</p>
-            ) : undefined
+            <div className="flex flex-wrap items-center gap-2">
+              {backtestFeedback ? (
+                <p className="text-xs text-cyan-200">{backtestFeedback}</p>
+              ) : null}
+              <Button size="sm" onClick={openBotSettingsDrawer}>
+                Edit Bot Settings
+              </Button>
+              <Button size="sm" variant="primary" onClick={openBacktestDrawer}>
+                New Backtest
+              </Button>
+            </div>
           }
         />
-
-        <div className="mb-5 flex flex-wrap items-end gap-2 rounded-lg border border-white/10 bg-slate-900/45 p-3">
-          <div className="inline-flex h-[54px] items-end pb-1 text-xs text-slate-300">
-            Symbol:{" "}
-            <span className="ml-1 font-medium text-cyan-200">{symbol}</span>
-          </div>
-
-          <label className="inline-flex flex-col gap-1 text-xs text-slate-300">
-            From
-            <input
-              type="date"
-              value={backtestFromDate}
-              onChange={(event) => setBacktestFromDate(event.target.value)}
-              className="rounded bg-slate-950/60 px-2 py-1 text-slate-100 outline-none"
-            />
-          </label>
-
-          <label className="inline-flex flex-col gap-1 text-xs text-slate-300">
-            To
-            <input
-              type="date"
-              value={backtestToDate}
-              onChange={(event) => setBacktestToDate(event.target.value)}
-              className="rounded bg-slate-950/60 px-2 py-1 text-slate-100 outline-none"
-            />
-          </label>
-
-          <label className="inline-flex flex-col gap-1 text-xs text-slate-300">
-            Initial Equity
-            <input
-              type="number"
-              min={100}
-              value={backtestInitialEquity}
-              onChange={(event) =>
-                setBacktestInitialEquity(
-                  Math.max(100, Number(event.target.value) || 1000),
-                )
-              }
-              className="w-28 rounded bg-slate-950/60 px-2 py-1 text-right text-slate-100 outline-none"
-            />
-          </label>
-
-          <label className="inline-flex h-[54px] items-end gap-2 pb-1 text-xs text-slate-200">
-            <input
-              type="checkbox"
-              checked={backtestUseAi}
-              onChange={(event) => setBacktestUseAi(event.target.checked)}
-              className="h-3.5 w-3.5 rounded border-white/20 bg-slate-950/60 text-cyan-300"
-            />
-            AI range validation
-          </label>
-
-          {backtestUseAi ? (
-            <>
-              <label className="inline-flex flex-col gap-1 text-xs text-slate-300">
-                AI Lookback
-                <input
-                  type="number"
-                  min={60}
-                  max={600}
-                  value={backtestAiLookbackCandles}
-                  onChange={(event) =>
-                    setBacktestAiLookbackCandles(
-                      Math.max(
-                        60,
-                        Math.min(600, Number(event.target.value) || 240),
-                      ),
-                    )
-                  }
-                  className="w-24 rounded bg-slate-950/60 px-2 py-1 text-right text-slate-100 outline-none"
-                />
-              </label>
-              <label className="inline-flex flex-col gap-1 text-xs text-slate-300">
-                AI Cadence
-                <input
-                  type="number"
-                  min={1}
-                  max={24}
-                  value={backtestAiCadenceBars}
-                  onChange={(event) =>
-                    setBacktestAiCadenceBars(
-                      Math.max(
-                        1,
-                        Math.min(24, Number(event.target.value) || 1),
-                      ),
-                    )
-                  }
-                  className="w-20 rounded bg-slate-950/60 px-2 py-1 text-right text-slate-100 outline-none"
-                />
-              </label>
-              <label className="inline-flex flex-col gap-1 text-xs text-slate-300">
-                AI Max Calls
-                <input
-                  type="number"
-                  min={1}
-                  max={400}
-                  value={backtestAiMaxEvaluations}
-                  onChange={(event) =>
-                    setBacktestAiMaxEvaluations(
-                      Math.max(
-                        1,
-                        Math.min(400, Number(event.target.value) || 50),
-                      ),
-                    )
-                  }
-                  className="w-24 rounded bg-slate-950/60 px-2 py-1 text-right text-slate-100 outline-none"
-                />
-              </label>
-              <label className="inline-flex flex-col gap-1 text-xs text-slate-300">
-                AI Min Conf
-                <input
-                  type="number"
-                  min={0}
-                  max={1}
-                  step={0.01}
-                  value={backtestAiConfidenceThreshold}
-                  onChange={(event) =>
-                    setBacktestAiConfidenceThreshold(
-                      Math.max(
-                        0,
-                        Math.min(1, Number(event.target.value) || 0.72),
-                      ),
-                    )
-                  }
-                  className="w-24 rounded bg-slate-950/60 px-2 py-1 text-right text-slate-100 outline-none"
-                />
-              </label>
-            </>
-          ) : null}
-
-          <button
-            onClick={() => {
-              void onCreateBacktest();
-            }}
-            disabled={creatingBacktest}
-            className="inline-flex items-center gap-2 rounded-lg border border-cyan-300/30 bg-cyan-400/15 px-3 py-2 text-xs text-cyan-100 transition hover:bg-cyan-400/20 disabled:cursor-not-allowed disabled:opacity-60"
-          >
-            <Play className="h-3.5 w-3.5" />
-            {creatingBacktest
-              ? "Running... (it will appear shortly)"
-              : "Run Backtest"}
-          </button>
-        </div>
 
         <div className="overflow-x-auto">
           <table className="min-w-full text-left text-sm">
@@ -444,10 +506,12 @@ export function BotBacktestsPage() {
                 <th className="pb-3 pr-4">Mode</th>
                 <th className="pb-3 pr-4">Status</th>
                 <th className="pb-3 pr-4">Progress</th>
+                <th className="pb-3 pr-4">Settings</th>
                 <th className="pb-3 pr-4">Trades</th>
                 <th className="pb-3 pr-4">Win Rate</th>
                 <th className="pb-3 pr-4">Net PnL</th>
-                <th className="pb-3">Ending Equity</th>
+                <th className="pb-3 pr-4">Ending Equity</th>
+                <th className="pb-3">Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -474,6 +538,13 @@ export function BotBacktestsPage() {
                       : aiProgress !== undefined
                         ? `${aiProgress}%`
                         : "-";
+                const hasSnapshot =
+                  !!backtest.strategyConfig &&
+                  Object.keys(backtest.strategyConfig).length > 0;
+                const differsFromBot =
+                  hasSnapshot &&
+                  normalizeConfigString(backtest.strategyConfig) !==
+                    currentBotConfigString;
 
                 return (
                   <tr
@@ -503,6 +574,21 @@ export function BotBacktestsPage() {
                     <td className="py-3 pr-4 text-xs text-slate-300">
                       {progressLabel}
                     </td>
+                    <td className="py-3 pr-4 text-xs">
+                      {hasSnapshot ? (
+                        differsFromBot ? (
+                          <span className="rounded-full border border-amber-300/30 bg-amber-400/10 px-2 py-0.5 text-amber-100">
+                            snapshot differs
+                          </span>
+                        ) : (
+                          <span className="rounded-full border border-emerald-300/30 bg-emerald-400/10 px-2 py-0.5 text-emerald-100">
+                            matches bot
+                          </span>
+                        )
+                      ) : (
+                        <span className="text-slate-500">-</span>
+                      )}
+                    </td>
                     <td className="py-3 pr-4">{backtest.totalTrades}</td>
                     <td className="py-3 pr-4">
                       {(backtest.winRate * 100).toFixed(1)}%
@@ -510,8 +596,30 @@ export function BotBacktestsPage() {
                     <td className="py-3 pr-4">
                       {formatCurrency(backtest.netPnl)}
                     </td>
-                    <td className="py-3">
+                    <td className="py-3 pr-4">
                       {formatCurrency(backtest.endingEquity)}
+                    </td>
+                    <td className="py-3">
+                      <div className="flex flex-wrap gap-2">
+                        <Button
+                          size="sm"
+                          variant="secondary"
+                          className="whitespace-nowrap"
+                          onClick={() =>
+                            void applyBacktestSettings(
+                              backtest.strategyConfig,
+                              backtest.id,
+                            )
+                          }
+                          disabled={
+                            !differsFromBot || applyingBacktestId === backtest.id
+                          }
+                        >
+                          {applyingBacktestId === backtest.id
+                            ? "Applying..."
+                            : "Apply To Bot"}
+                        </Button>
+                      </div>
                     </td>
                   </tr>
                 );
@@ -519,7 +627,7 @@ export function BotBacktestsPage() {
               {backtestsLoading && (backtests?.length ?? 0) === 0 ? (
                 <tr>
                   <td
-                    colSpan={8}
+                    colSpan={10}
                     className="py-4 text-center text-xs text-slate-400"
                   >
                     Loading backtests...
@@ -698,6 +806,218 @@ export function BotBacktestsPage() {
           </table>
         </div>
       </div>
+
+      <Drawer
+        open={drawerMode === "bot-settings"}
+        onClose={() => setDrawerMode(null)}
+        title="Edit Bot Strategy Settings"
+        description="Update the bot’s live strategy parameters. These become the default settings for future executions and new backtests."
+        footer={
+          <div className="flex flex-wrap justify-end gap-2">
+            <Button onClick={() => setDrawerMode(null)}>Cancel</Button>
+            <Button
+              variant="primary"
+              onClick={() => {
+                void saveBotSettings();
+              }}
+              disabled={botSettingsSaving}
+            >
+              {botSettingsSaving ? "Saving..." : "Save Settings"}
+            </Button>
+          </div>
+        }
+      >
+        <div className="space-y-4">
+          <div className="rounded-xl border border-white/10 bg-white/5 p-4 text-xs text-slate-300">
+            <p className="font-medium text-slate-100">{symbol}</p>
+            <p className="mt-1">
+              {botDetails?.bot.strategyId} / {botDetails?.bot.exchangeId} /{" "}
+              {botDetails?.bot.accountId}
+            </p>
+          </div>
+
+          <StrategyConfigEditor
+            ref={botStrategyConfigEditorRef}
+            strategy={strategySummary}
+            value={draftBotStrategyConfig}
+            onChange={setDraftBotStrategyConfig}
+            emptyState="No strategy metadata is available for this bot."
+          />
+
+          {botSettingsError ? (
+            <div className="rounded-xl border border-rose-300/20 bg-rose-400/10 px-4 py-3 text-sm text-rose-100">
+              {botSettingsError}
+            </div>
+          ) : null}
+          {botSettingsFeedback ? (
+            <div className="rounded-xl border border-cyan-300/20 bg-cyan-400/10 px-4 py-3 text-sm text-cyan-100">
+              {botSettingsFeedback}
+            </div>
+          ) : null}
+        </div>
+      </Drawer>
+
+      <Drawer
+        open={drawerMode === "new-backtest"}
+        onClose={() => setDrawerMode(null)}
+        title="Create Backtest"
+        description="Queue a historical backtest with its own strategy settings snapshot. If the result is better, you can apply those settings back to the bot."
+        footer={
+          <div className="flex flex-wrap justify-end gap-2">
+            <Button onClick={() => setDrawerMode(null)}>Cancel</Button>
+            <Button
+              variant="primary"
+              onClick={() => {
+                void onCreateBacktest();
+              }}
+              disabled={creatingBacktest}
+            >
+              {creatingBacktest ? "Queueing..." : "Queue Backtest"}
+            </Button>
+          </div>
+        }
+      >
+        <div className="space-y-5">
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+            <label className="inline-flex flex-col gap-1 text-xs text-slate-300">
+              From
+              <input
+                type="date"
+                value={backtestFromDate}
+                onChange={(event) => setBacktestFromDate(event.target.value)}
+                className="rounded bg-slate-950/60 px-3 py-2 text-sm text-slate-100 outline-none"
+              />
+            </label>
+
+            <label className="inline-flex flex-col gap-1 text-xs text-slate-300">
+              To
+              <input
+                type="date"
+                value={backtestToDate}
+                onChange={(event) => setBacktestToDate(event.target.value)}
+                className="rounded bg-slate-950/60 px-3 py-2 text-sm text-slate-100 outline-none"
+              />
+            </label>
+
+            <label className="inline-flex flex-col gap-1 text-xs text-slate-300">
+              Initial Equity
+              <input
+                type="number"
+                min={100}
+                value={backtestInitialEquity}
+                onChange={(event) =>
+                  setBacktestInitialEquity(
+                    Math.max(100, Number(event.target.value) || 1000),
+                  )
+                }
+                className="rounded bg-slate-950/60 px-3 py-2 text-right text-sm text-slate-100 outline-none"
+              />
+            </label>
+
+            <label className="inline-flex h-[72px] items-end gap-2 pb-2 text-xs text-slate-200">
+              <input
+                type="checkbox"
+                checked={backtestUseAi}
+                onChange={(event) => setBacktestUseAi(event.target.checked)}
+                className="h-3.5 w-3.5 rounded border-white/20 bg-slate-950/60 text-cyan-300"
+              />
+              AI range validation
+            </label>
+          </div>
+
+          {backtestUseAi ? (
+            <div className="grid grid-cols-1 gap-4 rounded-xl border border-white/10 bg-white/5 p-4 md:grid-cols-2">
+              <label className="inline-flex flex-col gap-1 text-xs text-slate-300">
+                AI Lookback
+                <input
+                  type="number"
+                  min={60}
+                  max={600}
+                  value={backtestAiLookbackCandles}
+                  onChange={(event) =>
+                    setBacktestAiLookbackCandles(
+                      Math.max(
+                        60,
+                        Math.min(600, Number(event.target.value) || 240),
+                      ),
+                    )
+                  }
+                  className="rounded bg-slate-950/60 px-3 py-2 text-right text-sm text-slate-100 outline-none"
+                />
+              </label>
+              <label className="inline-flex flex-col gap-1 text-xs text-slate-300">
+                AI Cadence
+                <input
+                  type="number"
+                  min={1}
+                  max={24}
+                  value={backtestAiCadenceBars}
+                  onChange={(event) =>
+                    setBacktestAiCadenceBars(
+                      Math.max(
+                        1,
+                        Math.min(24, Number(event.target.value) || 1),
+                      ),
+                    )
+                  }
+                  className="rounded bg-slate-950/60 px-3 py-2 text-right text-sm text-slate-100 outline-none"
+                />
+              </label>
+              <label className="inline-flex flex-col gap-1 text-xs text-slate-300">
+                AI Max Calls
+                <input
+                  type="number"
+                  min={1}
+                  max={400}
+                  value={backtestAiMaxEvaluations}
+                  onChange={(event) =>
+                    setBacktestAiMaxEvaluations(
+                      Math.max(
+                        1,
+                        Math.min(400, Number(event.target.value) || 50),
+                      ),
+                    )
+                  }
+                  className="rounded bg-slate-950/60 px-3 py-2 text-right text-sm text-slate-100 outline-none"
+                />
+              </label>
+              <label className="inline-flex flex-col gap-1 text-xs text-slate-300">
+                AI Min Conf
+                <input
+                  type="number"
+                  min={0}
+                  max={1}
+                  step={0.01}
+                  value={backtestAiConfidenceThreshold}
+                  onChange={(event) =>
+                    setBacktestAiConfidenceThreshold(
+                      Math.max(
+                        0,
+                        Math.min(1, Number(event.target.value) || 0.72),
+                      ),
+                    )
+                  }
+                  className="rounded bg-slate-950/60 px-3 py-2 text-right text-sm text-slate-100 outline-none"
+                />
+              </label>
+            </div>
+          ) : null}
+
+          <StrategyConfigEditor
+            ref={backtestStrategyConfigEditorRef}
+            strategy={strategySummary}
+            value={draftBacktestStrategyConfig}
+            onChange={setDraftBacktestStrategyConfig}
+            emptyState="No strategy metadata is available for this bot."
+          />
+
+          {backtestFeedback ? (
+            <div className="rounded-xl border border-cyan-300/20 bg-cyan-400/10 px-4 py-3 text-sm text-cyan-100">
+              {backtestFeedback}
+            </div>
+          ) : null}
+        </div>
+      </Drawer>
     </div>
   );
 }

@@ -3,6 +3,7 @@ export * from "./button.js";
 export * from "./checkbox.js";
 export * from "./code.js";
 export * from "./combobox.js";
+export * from "./drawer.js";
 export * from "./field.js";
 export * from "./input.js";
 export * from "./metric-card.js";

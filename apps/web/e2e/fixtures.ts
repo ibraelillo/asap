@@ -99,6 +99,14 @@ const botRecord = {
     primaryRangeLimit: 90,
     secondaryRangeTimeframe: "4h",
     secondaryRangeLimit: 180,
+    strategyConfig: {
+      risk: {
+        riskPctPerTrade: 0.01,
+      },
+      exits: {
+        runnerExitOnOppositeSignal: true,
+      },
+    },
     dryRun: true,
     marginMode: "CROSS",
     valueQty: "100",
@@ -386,6 +394,14 @@ const completedBacktest = {
   exchangeId: "kucoin",
   accountId: ACCOUNT_ID,
   symbol: "SUIUSDTM",
+  strategyConfig: {
+    risk: {
+      riskPctPerTrade: 0.012,
+    },
+    exits: {
+      runnerExitOnOppositeSignal: false,
+    },
+  },
   fromMs: NOW - 30 * 24 * HOUR_MS,
   toMs: NOW,
   executionTimeframe: "1h",
@@ -429,6 +445,14 @@ const runningBacktest = {
   exchangeId: "kucoin",
   accountId: ACCOUNT_ID,
   symbol: "SUIUSDTM",
+  strategyConfig: {
+    risk: {
+      riskPctPerTrade: 0.01,
+    },
+    exits: {
+      runnerExitOnOppositeSignal: true,
+    },
+  },
   fromMs: NOW - 14 * 24 * HOUR_MS,
   toMs: NOW,
   executionTimeframe: "1h",
@@ -750,10 +774,15 @@ export async function mockRangingApi(page: Page) {
     if (method === "PATCH" && pathname === `/v1/bots/${BOT_ID}`) {
       const body = JSON.parse(request.postData() ?? "{}") as {
         status?: "active" | "paused" | "archived";
+        strategyConfig?: Record<string, unknown>;
       };
       bot = {
         ...bot,
         status: body.status ?? bot.status,
+        runtime: {
+          ...bot.runtime,
+          strategyConfig: body.strategyConfig ?? bot.runtime.strategyConfig,
+        },
       };
       return json(route, {
         generatedAt: iso(NOW),
@@ -884,10 +913,14 @@ export async function mockRangingApi(page: Page) {
     }
 
     if (method === "POST" && pathname === `/v1/bots/${BOT_ID}/backtests`) {
+      const body = JSON.parse(request.postData() ?? "{}") as {
+        strategyConfig?: Record<string, unknown>;
+      };
       return json(route, {
         backtest: {
           ...runningBacktest,
           createdAtMs: NOW,
+          strategyConfig: body.strategyConfig ?? runningBacktest.strategyConfig,
         },
       });
     }

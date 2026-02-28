@@ -389,6 +389,7 @@ export interface CreateBacktestRequest {
   executionTimeframe?: string;
   primaryRangeTimeframe?: string;
   secondaryRangeTimeframe?: string;
+  strategyConfig?: Record<string, unknown>;
   ai?: {
     enabled?: boolean;
     lookbackCandles?: number;

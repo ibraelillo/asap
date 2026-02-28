@@ -133,11 +133,15 @@ test("bot backtests page can queue jobs without browser errors", async ({
     ),
   ).toBeVisible();
 
-  await page.getByRole("button", { name: /Run Backtest/i }).click();
+  await page.getByRole("button", { name: /New Backtest/i }).first().click();
   await expect(
-    page.getByText(
-      /Backtest queued|AI-integrated backtest queued|Backtest ready/,
-    ),
+    page.getByRole("heading", { name: "Create Backtest" }),
+  ).toBeVisible();
+  await page.getByRole("button", { name: /Queue Backtest/i }).click();
+  await expect(
+    page
+      .getByText(/Backtest queued|AI-integrated backtest queued|Backtest ready/)
+      .first(),
   ).toBeVisible();
 
   await page.getByRole("button", { name: /Run Validation/i }).click();

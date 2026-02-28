@@ -1870,6 +1870,7 @@ interface CreateBacktestBody {
   executionTimeframe?: string;
   primaryRangeTimeframe?: string;
   secondaryRangeTimeframe?: string;
+  strategyConfig?: Record<string, unknown>;
   ai?: {
     enabled?: boolean;
     lookbackCandles?: number;
@@ -1970,6 +1971,13 @@ async function enqueueBacktestForBot(
   bot: BotRecord,
   body: CreateBacktestBody,
 ): Promise<APIGatewayProxyResultV2> {
+  let manifest;
+  try {
+    manifest = strategyRegistry.getManifest(bot.strategyId);
+  } catch {
+    return json(400, { error: "unsupported_strategy" });
+  }
+
   const defaults = getBotDefaults(bot);
   const nowMs = Date.now();
   const toMs =
@@ -2013,6 +2021,22 @@ async function enqueueBacktestForBot(
     return json(400, { error: "invalid_ai_config" });
   }
 
+  let resolvedStrategyConfig: Record<string, unknown>;
+  try {
+    resolvedStrategyConfig = toStrategyConfigRecord(
+      manifest.resolveConfig(
+        body.strategyConfig !== undefined
+          ? toStrategyConfigRecord(body.strategyConfig)
+          : toStrategyConfigRecord(bot.strategyConfig),
+      ),
+    );
+  } catch (error) {
+    return json(400, {
+      error: "invalid_strategy_config",
+      details: error instanceof Error ? error.message : String(error),
+    });
+  }
+
   const input: Omit<BacktestRequestedDetail, "backtestId" | "createdAtMs"> = {
     botId: bot.id,
     botName: bot.name,
@@ -2021,7 +2045,7 @@ async function enqueueBacktestForBot(
     exchangeId: bot.exchangeId,
     accountId: bot.accountId,
     symbol: bot.symbol,
-    strategyConfig: bot.strategyConfig,
+    strategyConfig: resolvedStrategyConfig,
     fromMs,
     toMs,
     executionTimeframe,
