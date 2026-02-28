@@ -367,7 +367,7 @@ export interface CreateBacktestRequest {
 export interface CreateBotRequest {
   name?: string;
   symbol: string;
-  strategyId?: string;
+  strategyId: string;
   strategyVersion?: string;
   exchangeId?: string;
   accountId?: string;

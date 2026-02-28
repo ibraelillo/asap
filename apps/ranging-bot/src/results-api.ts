@@ -1295,11 +1295,16 @@ export async function createBotHandler(
     if (!accountId) {
       return json(400, { error: "missing_account_id" });
     }
+    const strategyId = normalizeNonEmptyString(body.strategyId);
+    if (!strategyId) {
+      return json(400, { error: "missing_strategy_id" });
+    }
 
     const normalized = normalizeBotConfig({
       ...body,
       exchangeId,
       accountId,
+      strategyId,
     });
     if (!normalized) {
       return json(400, { error: "invalid_bot_config" });
@@ -1307,9 +1312,7 @@ export async function createBotHandler(
 
     let manifest;
     try {
-      manifest = strategyRegistry.getManifest(
-        normalized.strategyId ?? "range-reversal",
-      );
+      manifest = strategyRegistry.getManifest(strategyId);
     } catch {
       return json(400, { error: "unsupported_strategy" });
     }

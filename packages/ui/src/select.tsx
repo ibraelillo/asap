@@ -39,7 +39,7 @@ export function Select<T extends string = string>({
   const selectedOption = options.find((option) => option.value === value);
   const isDisabled = disabled || options.length === 0;
   const ListboxRoot = Listbox as unknown as ComponentType<{
-    value?: SelectOption<T>;
+    value: SelectOption<T> | null;
     onChange: (option: SelectOption<T>) => void;
     disabled?: boolean;
     children: ReactNode;
@@ -47,7 +47,7 @@ export function Select<T extends string = string>({
 
   return (
     <ListboxRoot
-      value={selectedOption}
+      value={selectedOption ?? null}
       onChange={(option: SelectOption<T>) => onChange(option.value)}
       disabled={isDisabled}
     >

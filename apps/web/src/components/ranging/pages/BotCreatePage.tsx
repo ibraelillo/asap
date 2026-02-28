@@ -161,8 +161,7 @@ export function BotCreatePage() {
   const navigate = useNavigate();
   const { mutate } = useSWRConfig();
   const [searchParams] = useSearchParams();
-  const preselectedStrategy =
-    searchParams.get("strategyId")?.trim() || "range-reversal";
+  const preselectedStrategy = searchParams.get("strategyId")?.trim() || "";
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | undefined>();
   const [accountMode, setAccountMode] = useState<AccountMode>("existing");
@@ -214,7 +213,7 @@ export function BotCreatePage() {
 
   const strategyOptions = useMemo(() => {
     if (!strategies || strategies.length === 0) {
-      return [{ value: "range-reversal", label: "Range Reversal" }];
+      return [];
     }
 
     return strategies.map((strategy) => ({
@@ -283,12 +282,22 @@ export function BotCreatePage() {
     if (!strategies || strategies.length === 0) return;
 
     setForm((current) => {
+      if (current.strategyId.trim().length === 0) {
+        return current;
+      }
+
       const matched =
         strategies.find(
           (strategy) => strategy.strategyId === current.strategyId,
-        ) ?? strategies[0];
+        ) ?? null;
 
-      if (!matched) return current;
+      if (!matched) {
+        return {
+          ...current,
+          strategyId: "",
+          strategyConfig: {},
+        };
+      }
 
       if (
         matched.strategyId === current.strategyId &&
@@ -426,6 +435,7 @@ export function BotCreatePage() {
 
   const existingAccountsAvailable = filteredAccounts.length > 0;
   const canSubmit =
+    form.strategyId.trim().length > 0 &&
     form.symbol.trim().length > 0 &&
     (accountMode === "create" || form.accountId.trim().length > 0);
 
@@ -457,9 +467,12 @@ export function BotCreatePage() {
           </div>
 
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
-            <Field label="Strategy">
+            <Field
+              label="Bot Type"
+              description="Choose the strategy first. Strategy-specific parameters load only after this selection."
+            >
               <Select
-                value={form.strategyId}
+                value={form.strategyId || undefined}
                 onChange={(strategyId) => {
                   const matched = strategies?.find(
                     (strategy) => strategy.strategyId === strategyId,
@@ -471,6 +484,7 @@ export function BotCreatePage() {
                   }));
                 }}
                 options={strategyOptions}
+                placeholder="Select strategy"
               />
             </Field>
 
@@ -704,7 +718,7 @@ export function BotCreatePage() {
           )}
         </section>
 
-        {selectedStrategy ? (
+        {selectedStrategy && form.strategyId.trim().length > 0 ? (
           <section className="space-y-4">
             <div>
               <p className="text-xs uppercase tracking-[0.18em] text-slate-400">
@@ -894,7 +908,11 @@ export function BotCreatePage() {
               ))
             )}
           </section>
-        ) : null}
+        ) : (
+          <Panel className="px-4 py-3 text-sm text-slate-300" tone="muted">
+            Select a bot type to load strategy-specific parameters.
+          </Panel>
+        )}
 
         <section className="space-y-4">
           <div>
