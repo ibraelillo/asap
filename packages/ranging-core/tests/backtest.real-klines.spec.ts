@@ -2,7 +2,7 @@ import { readFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
-import { createRangingBot } from "../src";
+import { createConfiguredRangeReversalStrategy } from "../src";
 import type { BacktestCandle, BacktestResult } from "../src/types";
 
 interface KucoinFixture {
@@ -75,7 +75,7 @@ describe("real kucoin klines backtest", () => {
       expect(fixture.candleCount).toBe(fixture.candles.length);
       expect(executionCandles.length).toBeGreaterThan(100);
 
-      const bot = createRangingBot({
+      const strategy = createConfiguredRangeReversalStrategy({
         signal: {
           requireDivergence: false,
           requireSfp: false,
@@ -94,13 +94,13 @@ describe("real kucoin klines backtest", () => {
         },
       });
 
-      const first = bot.runBacktest({
+      const first = strategy.runBacktest({
         initialEquity: 1000,
         executionCandles,
         primaryRangeCandles: executionCandles,
         secondaryRangeCandles: executionCandles,
       });
-      const second = bot.runBacktest({
+      const second = strategy.runBacktest({
         initialEquity: 1000,
         executionCandles,
         primaryRangeCandles: executionCandles,

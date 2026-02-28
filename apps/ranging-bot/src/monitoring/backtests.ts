@@ -1,6 +1,6 @@
 import {
   computeVolumeProfileLevels,
-  createRangingBot,
+  createConfiguredRangeReversalStrategy,
   type BacktestCandle,
   type BacktestResult,
   type BacktestTrade,
@@ -987,8 +987,10 @@ function runComputation(
     );
   }
 
-  const bot = createRangingBot(input.strategyConfig);
-  return bot.runBacktest({
+  const configured = createConfiguredRangeReversalStrategy(
+    input.strategyConfig,
+  );
+  return configured.runBacktest({
     initialEquity: input.initialEquity,
     executionCandles: candles.executionCandles,
     primaryRangeCandles: candles.primaryRangeCandles,
@@ -1030,7 +1032,9 @@ function enrichTradesWithRangeLevels(
   candles: BacktestComputationCandles,
   trades: BacktestTrade[],
 ): BacktestTradeView[] {
-  const bot = createRangingBot(input.strategyConfig);
+  const configured = createConfiguredRangeReversalStrategy(
+    input.strategyConfig,
+  );
   const indexByTime = new Map<number, number>();
 
   candles.executionCandles.forEach((candle, index) => {
@@ -1047,7 +1051,7 @@ function enrichTradesWithRangeLevels(
     }
 
     try {
-      const snapshot = bot.buildSignalSnapshot({
+      const snapshot = configured.buildSignalSnapshot({
         executionCandles: candles.executionCandles,
         index: entryIndex,
         primaryRangeCandles: candles.primaryRangeCandles,

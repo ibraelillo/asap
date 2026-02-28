@@ -1,10 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { createRangingBot } from "../src";
+import { createConfiguredRangeReversalStrategy } from "../src";
 import { candle } from "./helpers";
 
 describe("entry strategy", () => {
   it("fires long when all long gates pass", () => {
-    const bot = createRangingBot({
+    const strategy = createConfiguredRangeReversalStrategy({
       signal: {
         requireDivergence: true,
         requireSfp: true,
@@ -26,20 +26,20 @@ describe("entry strategy", () => {
       }),
     ];
 
-    const snapshot = bot.buildSignalSnapshot({
+    const snapshot = strategy.buildSignalSnapshot({
       executionCandles,
       index: 1,
       primaryRangeCandles: executionCandles,
       secondaryRangeCandles: executionCandles,
     });
 
-    const decision = bot.evaluateEntry(snapshot);
+    const decision = strategy.evaluateEntry(snapshot);
 
     expect(decision.signal).toBe("long");
   });
 
   it("returns no signal when gates fail", () => {
-    const bot = createRangingBot();
+    const strategy = createConfiguredRangeReversalStrategy();
 
     const executionCandles = [
       candle(1, 100, 101, 99, 100),
@@ -56,21 +56,21 @@ describe("entry strategy", () => {
       }),
     ];
 
-    const snapshot = bot.buildSignalSnapshot({
+    const snapshot = strategy.buildSignalSnapshot({
       executionCandles,
       index: 1,
       primaryRangeCandles: executionCandles,
       secondaryRangeCandles: executionCandles,
     });
 
-    const decision = bot.evaluateEntry(snapshot);
+    const decision = strategy.evaluateEntry(snapshot);
 
     expect(decision.signal).toBeNull();
     expect(decision.reasons.length).toBeGreaterThan(0);
   });
 
   it("fires long on armed re-entry after a recent VAL sweep", () => {
-    const bot = createRangingBot({
+    const strategy = createConfiguredRangeReversalStrategy({
       signal: {
         requireDivergence: true,
         requireSfp: true,
@@ -95,21 +95,21 @@ describe("entry strategy", () => {
       }),
     ];
 
-    const snapshot = bot.buildSignalSnapshot({
+    const snapshot = strategy.buildSignalSnapshot({
       executionCandles,
       index: 1,
       primaryRangeCandles: executionCandles,
       secondaryRangeCandles: executionCandles,
     });
 
-    const decision = bot.evaluateEntry(snapshot);
+    const decision = strategy.evaluateEntry(snapshot);
 
     expect(snapshot.recentLowBrokeVal).toBe(true);
     expect(decision.signal).toBe("long");
   });
 
   it("blocks armed re-entry when price is too far from VAL", () => {
-    const bot = createRangingBot({
+    const strategy = createConfiguredRangeReversalStrategy({
       signal: {
         requireDivergence: true,
         requireSfp: true,
@@ -134,14 +134,14 @@ describe("entry strategy", () => {
       }),
     ];
 
-    const snapshot = bot.buildSignalSnapshot({
+    const snapshot = strategy.buildSignalSnapshot({
       executionCandles,
       index: 1,
       primaryRangeCandles: executionCandles,
       secondaryRangeCandles: executionCandles,
     });
 
-    const decision = bot.evaluateEntry(snapshot);
+    const decision = strategy.evaluateEntry(snapshot);
 
     expect(snapshot.recentLowBrokeVal).toBe(true);
     expect(decision.signal).toBeNull();

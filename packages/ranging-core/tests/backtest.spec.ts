@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { BacktestCandle, BacktestResult } from "../src/types";
-import { createRangingBot } from "../src";
+import { createConfiguredRangeReversalStrategy } from "../src";
 import { candle } from "./helpers";
 
 const HOUR_MS = 60 * 60 * 1000;
@@ -116,7 +116,7 @@ function buildPeriodCandles(days: number): BacktestCandle[] {
 
 describe("deterministic backtest", () => {
   it("closes a long trade via tp1 and tp2 with deterministic output", () => {
-    const bot = createRangingBot({
+    const strategy = createConfiguredRangeReversalStrategy({
       risk: {
         riskPctPerTrade: 0.01,
         leverage: 10,
@@ -149,14 +149,14 @@ describe("deterministic backtest", () => {
       candle(4, 103, 111, 103, 110),
     ];
 
-    const first = bot.runBacktest({
+    const first = strategy.runBacktest({
       initialEquity: 1000,
       executionCandles,
       primaryRangeCandles: executionCandles,
       secondaryRangeCandles: executionCandles,
     });
 
-    const second = bot.runBacktest({
+    const second = strategy.runBacktest({
       initialEquity: 1000,
       executionCandles,
       primaryRangeCandles: executionCandles,
@@ -175,7 +175,7 @@ describe("deterministic backtest", () => {
   });
 
   it("closes a long trade at stop loss", () => {
-    const bot = createRangingBot({
+    const strategy = createConfiguredRangeReversalStrategy({
       risk: {
         riskPctPerTrade: 0.01,
         leverage: 10,
@@ -206,7 +206,7 @@ describe("deterministic backtest", () => {
       candle(3, 100, 100, 98, 99),
     ];
 
-    const result = bot.runBacktest({
+    const result = strategy.runBacktest({
       initialEquity: 1000,
       executionCandles,
       primaryRangeCandles: executionCandles,
@@ -221,7 +221,7 @@ describe("deterministic backtest", () => {
   });
 
   it("exits runner on opposite signal", () => {
-    const bot = createRangingBot({
+    const strategy = createConfiguredRangeReversalStrategy({
       risk: {
         riskPctPerTrade: 0.01,
         leverage: 10,
@@ -264,7 +264,7 @@ describe("deterministic backtest", () => {
       }),
     ];
 
-    const result = bot.runBacktest({
+    const result = strategy.runBacktest({
       initialEquity: 1000,
       executionCandles,
       primaryRangeCandles: executionCandles,
@@ -287,7 +287,7 @@ describe("deterministic backtest", () => {
     { label: "15_days", days: 15 },
     { label: "1_month", days: 30 },
   ])("prints deterministic backtest summary for $label", ({ label, days }) => {
-    const bot = createRangingBot({
+    const strategy = createConfiguredRangeReversalStrategy({
       risk: {
         riskPctPerTrade: 0.01,
         leverage: 10,
@@ -305,14 +305,14 @@ describe("deterministic backtest", () => {
 
     const executionCandles = buildPeriodCandles(days);
 
-    const first = bot.runBacktest({
+    const first = strategy.runBacktest({
       initialEquity: 1000,
       executionCandles,
       primaryRangeCandles: executionCandles,
       secondaryRangeCandles: executionCandles,
     });
 
-    const second = bot.runBacktest({
+    const second = strategy.runBacktest({
       initialEquity: 1000,
       executionCandles,
       primaryRangeCandles: executionCandles,
