@@ -49,7 +49,7 @@ export function Combobox<T extends string = string>({
     });
   }, [normalizedQuery, options]);
   const ComboboxRoot = HeadlessCombobox as unknown as ComponentType<{
-    value?: SelectOption<T> | null;
+    value: SelectOption<T> | null;
     onChange: (option: SelectOption<T> | null) => void;
     disabled?: boolean;
     children: ReactNode;
@@ -57,7 +57,7 @@ export function Combobox<T extends string = string>({
 
   return (
     <ComboboxRoot
-      value={selectedOption}
+      value={selectedOption ?? null}
       onChange={(option) => {
         const selected = option as SelectOption<T> | null;
         setQuery("");
