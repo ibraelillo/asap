@@ -18,6 +18,9 @@ export const defaultRangeReversalConfig: RangeReversalConfig = {
     requireDivergence: true,
     requireSfp: true,
     maxBarsAfterDivergence: 6,
+    priceExcursionLookbackBars: 8,
+    allowArmedReentry: true,
+    armedReentryMaxDistancePct: 0.5,
   },
   risk: {
     riskPctPerTrade: 0.01,

@@ -1,4 +1,4 @@
-import type { Candle } from "@repo/ranging-core";
+import type { Candle } from "@repo/trading-engine";
 import type { KucoinClient } from "@repo/kucoin";
 import type { ExchangeKlineProvider, KlineQuery, OrchestratorTimeframe } from "../../contracts";
 

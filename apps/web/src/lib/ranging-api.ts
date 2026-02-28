@@ -7,7 +7,12 @@ import type {
   BotAnalysisSummary,
   BotRunRecord,
   DashboardPayload,
+  AccountSummary,
+  StrategyDetailsPayload,
+  StrategySummary,
+  RangeValidationRecord,
   TradeAnalysisPayload,
+  PositionRecord,
 } from "../types/ranging-dashboard";
 
 const API_URL = (
@@ -36,9 +41,7 @@ function getKlineRefUrl(ref: KlineCacheReference): string | undefined {
 function normalizeKlinesPayload(raw: unknown): KlineCandle[] {
   const rows = Array.isArray(raw)
     ? raw
-    : (raw &&
-      typeof raw === "object" &&
-      Array.isArray((raw as { candles?: unknown[] }).candles))
+    : (raw && typeof raw === "object" && Array.isArray((raw as { candles?: unknown[] }).candles))
       ? (raw as { candles: unknown[] }).candles
       : [];
 
@@ -57,14 +60,7 @@ function normalizeKlinesPayload(raw: unknown): KlineCandle[] {
       continue;
     }
 
-    byTime.set(time, {
-      time,
-      open,
-      high,
-      low,
-      close,
-      volume,
-    });
+    byTime.set(time, { time, open, high, low, close, volume });
   }
 
   return [...byTime.values()].sort((a, b) => a.time - b.time);
@@ -104,10 +100,8 @@ async function getJson<T>(path: string): Promise<T> {
         error?: unknown;
         details?: unknown;
       };
-      const error =
-        typeof payload.error === "string" ? payload.error : undefined;
-      const reason =
-        typeof payload.details === "string" ? payload.details : undefined;
+      const error = typeof payload.error === "string" ? payload.error : undefined;
+      const reason = typeof payload.details === "string" ? payload.details : undefined;
       details = [error, reason].filter(Boolean).join(": ");
     } catch {
       // ignore parsing failures and keep default message
@@ -136,10 +130,8 @@ async function postJson<T>(path: string, body: unknown): Promise<T> {
         error?: unknown;
         details?: unknown;
       };
-      const error =
-        typeof payload.error === "string" ? payload.error : undefined;
-      const reason =
-        typeof payload.details === "string" ? payload.details : undefined;
+      const error = typeof payload.error === "string" ? payload.error : undefined;
+      const reason = typeof payload.details === "string" ? payload.details : undefined;
       details = [error, reason].filter(Boolean).join(": ");
     } catch {
       // ignore parsing failures and keep default message
@@ -157,37 +149,92 @@ export function getApiUrl(): string {
 }
 
 export async function fetchDashboard(limit = 200): Promise<DashboardPayload> {
-  const query = new URLSearchParams({
-    limit: String(limit),
-  });
-
+  const query = new URLSearchParams({ limit: String(limit) });
   return getJson<DashboardPayload>(`/v1/ranging/dashboard?${query.toString()}`);
 }
 
-export async function fetchRuns(limit = 200, symbol?: string): Promise<BotRunRecord[]> {
-  const query = new URLSearchParams({
-    limit: String(limit),
-  });
-
-  if (symbol) {
-    query.set("symbol", symbol);
-  }
-
+export async function fetchRuns(limit = 200, botId?: string): Promise<BotRunRecord[]> {
+  const query = new URLSearchParams({ limit: String(limit) });
+  if (botId) query.set("botId", botId);
   const payload = await getJson<{ runs: BotRunRecord[] }>(`/v1/ranging/runs?${query.toString()}`);
   return payload.runs;
 }
 
-export async function fetchBots(symbols?: string[]): Promise<BotAnalysisSummary[]> {
+export async function fetchBots(botIds?: string[]): Promise<BotAnalysisSummary[]> {
   const query = new URLSearchParams();
-  if (symbols && symbols.length > 0) {
-    query.set("symbols", symbols.join(","));
+  if (botIds && botIds.length > 0) {
+    query.set("botIds", botIds.join(","));
   }
 
   const suffix = query.toString();
   const payload = await getJson<{ bots: BotAnalysisSummary[] }>(
-    `/v1/ranging/bots${suffix ? `?${suffix}` : ""}`,
+    `/v1/bots${suffix ? `?${suffix}` : ""}`,
   );
   return payload.bots;
+}
+
+export async function createBot(request: CreateBotRequest): Promise<Record<string, unknown>> {
+  const payload = await postJson<{ generatedAt: string; bot: Record<string, unknown> }>(
+    "/v1/bots",
+    request,
+  );
+  return payload.bot;
+}
+
+export interface CreateAccountRequest {
+  name: string;
+  exchangeId: string;
+  auth: {
+    apiKey: string;
+    apiSecret: string;
+    apiPassphrase?: string;
+  };
+}
+
+export async function fetchAccounts(exchangeId?: string): Promise<AccountSummary[]> {
+  const query = new URLSearchParams();
+  if (exchangeId) query.set("exchangeId", exchangeId);
+  const suffix = query.toString();
+  const payload = await getJson<{ accounts: AccountSummary[] }>(
+    `/v1/accounts${suffix ? `?${suffix}` : ""}`,
+  );
+  return payload.accounts;
+}
+
+export async function createAccount(request: CreateAccountRequest): Promise<AccountSummary> {
+  const payload = await postJson<{ generatedAt: string; account: AccountSummary }>(
+    "/v1/accounts",
+    request,
+  );
+  return payload.account;
+}
+
+export async function fetchStrategies(windowHours = 24): Promise<StrategySummary[]> {
+  const query = new URLSearchParams({ windowHours: String(windowHours) });
+  const payload = await getJson<{ strategies: StrategySummary[] }>(
+    `/v1/strategies?${query.toString()}`,
+  );
+  return payload.strategies;
+}
+
+export async function fetchStrategyDetails(
+  strategyId: string,
+  windowHours = 24,
+): Promise<StrategyDetailsPayload> {
+  const query = new URLSearchParams({ windowHours: String(windowHours) });
+  return getJson<StrategyDetailsPayload>(
+    `/v1/strategies/${encodeURIComponent(strategyId)}?${query.toString()}`,
+  );
+}
+
+export async function fetchBotDetails(botId: string): Promise<{
+  bot: BotAnalysisSummary | Record<string, unknown>;
+  summary?: BotAnalysisSummary;
+  openPosition?: PositionRecord | null;
+  backtests: BacktestRecord[];
+  validations: RangeValidationRecord[];
+}> {
+  return getJson(`/v1/bots/${encodeURIComponent(botId)}`);
 }
 
 export async function fetchTradeAnalysis(
@@ -200,17 +247,9 @@ export async function fetchTradeAnalysis(
 ): Promise<TradeAnalysisPayload> {
   const query = new URLSearchParams();
 
-  if (options?.barsBefore) {
-    query.set("barsBefore", String(options.barsBefore));
-  }
-
-  if (options?.barsAfter) {
-    query.set("barsAfter", String(options.barsAfter));
-  }
-
-  if (options?.timeframe) {
-    query.set("timeframe", options.timeframe);
-  }
+  if (options?.barsBefore) query.set("barsBefore", String(options.barsBefore));
+  if (options?.barsAfter) query.set("barsAfter", String(options.barsAfter));
+  if (options?.timeframe) query.set("timeframe", options.timeframe);
 
   const encodedId = encodeURIComponent(tradeId);
   const suffix = query.toString();
@@ -221,7 +260,7 @@ export async function fetchTradeAnalysis(
 }
 
 export interface CreateBacktestRequest {
-  symbol: string;
+  symbol?: string;
   periodDays?: number;
   fromMs?: number;
   toMs?: number;
@@ -229,17 +268,55 @@ export interface CreateBacktestRequest {
   executionTimeframe?: string;
   primaryRangeTimeframe?: string;
   secondaryRangeTimeframe?: string;
+  ai?: {
+    enabled?: boolean;
+    lookbackCandles?: number;
+    cadenceBars?: number;
+    maxEvaluations?: number;
+    confidenceThreshold?: number;
+    modelPrimary?: string;
+    modelFallback?: string;
+  };
 }
 
-export async function fetchBacktests(limit = 50, symbol?: string): Promise<BacktestRecord[]> {
-  const query = new URLSearchParams({
-    limit: String(limit),
-  });
+export interface CreateBotRequest {
+  name?: string;
+  symbol: string;
+  strategyId?: string;
+  strategyVersion?: string;
+  exchangeId?: string;
+  accountId?: string;
+  enabled?: boolean;
+  executionTimeframe?: string;
+  primaryRangeTimeframe?: string;
+  secondaryRangeTimeframe?: string;
+  executionLimit?: number;
+  primaryRangeLimit?: number;
+  secondaryRangeLimit?: number;
+  dryRun?: boolean;
+  marginMode?: "CROSS" | "ISOLATED";
+  valueQty?: string;
+  strategyConfig?: Record<string, unknown>;
+}
 
-  if (symbol) {
-    query.set("symbol", symbol);
+export interface CreateRangeValidationRequest {
+  symbol?: string;
+  timeframe?: string;
+  fromMs?: number;
+  toMs?: number;
+  candlesCount?: number;
+  confidenceThreshold?: number;
+}
+
+export async function fetchBacktests(limit = 50, botId?: string): Promise<BacktestRecord[]> {
+  if (botId) {
+    const payload = await getJson<{ backtests: BacktestRecord[] }>(
+      `/v1/bots/${encodeURIComponent(botId)}/backtests?limit=${encodeURIComponent(String(limit))}`,
+    );
+    return payload.backtests;
   }
 
+  const query = new URLSearchParams({ limit: String(limit) });
   const payload = await getJson<{ backtests: BacktestRecord[] }>(
     `/v1/ranging/backtests?${query.toString()}`,
   );
@@ -258,7 +335,7 @@ export async function fetchBacktestDetails(
 
   const suffix = query.toString();
   const details = await getJson<BacktestDetailsPayload>(
-    `/v1/ranging/backtests/${encodedId}${suffix ? `?${suffix}` : ""}`,
+    `/v1/backtests/${encodedId}${suffix ? `?${suffix}` : ""}`,
   );
   if (details.candles.length > 0) {
     return details;
@@ -276,19 +353,56 @@ export async function fetchBacktestDetails(
 }
 
 export async function createBacktest(
+  botId: string,
   request: CreateBacktestRequest,
 ): Promise<BacktestRecord> {
   const payload = await postJson<{ backtest: BacktestRecord }>(
-    "/v1/ranging/backtests",
+    `/v1/bots/${encodeURIComponent(botId)}/backtests`,
     request,
   );
   return payload.backtest;
 }
 
-export async function fetchBotStats(windowHours = 24): Promise<BotStatsSummary> {
-  const query = new URLSearchParams({
-    windowHours: String(windowHours),
-  });
+export async function createRangeValidation(
+  botId: string,
+  request: CreateRangeValidationRequest,
+): Promise<RangeValidationRecord> {
+  const payload = await postJson<{ validation: RangeValidationRecord }>(
+    `/v1/bots/${encodeURIComponent(botId)}/validations`,
+    request,
+  );
+  return payload.validation;
+}
 
+export async function fetchRangeValidations(
+  limit = 50,
+  botId?: string,
+): Promise<RangeValidationRecord[]> {
+  if (botId) {
+    const payload = await getJson<{ validations: RangeValidationRecord[] }>(
+      `/v1/bots/${encodeURIComponent(botId)}/validations?limit=${encodeURIComponent(String(limit))}`,
+    );
+    return payload.validations;
+  }
+
+  const query = new URLSearchParams({ limit: String(limit) });
+  const payload = await getJson<{ validations: RangeValidationRecord[] }>(
+    `/v1/ranging/validations?${query.toString()}`,
+  );
+  return payload.validations;
+}
+
+export async function fetchBotStats(botId?: string, windowHours = 24): Promise<BotStatsSummary> {
+  const query = new URLSearchParams({ windowHours: String(windowHours) });
+  if (botId) {
+    return getJson<BotStatsSummary>(`/v1/bots/${encodeURIComponent(botId)}/stats?${query.toString()}`);
+  }
   return getJson<BotStatsSummary>(`/v1/ranging/bots/stats?${query.toString()}`);
+}
+
+export async function fetchBotPositions(botId: string): Promise<PositionRecord[]> {
+  const payload = await getJson<{ positions: PositionRecord[] }>(
+    `/v1/bots/${encodeURIComponent(botId)}/positions`,
+  );
+  return payload.positions;
 }

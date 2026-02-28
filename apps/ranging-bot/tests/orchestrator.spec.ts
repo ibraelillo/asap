@@ -1,4 +1,7 @@
-import { createRangingBot } from "@repo/ranging-core";
+import {
+  createConfiguredRangeReversalStrategy,
+  createRangeReversalBotDefinition,
+} from "@repo/ranging-core";
 import { describe, expect, it } from "vitest";
 import type { Candle } from "@repo/ranging-core";
 import type {
@@ -7,9 +10,13 @@ import type {
   SignalProcessor,
   StrategySignalEvent,
 } from "../src/contracts";
-import { ExchangeRangingOrchestrator } from "../src/orchestrator";
+import { BotRuntimeOrchestrator } from "../src/orchestrator";
 
-function candle(time: number, price: number, features?: Record<string, unknown>): Candle & { features?: Record<string, unknown> } {
+function candle(
+  time: number,
+  price: number,
+  features?: Record<string, unknown>,
+): Candle & { features?: Record<string, unknown> } {
   return {
     time,
     open: price,
@@ -37,13 +44,19 @@ class CapturingProcessor implements SignalProcessor {
 
   async process(event: StrategySignalEvent): Promise<{ status: "dry-run" | "no-signal" }> {
     this.events.push(event);
-    return event.decision.signal ? { status: "dry-run", side: event.decision.signal } : { status: "no-signal" };
+    const enterIntent = event.decision.intents.find((intent) => intent.kind === "enter");
+    return enterIntent ? { status: "dry-run", side: enterIntent.side } : { status: "no-signal" };
   }
 }
 
 describe("exchange orchestrator", () => {
   it("fetches klines, evaluates signal, and forwards event", async () => {
-    const bot = createRangingBot();
+    const bot = createRangeReversalBotDefinition({
+      botId: "orchestrator-test-bot",
+      symbol: "SOLUSDTM",
+      executionTimeframe: "15m",
+    });
+    const { strategy, config } = createConfiguredRangeReversalStrategy();
 
     const exec = [
       candle(1, 100),
@@ -68,24 +81,30 @@ describe("exchange orchestrator", () => {
 
     const processor = new CapturingProcessor();
 
-    const orchestrator = new ExchangeRangingOrchestrator({
-      bot,
-      klineProvider: provider,
-      signalProcessor: processor,
-    });
+    const orchestrator = new BotRuntimeOrchestrator(
+      {
+        klineProvider: provider,
+        signalProcessor: processor,
+      },
+      strategy,
+      config,
+    );
 
     const event = await orchestrator.runOnce({
-      symbol: "SOLUSDTM",
+      bot,
       executionTimeframe: "15m",
       primaryRangeTimeframe: "1d",
       secondaryRangeTimeframe: "4h",
       executionLimit: 200,
       primaryRangeLimit: 60,
       secondaryRangeLimit: 120,
-    });
+    }, null);
 
     expect(provider.calls).toHaveLength(3);
-    expect(event.decision.signal).toBe("long");
+    expect(event.decision.intents.find((intent) => intent.kind === "enter")).toMatchObject({
+      kind: "enter",
+      side: "long",
+    });
     expect(processor.events).toHaveLength(1);
     expect(processor.events[0]).toEqual(event);
   });

@@ -27,6 +27,13 @@ const granularityByTimeframe: Record<OrchestratorTimeframe, number> = {
 
 const baseUrl = process.env.KUCOIN_PUBLIC_BASE_URL ?? "https://api-futures.kucoin.com";
 const REQUEST_WINDOW_ROWS = 500;
+const REQUEST_TIMEOUT_MS = Number(process.env.RANGING_KLINE_HTTP_TIMEOUT_MS ?? 20_000);
+const REQUEST_MAX_RETRIES = Number(process.env.RANGING_KLINE_HTTP_RETRIES ?? 3);
+const REQUEST_BACKOFF_MS = Number(process.env.RANGING_KLINE_HTTP_BACKOFF_MS ?? 350);
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
 
 function parseTimestamp(value: string | number): number {
   const raw = Number(value);
@@ -119,17 +126,52 @@ async function fetchKucoinKlineWindow(
     to: String(Math.floor(toMs)),
   });
 
-  const response = await fetch(`${baseUrl}/api/v1/kline/query?${params.toString()}`);
-  if (!response.ok) {
-    throw new Error(`KuCoin public kline request failed (${response.status})`);
+  const maxRetries =
+    Number.isFinite(REQUEST_MAX_RETRIES) && REQUEST_MAX_RETRIES > 0
+      ? Math.floor(REQUEST_MAX_RETRIES)
+      : 3;
+  const timeoutMs =
+    Number.isFinite(REQUEST_TIMEOUT_MS) && REQUEST_TIMEOUT_MS > 0
+      ? Math.floor(REQUEST_TIMEOUT_MS)
+      : 20_000;
+  let lastError: unknown;
+
+  for (let attempt = 1; attempt <= maxRetries; attempt += 1) {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), timeoutMs);
+
+    try {
+      const response = await fetch(`${baseUrl}/api/v1/kline/query?${params.toString()}`, {
+        signal: controller.signal,
+      });
+      if (!response.ok) {
+        throw new Error(`KuCoin public kline request failed (${response.status})`);
+      }
+
+      const payload = (await response.json()) as KucoinKlineResponse;
+      if (payload.code !== "200000") {
+        throw new Error(`KuCoin getKlines error: ${payload.msg ?? payload.code}`);
+      }
+
+      return parseRows(payload.data ?? []);
+    } catch (error) {
+      lastError = error;
+      if (attempt >= maxRetries) {
+        break;
+      }
+      const backoffBase =
+        Number.isFinite(REQUEST_BACKOFF_MS) && REQUEST_BACKOFF_MS > 0
+          ? Math.floor(REQUEST_BACKOFF_MS)
+          : 350;
+      const delay = backoffBase * attempt;
+      await sleep(delay);
+    } finally {
+      clearTimeout(timeout);
+    }
   }
 
-  const payload = (await response.json()) as KucoinKlineResponse;
-  if (payload.code !== "200000") {
-    throw new Error(`KuCoin getKlines error: ${payload.msg ?? payload.code}`);
-  }
-
-  return parseRows(payload.data ?? []);
+  const message = lastError instanceof Error ? lastError.message : String(lastError);
+  throw new Error(`KuCoin public kline request failed after ${maxRetries} attempts: ${message}`);
 }
 
 export interface FetchTradeContextKlinesInput {

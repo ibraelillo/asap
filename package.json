@@ -6,12 +6,16 @@
     "build": "turbo run build",
     "check-types": "turbo run check-types",
     "dev": "turbo run dev",
+    "test:e2e": "playwright test",
+    "test:e2e:ui": "playwright test --ui",
     "format": "prettier --write \"**/*.{ts,tsx,md}\"",
     "lint": "turbo run lint",
     "test": "vitest"
   },
   "devDependencies": {
+    "@playwright/test": "^1.55.0",
     "@types/aws-lambda": "8.10.156",
+    "@types/node": "^25.3.2",
     "@vitest/coverage-v8": "latest",
     "eslint": "^9.0.0",
     "prettier": "^3.6.2",

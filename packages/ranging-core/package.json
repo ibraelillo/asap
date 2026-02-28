@@ -10,10 +10,12 @@
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "check-types": "tsc -p tsconfig.json --noEmit",
-    "test": "vitest run tests/**/*.spec.ts",
+    "test": "vitest run tests/**/*.spec.ts --coverage=false",
     "lint": "eslint ."
   },
-  "dependencies": {},
+  "dependencies": {
+    "@repo/trading-engine": "workspace:*"
+  },
   "devDependencies": {
     "@repo/eslint-config": "workspace:*",
     "@repo/typescript-config": "workspace:*"

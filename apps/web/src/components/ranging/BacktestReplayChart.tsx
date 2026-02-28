@@ -88,17 +88,6 @@ export function BacktestReplayChart({ details }: BacktestReplayChartProps) {
     [details.candles],
   );
 
-  const equityCurve = useMemo(() => {
-    const points = [...details.equityCurve]
-      .sort((a, b) => a.time - b.time)
-      .map((point) => ({
-        time: toTimestamp(point.time),
-        value: point.equity,
-      }));
-
-    return points.filter((point) => Number.isFinite(point.value));
-  }, [details.equityCurve]);
-
   useEffect(() => {
     const container = containerRef.current;
     if (!container) return;
@@ -119,7 +108,7 @@ export function BacktestReplayChart({ details }: BacktestReplayChartProps) {
         borderVisible: false,
       },
       leftPriceScale: {
-        visible: true,
+        visible: false,
         borderVisible: false,
       },
       timeScale: {
@@ -151,18 +140,6 @@ export function BacktestReplayChart({ details }: BacktestReplayChartProps) {
       close: candle.close,
     }));
     candleSeries.setData(candleData);
-
-    if (equityCurve.length > 0) {
-      const equitySeries = chart.addSeries(LineSeries, {
-        color: "#22d3ee",
-        lineWidth: 2,
-        priceLineVisible: false,
-        lastValueVisible: true,
-        priceScaleId: "left",
-      });
-
-      equitySeries.setData(equityCurve);
-    }
 
     const markers: SeriesMarker<UTCTimestamp>[] = [];
 
@@ -244,7 +221,7 @@ export function BacktestReplayChart({ details }: BacktestReplayChartProps) {
       observer.disconnect();
       chart.remove();
     };
-  }, [candles, details.trades, equityCurve]);
+  }, [candles, details.trades]);
 
   if (candles.length === 0) {
     return (
@@ -260,7 +237,7 @@ export function BacktestReplayChart({ details }: BacktestReplayChartProps) {
         <div>
           <h3 className="text-lg font-semibold text-slate-100">Backtest Replay</h3>
           <p className="text-xs text-slate-400">
-            {details.chartTimeframe} candles with entries/exits and equity curve overlay
+            {details.chartTimeframe} candles with entries/exits and range context
           </p>
           <p className="mt-1 text-[11px] text-slate-500">
             Trade range levels: VAL (green dashed), POC (blue), VAH (amber dashed)

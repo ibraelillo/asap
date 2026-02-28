@@ -13,7 +13,7 @@ describe("ranging tick runtime config", () => {
 
     expect(parsed).toHaveLength(1);
     expect(parsed[0]?.symbol).toBe("XBTUSDTM");
-    expect(parsed[0]?.executionTimeframe).toBe("15m");
+    expect(parsed[0]?.executionTimeframe).toBe("1h");
     expect(parsed[0]?.primaryRangeTimeframe).toBe("1d");
     expect(parsed[0]?.secondaryRangeTimeframe).toBe("4h");
   });
@@ -31,6 +31,24 @@ describe("ranging tick runtime config", () => {
     );
 
     expect(parsed).toHaveLength(0);
+  });
+
+  it("enforces minimum 2h for range timeframes", () => {
+    const parsed = parseBotConfigs(
+      JSON.stringify([
+        {
+          symbol: "SOLUSDTM",
+          executionTimeframe: "1h",
+          primaryRangeTimeframe: "1h",
+          secondaryRangeTimeframe: "15m",
+        },
+      ]),
+    );
+
+    expect(parsed).toHaveLength(1);
+    expect(parsed[0]?.executionTimeframe).toBe("1h");
+    expect(parsed[0]?.primaryRangeTimeframe).toBe("1d");
+    expect(parsed[0]?.secondaryRangeTimeframe).toBe("4h");
   });
 
   it("computes closed-candle end time", () => {

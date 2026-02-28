@@ -1,15 +1,45 @@
 import { describe, expect, it, vi } from "vitest";
 import type { KucoinService } from "@repo/kucoin";
+import { createRangeReversalBotDefinition } from "@repo/ranging-core";
 import type { StrategySignalEvent } from "../src/contracts";
 import { KucoinSignalProcessor } from "../src/exchanges/kucoin/signal-processor";
 
 function buildEvent(signal: "long" | "short" | null): StrategySignalEvent {
+  const bot = createRangeReversalBotDefinition({
+    botId: "kucoin-test-bot",
+    symbol: "SOLUSDTM",
+    executionTimeframe: "1h",
+  });
+
   return {
+    bot,
     symbol: "SOLUSDTM",
     generatedAtMs: 1700000000000,
     decision: {
-      signal,
       reasons: signal ? ["ok"] : ["none"],
+      snapshotTime: 1700000000000,
+      intents: signal
+        ? [
+            {
+              kind: "enter",
+              botId: bot.id,
+              strategyId: bot.strategyId,
+              time: 1700000000000,
+              reasons: ["ok"],
+              side: signal,
+              entry: { type: "market" },
+              risk: { stopPrice: signal === "long" ? 95 : 105 },
+            },
+          ]
+        : [
+            {
+              kind: "hold",
+              botId: bot.id,
+              strategyId: bot.strategyId,
+              time: 1700000000000,
+              reasons: ["none"],
+            },
+          ],
     },
     snapshot: {
       time: 1700000000000,
@@ -27,6 +57,7 @@ function buildEvent(signal: "long" | "short" | null): StrategySignalEvent {
       bullishSfp: signal === "long",
       bearishSfp: signal === "short",
     },
+    position: null,
   };
 }
 

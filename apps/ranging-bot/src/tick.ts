@@ -1,18 +1,30 @@
-import { createKucoinClient, createKucoinService } from "@repo/kucoin";
-import { createKucoinOrchestrator } from "./exchanges/kucoin/orchestrator";
+import type {
+  ExecutionContext,
+  PositionState,
+  StrategySignalEvent,
+} from "@repo/trading-engine";
+import { runtimeAccountResolver } from "./account-resolver";
+import { listActiveRuntimeBots } from "./bot-registry";
 import type { OrchestratorRunInput } from "./contracts";
+import { exchangeAdapterRegistry } from "./exchange-adapter-registry";
 import { publishRunRecord, publishTickSummary } from "./monitoring/realtime";
-import { putRunRecord } from "./monitoring/store";
-import type { BotRunRecord } from "./monitoring/types";
+import {
+  advanceProcessingCursor,
+  getLatestOpenPositionByBot,
+  getProcessingCursor,
+  listBotRecords,
+  putBotRecord,
+  putPositionRecord,
+  putRunRecord,
+} from "./monitoring/store";
+import type { AccountRecord, BotRecord, BotRunRecord, PositionRecord } from "./monitoring/types";
+import { createBotRuntime } from "./runtime-orchestrator-factory";
 import {
   getClosedCandleEndTime,
-  parseBotConfigs,
+  getTimeframeDurationMs,
   toBoolean,
-  type RuntimeBotConfig,
 } from "./runtime-config";
-
-let cachedService: ReturnType<typeof createKucoinService> | null = null;
-let cachedClient: ReturnType<typeof createKucoinClient> | null = null;
+const HOURLY_DISPATCH_MS = 60 * 60_000;
 
 interface CronTickEvent {
   trigger?: string;
@@ -47,58 +59,47 @@ function parseSymbols(raw: unknown): string[] {
   }
 }
 
-function buildDefaultBotConfig(symbol: string): RuntimeBotConfig {
+async function buildExecutionContext(
+  bot: BotRecord,
+  globalDryRun: boolean,
+): Promise<ExecutionContext<AccountRecord>> {
+  const account = await runtimeAccountResolver.requireAccount(
+    bot.accountId,
+    bot.exchangeId,
+  );
+
   return {
-    symbol,
-    executionTimeframe: "15m",
-    primaryRangeTimeframe: "1d",
-    secondaryRangeTimeframe: "4h",
-    executionLimit: 240,
-    primaryRangeLimit: 90,
-    secondaryRangeLimit: 180,
-    enabled: true,
+    bot,
+    account,
+    exchangeId: bot.exchangeId,
+    nowMs: Date.now(),
+    dryRun: bot.runtime.dryRun ?? globalDryRun,
+    metadata: {
+      accountSource: account.metadata?.source ?? "store",
+    },
   };
 }
 
-function getKucoinService() {
-  if (cachedService && cachedClient) {
-    return { client: cachedClient, service: cachedService };
-  }
-
-  const apiKey = process.env.KUCOIN_API_KEY;
-  const apiSecret = process.env.KUCOIN_API_SECRET;
-  const passphrase = process.env.KUCOIN_API_PASSPHRASE;
-
-  if (!apiKey || !apiSecret || !passphrase) {
-    throw new Error(
-      "Missing KuCoin credentials. Set KUCOIN_API_KEY, KUCOIN_API_SECRET and KUCOIN_API_PASSPHRASE",
-    );
-  }
-
-  cachedClient = createKucoinClient({
-    apiKey,
-    apiSecret,
-    passphrase,
-  });
-  cachedService = createKucoinService(cachedClient);
-
+function toRunInput(
+  bot: BotRecord,
+  closedExecutionCandleEndTimeMs: number,
+): Omit<OrchestratorRunInput, "bot"> {
   return {
-    client: cachedClient,
-    service: cachedService,
+    executionTimeframe: bot.runtime.executionTimeframe,
+    primaryRangeTimeframe: bot.runtime.primaryRangeTimeframe,
+    secondaryRangeTimeframe: bot.runtime.secondaryRangeTimeframe,
+    executionLimit: bot.runtime.executionLimit,
+    primaryRangeLimit: bot.runtime.primaryRangeLimit,
+    secondaryRangeLimit: bot.runtime.secondaryRangeLimit,
+    endTimeMs: closedExecutionCandleEndTimeMs,
   };
 }
 
-function toRunInput(config: RuntimeBotConfig, nowMs: number): OrchestratorRunInput {
-  return {
-    symbol: config.symbol,
-    executionTimeframe: config.executionTimeframe,
-    primaryRangeTimeframe: config.primaryRangeTimeframe,
-    secondaryRangeTimeframe: config.secondaryRangeTimeframe,
-    executionLimit: config.executionLimit,
-    primaryRangeLimit: config.primaryRangeLimit,
-    secondaryRangeLimit: config.secondaryRangeLimit,
-    endTimeMs: getClosedCandleEndTime(nowMs, config.executionTimeframe),
-  };
+function isExecutionTimeframeCompatibleForHourlyDispatch(
+  bot: BotRecord,
+): boolean {
+  const durationMs = getTimeframeDurationMs(bot.runtime.executionTimeframe);
+  return durationMs >= HOURLY_DISPATCH_MS && durationMs % HOURLY_DISPATCH_MS === 0;
 }
 
 function toErrorMessage(error: unknown): string {
@@ -113,44 +114,89 @@ function toErrorMessage(error: unknown): string {
   }
 }
 
-function toRunRecord(config: RuntimeBotConfig, runInput: OrchestratorRunInput, event: Awaited<ReturnType<ReturnType<typeof createKucoinOrchestrator>["runOnce"]>>): BotRunRecord {
+function extractEntrySide(decision: { intents: Array<{ kind: string; side?: "long" | "short" }> }): "long" | "short" | null {
+  const enterIntent = decision.intents.find((intent) => intent.kind === "enter");
+  return enterIntent?.side ?? null;
+}
+
+function toRunRecord(
+  bot: BotRecord,
+  runInput: Omit<OrchestratorRunInput, "bot">,
+  positionBefore: PositionRecord | null,
+  event: StrategySignalEvent,
+): BotRunRecord {
   const processing = event.processing ?? {
-    status: event.decision.signal ? "error" : "no-signal",
-    side: event.decision.signal ?? undefined,
+    status: extractEntrySide(event.decision) ? "error" : "no-signal",
+    side: extractEntrySide(event.decision) ?? undefined,
     message: "Missing processing result",
   };
 
+  const snapshot = event.snapshot as {
+    price?: number;
+    range?: {
+      effective?: { val?: number; vah?: number; poc?: number };
+      isAligned?: boolean;
+      overlapRatio?: number;
+    };
+    bullishDivergence?: boolean;
+    bearishDivergence?: boolean;
+    bullishSfp?: boolean;
+    bearishSfp?: boolean;
+    moneyFlowSlope?: number;
+  };
+
   return {
-    symbol: config.symbol,
+    id: `${bot.id}-${event.generatedAtMs}`,
+    botId: bot.id,
+    botName: bot.name,
+    strategyId: bot.strategyId,
+    strategyVersion: bot.strategyVersion,
+    exchangeId: bot.exchangeId,
+    accountId: bot.accountId,
+    symbol: bot.symbol,
     generatedAtMs: event.generatedAtMs,
     recordedAtMs: Date.now(),
     runStatus: processing.status === "error" ? "failed" : "ok",
     executionTimeframe: runInput.executionTimeframe,
     primaryRangeTimeframe: runInput.primaryRangeTimeframe,
     secondaryRangeTimeframe: runInput.secondaryRangeTimeframe,
-    signal: event.decision.signal,
+    signal: extractEntrySide(event.decision),
     reasons: event.decision.reasons,
-    price: event.snapshot.price,
-    rangeVal: event.snapshot.range.effective.val,
-    rangeVah: event.snapshot.range.effective.vah,
-    rangePoc: event.snapshot.range.effective.poc,
-    rangeIsAligned: event.snapshot.range.isAligned,
-    rangeOverlapRatio: event.snapshot.range.overlapRatio,
-    bullishDivergence: event.snapshot.bullishDivergence,
-    bearishDivergence: event.snapshot.bearishDivergence,
-    bullishSfp: event.snapshot.bullishSfp,
-    bearishSfp: event.snapshot.bearishSfp,
-    moneyFlowSlope: event.snapshot.moneyFlowSlope,
+    price: snapshot.price,
+    rangeVal: snapshot.range?.effective?.val,
+    rangeVah: snapshot.range?.effective?.vah,
+    rangePoc: snapshot.range?.effective?.poc,
+    rangeIsAligned: snapshot.range?.isAligned,
+    rangeOverlapRatio: snapshot.range?.overlapRatio,
+    bullishDivergence: snapshot.bullishDivergence,
+    bearishDivergence: snapshot.bearishDivergence,
+    bullishSfp: snapshot.bullishSfp,
+    bearishSfp: snapshot.bearishSfp,
+    moneyFlowSlope: snapshot.moneyFlowSlope,
+    positionStatusBefore: positionBefore?.status,
+    positionStatusAfter: processing.positionSnapshot?.isOpen ? "open" : positionBefore?.status,
+    exchangeReconciliationStatus: processing.positionSnapshot ? "ok" : undefined,
     processing,
   };
 }
 
-function toFailedRunRecord(config: RuntimeBotConfig, runInput: OrchestratorRunInput, error: unknown): BotRunRecord {
+function toFailedRunRecord(
+  bot: BotRecord,
+  runInput: Omit<OrchestratorRunInput, "bot">,
+  error: unknown,
+): BotRunRecord {
   const message = toErrorMessage(error);
   const recordedAtMs = Date.now();
 
   return {
-    symbol: config.symbol,
+    id: `${bot.id}-${recordedAtMs}`,
+    botId: bot.id,
+    botName: bot.name,
+    strategyId: bot.strategyId,
+    strategyVersion: bot.strategyVersion,
+    exchangeId: bot.exchangeId,
+    accountId: bot.accountId,
+    symbol: bot.symbol,
     generatedAtMs: recordedAtMs,
     recordedAtMs,
     runStatus: "failed",
@@ -167,8 +213,123 @@ function toFailedRunRecord(config: RuntimeBotConfig, runInput: OrchestratorRunIn
   };
 }
 
+function toPositionState(record: PositionRecord | null): PositionState | null {
+  if (!record) return null;
+  return {
+    botId: record.botId,
+    positionId: record.id,
+    symbol: record.symbol,
+    side: record.side,
+    status: record.status,
+    quantity: record.quantity,
+    remainingQuantity: record.remainingQuantity,
+    avgEntryPrice: record.avgEntryPrice,
+    stopPrice: record.stopPrice,
+    realizedPnl: record.realizedPnl,
+    unrealizedPnl: record.unrealizedPnl,
+    openedAtMs: record.openedAtMs,
+    closedAtMs: record.closedAtMs,
+    strategyContext: record.strategyContext,
+  };
+}
+
+function reconcilePositionRecord(
+  bot: BotRecord,
+  existing: PositionRecord | null,
+  processing: BotRunRecord["processing"],
+  generatedAtMs: number,
+): PositionRecord | undefined {
+  const snapshot = processing.positionSnapshot;
+  if (snapshot?.isOpen) {
+    return {
+      id: existing?.id ?? `${bot.id}-${snapshot.side}-${generatedAtMs}`,
+      botId: bot.id,
+      botName: bot.name,
+      strategyId: bot.strategyId,
+      strategyVersion: bot.strategyVersion,
+      exchangeId: bot.exchangeId,
+      accountId: bot.accountId,
+      symbol: bot.symbol,
+      side: snapshot.side,
+      status: "open",
+      quantity: snapshot.quantity,
+      remainingQuantity: snapshot.quantity,
+      avgEntryPrice: snapshot.avgEntryPrice,
+      stopPrice: existing?.stopPrice,
+      realizedPnl: existing?.realizedPnl ?? 0,
+      unrealizedPnl: existing?.unrealizedPnl,
+      openedAtMs: existing?.openedAtMs ?? generatedAtMs,
+      closedAtMs: undefined,
+      lastStrategyDecisionTimeMs: generatedAtMs,
+      lastExchangeSyncTimeMs: generatedAtMs,
+      strategyContext: existing?.strategyContext,
+    };
+  }
+
+  if (processing.status === "order-submitted" && processing.side) {
+    return {
+      id: existing?.id ?? `${bot.id}-${processing.side}-${generatedAtMs}`,
+      botId: bot.id,
+      botName: bot.name,
+      strategyId: bot.strategyId,
+      strategyVersion: bot.strategyVersion,
+      exchangeId: bot.exchangeId,
+      accountId: bot.accountId,
+      symbol: bot.symbol,
+      side: processing.side,
+      status: "entry-pending",
+      quantity: existing?.quantity ?? 0,
+      remainingQuantity: existing?.remainingQuantity ?? 0,
+      avgEntryPrice: existing?.avgEntryPrice,
+      stopPrice: existing?.stopPrice,
+      realizedPnl: existing?.realizedPnl ?? 0,
+      unrealizedPnl: existing?.unrealizedPnl,
+      openedAtMs: existing?.openedAtMs ?? generatedAtMs,
+      closedAtMs: undefined,
+      lastStrategyDecisionTimeMs: generatedAtMs,
+      lastExchangeSyncTimeMs: generatedAtMs,
+      strategyContext: existing?.strategyContext,
+    };
+  }
+
+  if (existing && existing.status !== "closed") {
+    return {
+      ...existing,
+      status: "closed",
+      remainingQuantity: 0,
+      closedAtMs: generatedAtMs,
+      lastStrategyDecisionTimeMs: generatedAtMs,
+      lastExchangeSyncTimeMs: generatedAtMs,
+    };
+  }
+
+  return undefined;
+}
+
 async function persistAndBroadcast(record: BotRunRecord): Promise<void> {
   await Promise.allSettled([putRunRecord(record), publishRunRecord(record)]);
+}
+
+async function loadSchedulableBots(rawBotsJson?: string): Promise<BotRecord[]> {
+  const runtimeBots = listActiveRuntimeBots(rawBotsJson);
+  await Promise.allSettled(runtimeBots.map((bot) => putBotRecord(bot)));
+
+  const storedBots = await listBotRecords(500);
+  const byId = new Map<string, BotRecord>();
+
+  for (const bot of storedBots) {
+    if (bot.status === "active") {
+      byId.set(bot.id, bot);
+    }
+  }
+
+  for (const bot of runtimeBots) {
+    if (bot.status === "active") {
+      byId.set(bot.id, bot);
+    }
+  }
+
+  return [...byId.values()].sort((a, b) => a.name.localeCompare(b.name));
 }
 
 export const handler = async (incomingEvent?: CronTickEvent) => {
@@ -176,7 +337,13 @@ export const handler = async (incomingEvent?: CronTickEvent) => {
   const event = asObject(incomingEvent);
 
   const eventSymbols = parseSymbols(event.symbols);
-  const eventBotsJson = typeof event.botsJson === "string" ? event.botsJson : undefined;
+  const rawBotsJson =
+    typeof event.botsJson === "string" ? event.botsJson : process.env.RANGING_BOTS_JSON;
+  let bots = await loadSchedulableBots(rawBotsJson);
+  if (eventSymbols.length > 0) {
+    const allowedSymbols = new Set(eventSymbols);
+    bots = bots.filter((bot) => allowedSymbols.has(bot.symbol));
+  }
 
   const envDryRun = toBoolean(process.env.RANGING_DRY_RUN, true);
   const globalDryRun =
@@ -192,25 +359,14 @@ export const handler = async (incomingEvent?: CronTickEvent) => {
       ? event.valueQty
       : (process.env.RANGING_VALUE_QTY ?? "100");
 
-  const parsedFromEnvOrEvent = parseBotConfigs(eventBotsJson ?? process.env.RANGING_BOTS_JSON)
-    .filter((config) => config.enabled !== false);
-
-  let configs = parsedFromEnvOrEvent;
-  if (eventSymbols.length > 0) {
-    const selected = new Set(eventSymbols);
-    configs = parsedFromEnvOrEvent.filter((config) => selected.has(config.symbol));
-
-    if (configs.length === 0) {
-      configs = eventSymbols.map(buildDefaultBotConfig);
-    }
-  }
-
-  if (configs.length === 0) {
+  if (bots.length === 0) {
     console.warn("[ranging-tick] No enabled bot configs. Set RANGING_BOTS_JSON or pass event.symbols.");
     const emptySummary = {
       processed: 0,
       signaled: 0,
       failed: 0,
+      skippedNotDue: 0,
+      skippedUnsupportedExecutionTimeframe: 0,
       total: 0,
       dryRun: globalDryRun,
       symbolFilterCount: eventSymbols.length,
@@ -219,51 +375,104 @@ export const handler = async (incomingEvent?: CronTickEvent) => {
     return emptySummary;
   }
 
-  const { client, service } = getKucoinService();
+  await Promise.allSettled(bots.map((bot) => putBotRecord(bot)));
 
   let processed = 0;
   let signaled = 0;
   let failed = 0;
+  let skippedNotDue = 0;
+  let skippedUnsupportedExecutionTimeframe = 0;
 
-  for (const config of configs) {
-    const runInput = toRunInput(config, nowMs);
+  for (const bot of bots) {
+    if (!isExecutionTimeframeCompatibleForHourlyDispatch(bot)) {
+      skippedUnsupportedExecutionTimeframe += 1;
+      console.warn(
+        "[ranging-tick] skipped bot due unsupported execution timeframe for hourly dispatcher",
+        {
+          botId: bot.id,
+          symbol: bot.symbol,
+          executionTimeframe: bot.runtime.executionTimeframe,
+        },
+      );
+      continue;
+    }
+
+    const closedExecutionCandleEndTimeMs = getClosedCandleEndTime(
+      nowMs,
+      bot.runtime.executionTimeframe,
+    );
+    const cursor = await getProcessingCursor(
+      bot.symbol,
+      bot.runtime.executionTimeframe,
+    );
+    if (
+      cursor &&
+      cursor.lastProcessedCandleCloseMs >= closedExecutionCandleEndTimeMs
+    ) {
+      skippedNotDue += 1;
+      continue;
+    }
+
+    const runInput = toRunInput(bot, closedExecutionCandleEndTimeMs);
+    const positionBefore = await getLatestOpenPositionByBot(bot.id);
 
     try {
-      const instance = createKucoinOrchestrator({
-        client,
-        service,
-        strategyConfig: config.strategyConfig,
+      const executionContext = await buildExecutionContext(bot, globalDryRun);
+      const adapter = exchangeAdapterRegistry.get(bot.exchangeId);
+      const instance = createBotRuntime({
+        bot,
+        adapter,
+        executionContext,
         signalProcessorOptions: {
-          dryRun: config.dryRun ?? globalDryRun,
-          marginMode: config.marginMode ?? globalMarginMode,
-          valueQty: config.valueQty ?? globalValueQty,
+          dryRun: executionContext.dryRun,
+          marginMode: bot.runtime.marginMode ?? globalMarginMode,
+          valueQty: bot.runtime.valueQty ?? globalValueQty,
         },
       });
 
-      const event = await instance.runOnce(runInput);
+      const strategyEvent = await instance.runOnce(runInput, toPositionState(positionBefore ?? null));
       processed += 1;
 
-      if (event.decision.signal) {
+      if (extractEntrySide(strategyEvent.decision)) {
         signaled += 1;
       }
 
-      const runRecord = toRunRecord(config, runInput, event);
+      const runRecord = toRunRecord(bot, runInput, positionBefore ?? null, strategyEvent);
+      const reconciledPosition = reconcilePositionRecord(
+        bot,
+        positionBefore ?? null,
+        runRecord.processing,
+        runRecord.generatedAtMs,
+      );
+
       await persistAndBroadcast(runRecord);
+      if (reconciledPosition) {
+        await putPositionRecord(reconciledPosition);
+      }
+      await advanceProcessingCursor({
+        symbol: bot.symbol,
+        timeframe: bot.runtime.executionTimeframe,
+        nextClosedCandleMs: closedExecutionCandleEndTimeMs,
+        generatedAtMs: runRecord.generatedAtMs,
+      });
 
       console.log("[ranging-tick] run", {
-        symbol: config.symbol,
-        signal: event.decision.signal,
-        reasons: event.decision.reasons,
-        generatedAtMs: event.generatedAtMs,
+        botId: bot.id,
+        symbol: bot.symbol,
+        intents: strategyEvent.decision.intents.map((intent) => intent.kind),
+        reasons: strategyEvent.decision.reasons,
+        generatedAtMs: strategyEvent.generatedAtMs,
         endTimeMs: runInput.endTimeMs,
-        processing: event.processing,
+        processing: strategyEvent.processing,
       });
     } catch (error) {
       failed += 1;
-      const failedRecord = toFailedRunRecord(config, runInput, error);
+      const failedRecord = toFailedRunRecord(bot, runInput, error);
       await persistAndBroadcast(failedRecord);
       console.error("[ranging-tick] run failed", {
-        symbol: config.symbol,
+        botId: bot.id,
+        symbol: bot.symbol,
+        executionTimeframe: bot.runtime.executionTimeframe,
         error,
       });
     }
@@ -273,17 +482,12 @@ export const handler = async (incomingEvent?: CronTickEvent) => {
     processed,
     signaled,
     failed,
-    total: configs.length,
+    skippedNotDue,
+    skippedUnsupportedExecutionTimeframe,
+    total: bots.length,
     dryRun: globalDryRun,
     symbolFilterCount: eventSymbols.length,
   };
-
-  console.log("[ranging-tick] summary", summary);
   await publishTickSummary(summary);
   return summary;
-};
-
-export const internals = {
-  parseBotConfigs,
-  getClosedCandleEndTime,
 };

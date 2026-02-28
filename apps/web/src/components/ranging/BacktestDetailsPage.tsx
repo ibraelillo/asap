@@ -1,17 +1,22 @@
 import { useMemo, useState } from "react";
 import useSWR from "swr";
 import { ArrowLeft, CalendarRange, TrendingDown, TrendingUp } from "lucide-react";
+import { MetricCard, Panel, Select } from "@repo/ui";
+import { Link } from "react-router-dom";
 import { fetchBacktestDetails } from "../../lib/ranging-api";
-import { MetricCard } from "../trade-results/MetricCard";
+import type { BacktestTrade } from "../../types/ranging-dashboard";
 import { BacktestReplayChart } from "./BacktestReplayChart";
 
 interface BacktestDetailsPageProps {
-  symbol: string;
+  botId: string;
   backtestId: string;
-  onBack?: () => void;
 }
 
 type ChartTimeframe = "15m" | "1h" | "2h" | "4h" | "1d";
+type TradeBalanceProgression = {
+  entryBalance: number;
+  closeBalance: number;
+};
 
 function formatDateTime(value?: number): string {
   if (!value) return "-";
@@ -25,10 +30,38 @@ function formatCurrency(value: number): string {
   })}`;
 }
 
+function tradeBalanceKey(trade: BacktestTrade): string {
+  return `${trade.id}-${trade.entryTime}-${trade.closeTime}`;
+}
+
+function buildTradeBalanceProgression(
+  initialEquity: number,
+  trades: BacktestTrade[],
+): Map<string, TradeBalanceProgression> {
+  const progression = new Map<string, TradeBalanceProgression>();
+
+  for (const trade of trades) {
+    const realizedBeforeEntry = trades.reduce((accumulator, candidate) => {
+      const isClosedBeforeEntry = candidate.closeTime < trade.entryTime;
+      const sameCloseTimeBeforeId =
+        candidate.closeTime === trade.entryTime && candidate.id < trade.id;
+      if (!isClosedBeforeEntry && !sameCloseTimeBeforeId) return accumulator;
+      return accumulator + candidate.netPnl;
+    }, 0);
+
+    const entryBalance = initialEquity + realizedBeforeEntry;
+    progression.set(tradeBalanceKey(trade), {
+      entryBalance,
+      closeBalance: entryBalance + trade.netPnl,
+    });
+  }
+
+  return progression;
+}
+
 export function BacktestDetailsPage({
-  symbol,
+  botId,
   backtestId,
-  onBack,
 }: BacktestDetailsPageProps) {
   const [chartTimeframe, setChartTimeframe] = useState<ChartTimeframe>("4h");
 
@@ -54,22 +87,27 @@ export function BacktestDetailsPage({
     return [...details.trades].sort((a, b) => a.netPnl - b.netPnl)[0];
   }, [details]);
 
+  const tradeBalanceProgression = useMemo(() => {
+    if (!details) return new Map<string, TradeBalanceProgression>();
+    return buildTradeBalanceProgression(details.backtest.initialEquity, details.trades);
+  }, [details]);
+
   if (isLoading && !details) {
     return (
-      <div className="panel p-6">
+      <Panel className="p-6">
         <p className="text-sm text-slate-300">Loading backtest replay...</p>
-      </div>
+      </Panel>
     );
   }
 
   if (error || !details) {
     return (
-      <div className="panel p-6">
+      <Panel className="p-6">
         <p className="text-sm text-rose-300">Failed to load backtest details.</p>
         <p className="mt-2 text-xs text-slate-400 mono">
           {error instanceof Error ? error.message : "Unknown API error"}
         </p>
-      </div>
+      </Panel>
     );
   }
 
@@ -77,12 +115,12 @@ export function BacktestDetailsPage({
 
   return (
     <div className="space-y-6">
-      <header className="panel p-6">
+      <Panel as="header" className="p-6">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
             <p className="text-xs uppercase tracking-[0.2em] text-cyan-300/80">Backtest</p>
             <h1 className="mt-2 text-3xl font-semibold text-slate-100">
-              {symbol} Replay
+              {backtest.symbol} Replay
             </h1>
             <p className="mt-2 text-sm text-slate-300/90">
               {formatDateTime(backtest.fromMs)} - {formatDateTime(backtest.toMs)}
@@ -91,33 +129,38 @@ export function BacktestDetailsPage({
           </div>
 
           <div className="flex items-center gap-2">
-            <label className="inline-flex items-center gap-2 rounded-lg border border-white/10 bg-slate-900/50 px-3 py-2 text-xs text-slate-200">
-              Chart TF
-              <select
+            <div className="w-36">
+              <Select
                 value={chartTimeframe}
-                onChange={(event) => setChartTimeframe(event.target.value as ChartTimeframe)}
-                className="bg-transparent outline-none"
-              >
-                <option value="15m">15m</option>
-                <option value="1h">1h</option>
-                <option value="2h">2h</option>
-                <option value="4h">4h</option>
-                <option value="1d">1d</option>
-              </select>
-            </label>
+                onChange={(value) => setChartTimeframe(value as ChartTimeframe)}
+                options={[
+                  { value: "15m", label: "15m" },
+                  { value: "1h", label: "1h" },
+                  { value: "2h", label: "2h" },
+                  { value: "4h", label: "4h" },
+                  { value: "1d", label: "1d" },
+                ]}
+              />
+            </div>
 
-            <button
-              onClick={() => onBack?.()}
+            <Link
+              to={`/bots/${encodeURIComponent(botId)}/backtests`}
               className="inline-flex items-center gap-2 rounded-lg border border-white/15 bg-white/5 px-3 py-2 text-xs text-slate-200 transition hover:bg-white/10"
             >
               <ArrowLeft className="h-4 w-4" />
-              Back To Bots
-            </button>
+              Back To Backtests
+            </Link>
+            <Link
+              to={`/bots/${encodeURIComponent(botId)}`}
+              className="inline-flex items-center gap-2 rounded-lg border border-cyan-300/20 bg-cyan-400/10 px-3 py-2 text-xs text-cyan-100 transition hover:bg-cyan-400/15"
+            >
+              Bot Overview
+            </Link>
           </div>
         </div>
-      </header>
+      </Panel>
 
-      <section className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-5">
+      <section className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-6">
         <MetricCard
           label="Net PnL"
           value={formatCurrency(backtest.netPnl)}
@@ -151,21 +194,31 @@ export function BacktestDetailsPage({
           icon={<CalendarRange className="h-5 w-5" />}
           hint={`TF ${details.chartTimeframe}`}
         />
+        <MetricCard
+          label="Execution Mode"
+          value={backtest.ai?.enabled ? "AI-integrated" : "Core-only"}
+          icon={<TrendingUp className="h-5 w-5" />}
+          hint={
+            backtest.ai?.enabled
+              ? `${backtest.ai.evaluationsAccepted}/${backtest.ai.evaluationsRun} accepted`
+              : "No model calls"
+          }
+        />
       </section>
 
       {details.replayError ? (
-        <div className="panel border border-amber-300/25 bg-amber-400/10 p-4">
+        <Panel className="p-4" tone="warning">
           <p className="text-sm text-amber-100">Replay warning: {details.replayError}</p>
           <p className="mt-1 text-xs text-amber-200/90">
             Summary metrics are still shown from the stored backtest record.
           </p>
-        </div>
+        </Panel>
       ) : null}
 
       <BacktestReplayChart details={details} />
 
       <section className="grid grid-cols-1 gap-4 xl:grid-cols-2">
-        <div className="panel p-4">
+        <Panel className="p-4">
           <h3 className="text-sm font-semibold text-slate-100">Best Trade</h3>
           {bestTrade ? (
             <p className="mt-2 text-sm text-emerald-300">
@@ -174,8 +227,8 @@ export function BacktestDetailsPage({
           ) : (
             <p className="mt-2 text-xs text-slate-400">No trades available.</p>
           )}
-        </div>
-        <div className="panel p-4">
+        </Panel>
+        <Panel className="p-4">
           <h3 className="text-sm font-semibold text-slate-100">Worst Trade</h3>
           {worstTrade ? (
             <p className="mt-2 text-sm text-rose-300">
@@ -184,10 +237,10 @@ export function BacktestDetailsPage({
           ) : (
             <p className="mt-2 text-xs text-slate-400">No trades available.</p>
           )}
-        </div>
+        </Panel>
       </section>
 
-      <div className="panel p-5">
+      <Panel className="p-5">
         <div className="mb-4 flex items-center justify-between">
           <div>
             <h3 className="text-lg font-semibold text-slate-100">Trades</h3>
@@ -204,41 +257,51 @@ export function BacktestDetailsPage({
                 <th className="pb-3 pr-4">Entry</th>
                 <th className="pb-3 pr-4">Close</th>
                 <th className="pb-3 pr-4">Qty</th>
+                <th className="pb-3 pr-4">Balance (E -&gt; X)</th>
                 <th className="pb-3 pr-4">Exits</th>
                 <th className="pb-3 pr-4">Range @ Entry</th>
                 <th className="pb-3">Net PnL</th>
               </tr>
             </thead>
             <tbody>
-              {details.trades.map((trade) => (
-                <tr key={trade.id} className="border-t border-white/5 text-slate-200">
-                  <td className="py-3 pr-4">#{trade.id}</td>
-                  <td className={`py-3 pr-4 ${trade.side === "long" ? "text-emerald-300" : "text-amber-300"}`}>
-                    {trade.side}
-                  </td>
-                  <td className="py-3 pr-4 text-xs">
-                    {formatDateTime(trade.entryTime)} @ {trade.entryPrice.toLocaleString(undefined, { maximumFractionDigits: 2 })}
-                  </td>
-                  <td className="py-3 pr-4 text-xs">
-                    {formatDateTime(trade.closeTime)} @ {trade.closePrice.toLocaleString(undefined, { maximumFractionDigits: 2 })}
-                  </td>
-                  <td className="py-3 pr-4 text-xs">{trade.quantity.toFixed(6)}</td>
-                  <td className="py-3 pr-4 text-xs text-slate-300">
-                    {trade.exits.map((exit) => `${exit.reason.toUpperCase()} @ ${exit.price.toFixed(2)}`).join(" | ")}
-                  </td>
-                  <td className="py-3 pr-4 text-xs text-slate-300">
-                    {trade.rangeLevels
-                      ? `VAL ${trade.rangeLevels.val.toFixed(2)} | POC ${trade.rangeLevels.poc.toFixed(2)} | VAH ${trade.rangeLevels.vah.toFixed(2)}`
-                      : "-"}
-                  </td>
-                  <td className={`py-3 font-medium ${trade.netPnl >= 0 ? "text-emerald-300" : "text-rose-300"}`}>
-                    {formatCurrency(trade.netPnl)}
-                  </td>
-                </tr>
-              ))}
+              {details.trades.map((trade) => {
+                const balanceKey = tradeBalanceKey(trade);
+                const balances = tradeBalanceProgression.get(balanceKey);
+                return (
+                  <tr key={balanceKey} className="border-t border-white/5 text-slate-200">
+                    <td className="py-3 pr-4">#{trade.id}</td>
+                    <td className={`py-3 pr-4 ${trade.side === "long" ? "text-emerald-300" : "text-amber-300"}`}>
+                      {trade.side}
+                    </td>
+                    <td className="py-3 pr-4 text-xs">
+                      {formatDateTime(trade.entryTime)} @ {trade.entryPrice.toLocaleString(undefined, { maximumFractionDigits: 2 })}
+                    </td>
+                    <td className="py-3 pr-4 text-xs">
+                      {formatDateTime(trade.closeTime)} @ {trade.closePrice.toLocaleString(undefined, { maximumFractionDigits: 2 })}
+                    </td>
+                    <td className="py-3 pr-4 text-xs">{trade.quantity.toFixed(6)}</td>
+                    <td className="py-3 pr-4 text-xs text-slate-300">
+                      {balances
+                        ? `${formatCurrency(balances.entryBalance)} -> ${formatCurrency(balances.closeBalance)}`
+                        : "-"}
+                    </td>
+                    <td className="py-3 pr-4 text-xs text-slate-300">
+                      {trade.exits.map((exit) => `${exit.reason.toUpperCase()} @ ${exit.price.toFixed(2)}`).join(" | ")}
+                    </td>
+                    <td className="py-3 pr-4 text-xs text-slate-300">
+                      {trade.rangeLevels
+                        ? `VAL ${trade.rangeLevels.val.toFixed(2)} | POC ${trade.rangeLevels.poc.toFixed(2)} | VAH ${trade.rangeLevels.vah.toFixed(2)}`
+                        : "-"}
+                    </td>
+                    <td className={`py-3 font-medium ${trade.netPnl >= 0 ? "text-emerald-300" : "text-rose-300"}`}>
+                      {formatCurrency(trade.netPnl)}
+                    </td>
+                  </tr>
+                );
+              })}
               {details.trades.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="py-4 text-center text-xs text-slate-400">
+                  <td colSpan={9} className="py-4 text-center text-xs text-slate-400">
                     No trades generated for this backtest.
                   </td>
                 </tr>
@@ -246,7 +309,7 @@ export function BacktestDetailsPage({
             </tbody>
           </table>
         </div>
-      </div>
+      </Panel>
     </div>
   );
 }

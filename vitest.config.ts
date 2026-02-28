@@ -2,10 +2,24 @@ import { defineConfig } from "vitest/config";
 
 export default defineConfig({
   test: {
+    include: [
+      "apps/**/*.spec.ts",
+      "packages/**/*.spec.ts",
+    ],
+    exclude: [
+      "**/node_modules/**",
+      "**/.sst/**",
+      "**/dist/**",
+      "**/coverage/**",
+      "**/test-results/**",
+      "**/.old_*/**",
+      "apps/web/e2e/**",
+      "playwright.config.ts",
+    ],
     env: {
-      KUCOIN_API_KEY: "67cbafebdf512e0001bbea87", //"68bf158c8711080001ae575e", //"67cbafebdf512e0001bbea87",
-      KUCOIN_API_SECRET: "4bb0677f-62a9-4263-b837-b445f317dee7", //"8b12e038-68de-4298-abf8-54a6cf9542b6", // "4bb0677f-62a9-4263-b837-b445f317dee7",
-      KUCOIN_API_PASSPHRASE: "Ricolino01!!",
+      KUCOIN_API_KEY: process.env.KUCOIN_API_KEY ?? "",
+      KUCOIN_API_SECRET: process.env.KUCOIN_API_SECRET ?? "",
+      KUCOIN_API_PASSPHRASE: process.env.KUCOIN_API_PASSPHRASE ?? "",
     },
     coverage: {
       clean: true,

@@ -15,7 +15,7 @@ Responsibilities:
 ## KuCoin Wiring
 
 - `KucoinKlineProvider`: fetches and normalizes klines.
-- `ExchangeRangingOrchestrator`: runs fetch -> evaluate -> emit.
+- `BotRuntimeOrchestrator`: runs fetch -> evaluate -> emit through a strategy/runtime contract.
 - `KucoinSignalProcessor`: maps signals to KuCoin orders (or dry-run).
 
 ## Real Kline Fixture

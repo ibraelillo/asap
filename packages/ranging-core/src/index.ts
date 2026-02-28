@@ -2,6 +2,8 @@ import { runBacktest } from "./backtest";
 import { createConfig, defaultRangeReversalConfig } from "./config";
 import {
   buildSignalSnapshot,
+  buildRangeReversalDecision,
+  createRangeReversalStrategy,
   evaluateEntry,
   resolveTakeProfitLevels,
   type SignalSnapshotInput,
@@ -11,6 +13,7 @@ import type {
   DeepPartial,
   EntryDecision,
   RangeReversalConfig,
+  RangeReversalSnapshot,
   SignalSnapshot,
 } from "./types";
 
@@ -23,6 +26,7 @@ export * from "./analysis/signals";
 export * from "./risk";
 export * from "./config";
 
+/** @deprecated prefer createRangeReversalStrategy */
 export interface RangingBotApi {
   config: RangeReversalConfig;
   buildSignalSnapshot: (input: Omit<SignalSnapshotInput, "config">) => SignalSnapshot;
@@ -30,6 +34,7 @@ export interface RangingBotApi {
   runBacktest: (input: BacktestInput) => ReturnType<typeof runBacktest>;
 }
 
+/** @deprecated prefer createRangeReversalStrategy */
 export function createRangingBot(overrides?: DeepPartial<RangeReversalConfig>): RangingBotApi {
   const config = createConfig(overrides);
 
@@ -41,5 +46,16 @@ export function createRangingBot(overrides?: DeepPartial<RangeReversalConfig>): 
   };
 }
 
+export function createConfiguredRangeReversalStrategy(
+  overrides?: DeepPartial<RangeReversalConfig>,
+) {
+  const config = createConfig(overrides);
+  return {
+    config,
+    strategy: createRangeReversalStrategy(config),
+  };
+}
+
+export type { RangeReversalSnapshot, SignalSnapshotInput };
 export const rangingBotDefaults = defaultRangeReversalConfig;
-export { resolveTakeProfitLevels };
+export { buildRangeReversalDecision, createRangeReversalStrategy, resolveTakeProfitLevels };

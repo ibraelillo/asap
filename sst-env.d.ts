@@ -5,6 +5,11 @@
 
 declare module "sst" {
   export interface Resource {
+    "RangingBacktestBus": {
+      "arn": string
+      "name": string
+      "type": "sst.aws.Bus"
+    }
     "RangingBotApi": {
       "type": "sst.aws.ApiGatewayV2"
       "url": string

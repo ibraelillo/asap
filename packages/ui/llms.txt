@@ -1,0 +1,40 @@
+# @repo/ui
+
+Shared UI package for ASAP.
+
+Purpose:
+- reusable React UI primitives for trading dashboards
+- typed component APIs
+- Tailwind-first styling
+- accessible dropdowns via Headless UI
+
+Primary exports:
+- Panel
+- PageHeader
+- Button
+- Field
+- Input
+- Checkbox
+- Select
+- Combobox
+- MetricCard
+- SectionHeader
+- Badge
+- BadgeList
+- Code
+- cn
+
+Usage guidance:
+- use `Select` for small fixed lists
+- use `Combobox` for searchable lists like account selection
+- use `Panel` instead of duplicating `panel` container styles
+- use `MetricCard` for KPI tiles
+- keep domain formatting outside the package when possible
+
+Tailwind requirement:
+- consuming apps must include `../../packages/ui/src/**/*.{js,ts,jsx,tsx}` in Tailwind content globs
+
+Constraints:
+- no charting components
+- no exchange-specific logic
+- no bot/backtest domain state inside package

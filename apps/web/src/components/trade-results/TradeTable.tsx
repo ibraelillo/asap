@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { Field, Panel, Select } from "@repo/ui";
 import type { TradeRecord } from "../../types/trade-results";
 import { formatCurrency, formatDateTime } from "../../lib/trade-results";
 
@@ -14,6 +15,17 @@ export function TradeTable({ trades }: TradeTableProps) {
     return [...new Set(trades.map((trade) => trade.symbol))].sort();
   }, [trades]);
 
+  const symbolOptions = useMemo(
+    () => [{ value: "all", label: "All Symbols" }, ...symbols.map((symbol) => ({ value: symbol, label: symbol }))],
+    [symbols],
+  );
+
+  const sideOptions = [
+    { value: "all", label: "Both Sides" },
+    { value: "long", label: "Long" },
+    { value: "short", label: "Short" },
+  ] as const;
+
   const filtered = useMemo(() => {
     return trades.filter((trade) => {
       if (symbolFilter !== "all" && trade.symbol !== symbolFilter) return false;
@@ -23,36 +35,24 @@ export function TradeTable({ trades }: TradeTableProps) {
   }, [symbolFilter, sideFilter, trades]);
 
   return (
-    <div className="panel p-5">
+    <Panel className="p-5">
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <div>
           <h3 className="text-lg font-semibold text-slate-100">Trades</h3>
           <p className="text-xs text-slate-400">Detailed execution history</p>
         </div>
 
-        <div className="flex flex-wrap gap-2">
-          <select
-            value={symbolFilter}
-            onChange={(event) => setSymbolFilter(event.target.value)}
-            className="rounded-lg border border-white/10 bg-slate-900/50 px-3 py-2 text-xs text-slate-200 focus:border-cyan-400 focus:outline-none"
-          >
-            <option value="all">All Symbols</option>
-            {symbols.map((symbol) => (
-              <option key={symbol} value={symbol}>
-                {symbol}
-              </option>
-            ))}
-          </select>
-
-          <select
-            value={sideFilter}
-            onChange={(event) => setSideFilter(event.target.value as "all" | "long" | "short")}
-            className="rounded-lg border border-white/10 bg-slate-900/50 px-3 py-2 text-xs text-slate-200 focus:border-cyan-400 focus:outline-none"
-          >
-            <option value="all">Both Sides</option>
-            <option value="long">Long</option>
-            <option value="short">Short</option>
-          </select>
+        <div className="grid min-w-[320px] grid-cols-1 gap-2 sm:grid-cols-2">
+          <Field>
+            <Select value={symbolFilter} onChange={setSymbolFilter} options={symbolOptions} />
+          </Field>
+          <Field>
+            <Select
+              value={sideFilter}
+              onChange={(value) => setSideFilter(value as "all" | "long" | "short")}
+              options={sideOptions}
+            />
+          </Field>
         </div>
       </div>
 
@@ -97,6 +97,6 @@ export function TradeTable({ trades }: TradeTableProps) {
           </tbody>
         </table>
       </div>
-    </div>
+    </Panel>
   );
 }

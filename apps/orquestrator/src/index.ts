@@ -208,11 +208,11 @@ export class WebSocketOrchestrator {
     console.log("[Orchestrator] Notifying all bots to start...");
 
     const symbols = [
-      "DOTUSDTM",
+      //"DOTUSDTM",
       //"ENAUSDTM",
       "SUIUSDTM",
       "SOLUSDTM",
-      "ADAUSDTM",
+      //"ADAUSDTM",
       "LINKUSDTM",
       //"BNBUSDTM",
       //"ATOMUSDTM",

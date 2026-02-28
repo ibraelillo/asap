@@ -5,7 +5,16 @@ export type ProcessingStatus =
   | "skipped-existing-position"
   | "dry-run"
   | "order-submitted"
+  | "synced-position"
   | "error";
+
+export interface PositionSnapshot {
+  symbol: string;
+  side: Side;
+  quantity: number;
+  avgEntryPrice?: number;
+  isOpen: boolean;
+}
 
 export interface SignalProcessingResult {
   status: ProcessingStatus;
@@ -13,51 +22,109 @@ export interface SignalProcessingResult {
   message?: string;
   orderId?: string;
   clientOid?: string;
+  positionSnapshot?: PositionSnapshot | null;
 }
 
 export interface BotRunRecord {
+  id: string;
+  botId: string;
+  botName: string;
+  strategyId: string;
+  strategyVersion: string;
+  exchangeId: string;
+  accountId: string;
   symbol: string;
   generatedAtMs: number;
   recordedAtMs: number;
+  latencyMs?: number;
   runStatus: "ok" | "failed";
-
   executionTimeframe: string;
   primaryRangeTimeframe: string;
   secondaryRangeTimeframe: string;
-
   signal: Side | null;
   reasons: string[];
-
   price?: number;
   rangeVal?: number;
   rangeVah?: number;
   rangePoc?: number;
   rangeIsAligned?: boolean;
   rangeOverlapRatio?: number;
-
   bullishDivergence?: boolean;
   bearishDivergence?: boolean;
   bullishSfp?: boolean;
   bearishSfp?: boolean;
   moneyFlowSlope?: number;
-
+  positionStatusBefore?: string;
+  positionStatusAfter?: string;
+  exchangeReconciliationStatus?: "ok" | "drift" | "error";
   processing: SignalProcessingResult;
   errorMessage?: string;
 }
 
-export interface DashboardMetrics {
+export interface AccountSummary {
+  id: string;
+  name: string;
+  exchangeId: string;
+  status: "active" | "archived";
+  createdAtMs: number;
+  updatedAtMs: number;
+  hasAuth: {
+    apiKey: boolean;
+    apiSecret: boolean;
+    apiPassphrase: boolean;
+  };
+}
+
+export interface BotOperationalStats {
   totalRuns: number;
-  noSignalRuns: number;
+  failedRuns: number;
   signalRuns: number;
   longSignals: number;
   shortSignals: number;
+  noSignalRuns: number;
   orderSubmitted: number;
   dryRunSignals: number;
   skippedSignals: number;
-  failedRuns: number;
+  signalRate: number;
+  failureRate: number;
+}
+
+export interface StrategyPerformanceStats {
+  netPnl: number;
+  grossProfit: number;
+  grossLoss: number;
+  winRate: number;
+  totalTrades: number;
+  profitableBacktests: number;
+  latestNetPnl?: number;
+  maxDrawdownPct?: number;
+}
+
+export interface PositionLifecycleStats {
+  openPositions: number;
+  reducingPositions: number;
+  closingPositions: number;
+  reconciliationsPending: number;
+  forcedCloseCount: number;
+  breakevenMoves: number;
+}
+
+export interface BacktestStats {
+  total: number;
+  running: number;
+  completed: number;
+  failed: number;
+  profitable: number;
+  latestNetPnl?: number;
 }
 
 export interface BotAnalysisSummary {
+  botId: string;
+  botName: string;
+  strategyId: string;
+  strategyVersion: string;
+  exchangeId: string;
+  accountId: string;
   symbol: string;
   generatedAtMs?: number;
   signal: Side | null;
@@ -80,6 +147,7 @@ export interface BotAnalysisSummary {
 
 export interface TradeSignalRecord {
   id: string;
+  botId: string;
   symbol: string;
   side: Side;
   generatedAtMs: number;
@@ -101,7 +169,7 @@ export interface KlineCandle {
 
 export interface DashboardPayload {
   generatedAt: string;
-  metrics: DashboardMetrics;
+  metrics: BotOperationalStats;
   bots: BotAnalysisSummary[];
   recentRuns: BotRunRecord[];
   trades: TradeSignalRecord[];
@@ -117,7 +185,7 @@ export interface TradeAnalysisPayload {
   klines: KlineCandle[];
 }
 
-export type BacktestStatus = "completed" | "failed";
+export type BacktestStatus = "running" | "completed" | "failed";
 
 export interface KlineCacheReference {
   key: string;
@@ -133,6 +201,12 @@ export interface BacktestRecord {
   id: string;
   createdAtMs: number;
   status: BacktestStatus;
+  botId: string;
+  botName: string;
+  strategyId: string;
+  strategyVersion: string;
+  exchangeId: string;
+  accountId: string;
   symbol: string;
   fromMs: number;
   toMs: number;
@@ -150,22 +224,53 @@ export interface BacktestRecord {
   maxDrawdownPct: number;
   endingEquity: number;
   klineRefs?: KlineCacheReference[];
+  ai?: {
+    enabled: boolean;
+    lookbackCandles: number;
+    cadenceBars: number;
+    maxEvaluations: number;
+    confidenceThreshold: number;
+    modelPrimary: string;
+    modelFallback: string;
+    effectiveCadenceBars: number;
+    plannedEvaluations: number;
+    evaluationsRun: number;
+    evaluationsAccepted: number;
+    fallbackUsed: number;
+    failed: number;
+  };
   errorMessage?: string;
 }
 
 export interface BotStatsSummary {
   generatedAt: string;
-  configuredBots: number;
-  runsInWindow: number;
-  signalsInWindow: number;
-  failuresInWindow: number;
-  signalRate: number;
-  failureRate: number;
-  backtests: {
-    total: number;
-    profitable: number;
-    latestNetPnl?: number;
+  bot: {
+    configured: number;
+    active: number;
   };
+  operations: BotOperationalStats;
+  strategy: StrategyPerformanceStats;
+  positions: PositionLifecycleStats;
+  backtests: BacktestStats;
+}
+
+export interface StrategySummary {
+  strategyId: string;
+  versions: string[];
+  configuredBots: number;
+  activeBots: number;
+  symbols: string[];
+  operations: BotOperationalStats;
+  strategy: StrategyPerformanceStats;
+  positions: PositionLifecycleStats;
+  backtests: BacktestStats;
+}
+
+export interface StrategyDetailsPayload {
+  generatedAt: string;
+  strategy: StrategySummary;
+  bots: BotAnalysisSummary[];
+  recentRuns: BotRunRecord[];
 }
 
 export interface BacktestExit {
@@ -213,4 +318,61 @@ export interface BacktestDetailsPayload {
   trades: BacktestTrade[];
   equityCurve: EquityPoint[];
   replayError?: string;
+}
+
+export type RangeValidationStatus = "pending" | "completed" | "failed";
+
+export interface RangeValidationResult {
+  isRanging: boolean;
+  confidence: number;
+  timeframeDetected: string;
+  range: {
+    val: number;
+    poc: number;
+    vah: number;
+  };
+  reasons: string[];
+}
+
+export interface RangeValidationRecord {
+  id: string;
+  botId: string;
+  botName: string;
+  strategyId: string;
+  createdAtMs: number;
+  status: RangeValidationStatus;
+  symbol: string;
+  timeframe: string;
+  fromMs: number;
+  toMs: number;
+  candlesCount: number;
+  modelPrimary: string;
+  modelFallback: string;
+  confidenceThreshold: number;
+  finalModel?: string;
+  result?: RangeValidationResult;
+  errorMessage?: string;
+}
+
+export interface PositionRecord {
+  id: string;
+  botId: string;
+  botName: string;
+  strategyId: string;
+  strategyVersion: string;
+  exchangeId: string;
+  accountId: string;
+  symbol: string;
+  side: Side;
+  status: "flat" | "entry-pending" | "open" | "reducing" | "closing" | "closed" | "reconciling" | "error";
+  quantity: number;
+  remainingQuantity: number;
+  avgEntryPrice?: number;
+  stopPrice?: number;
+  realizedPnl: number;
+  unrealizedPnl?: number;
+  openedAtMs?: number;
+  closedAtMs?: number;
+  lastStrategyDecisionTimeMs?: number;
+  lastExchangeSyncTimeMs?: number;
 }

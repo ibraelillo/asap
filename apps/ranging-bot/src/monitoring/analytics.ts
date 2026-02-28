@@ -1,12 +1,13 @@
 import type {
   BotAnalysisSummary,
+  BotOperationalStats,
+  BotRecord,
   BotRunRecord,
-  DashboardMetrics,
   TradeSignalRecord,
 } from "./types";
 import { encodeTradeId } from "./trades";
 
-export function computeDashboardMetrics(runs: BotRunRecord[]): DashboardMetrics {
+export function computeDashboardMetrics(runs: BotRunRecord[]): BotOperationalStats {
   let noSignalRuns = 0;
   let longSignals = 0;
   let shortSignals = 0;
@@ -37,16 +38,21 @@ export function computeDashboardMetrics(runs: BotRunRecord[]): DashboardMetrics 
     }
   }
 
+  const totalRuns = runs.length;
+  const signalRuns = longSignals + shortSignals;
+
   return {
-    totalRuns: runs.length,
+    totalRuns,
     noSignalRuns,
-    signalRuns: longSignals + shortSignals,
+    signalRuns,
     longSignals,
     shortSignals,
     orderSubmitted,
     dryRunSignals,
     skippedSignals,
     failedRuns,
+    signalRate: totalRuns > 0 ? signalRuns / totalRuns : 0,
+    failureRate: totalRuns > 0 ? failedRuns / totalRuns : 0,
   };
 }
 
@@ -55,6 +61,7 @@ export function mapRunsToTrades(runs: BotRunRecord[]): TradeSignalRecord[] {
     .filter((run) => run.signal === "long" || run.signal === "short")
     .map((run) => ({
       id: encodeTradeId(run.symbol, run.generatedAtMs),
+      botId: run.botId,
       symbol: run.symbol,
       side: run.signal as "long" | "short",
       generatedAtMs: run.generatedAtMs,
@@ -68,20 +75,26 @@ export function mapRunsToTrades(runs: BotRunRecord[]): TradeSignalRecord[] {
 }
 
 export function buildBotSummaries(
-  symbols: string[],
+  bots: BotRecord[],
   latestRuns: BotRunRecord[],
 ): BotAnalysisSummary[] {
-  const bySymbol = new Map<string, BotRunRecord>();
+  const byBotId = new Map<string, BotRunRecord>();
   for (const run of latestRuns) {
-    bySymbol.set(run.symbol, run);
+    byBotId.set(run.botId, run);
   }
 
-  return symbols.map((symbol) => {
-    const run = bySymbol.get(symbol);
+  return bots.map((bot) => {
+    const run = byBotId.get(bot.id);
 
     if (!run) {
       return {
-        symbol,
+        botId: bot.id,
+        botName: bot.name,
+        strategyId: bot.strategyId,
+        strategyVersion: bot.strategyVersion,
+        exchangeId: bot.exchangeId,
+        accountId: bot.accountId,
+        symbol: bot.symbol,
         signal: null,
         runStatus: "idle",
         reasons: ["no_analysis_yet"],
@@ -90,7 +103,13 @@ export function buildBotSummaries(
     }
 
     return {
-      symbol,
+      botId: bot.id,
+      botName: bot.name,
+      strategyId: bot.strategyId,
+      strategyVersion: bot.strategyVersion,
+      exchangeId: bot.exchangeId,
+      accountId: bot.accountId,
+      symbol: bot.symbol,
       generatedAtMs: run.generatedAtMs,
       signal: run.signal,
       runStatus: run.runStatus,

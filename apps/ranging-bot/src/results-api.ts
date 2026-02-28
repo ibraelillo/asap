@@ -2,32 +2,82 @@ import type {
   APIGatewayProxyEventV2,
   APIGatewayProxyResultV2,
 } from "aws-lambda";
+import {
+  EventBridgeClient,
+  PutEventsCommand,
+} from "@aws-sdk/client-eventbridge";
 import type { Candle, EquityPoint } from "@repo/ranging-core";
 import { buildBotSummaries, computeDashboardMetrics, mapRunsToTrades } from "./monitoring/analytics";
-import { replayBacktestRecord, runBacktestJob } from "./monitoring/backtests";
+import { getRuntimeBotById, getRuntimeBotBySymbol, listActiveRuntimeBots } from "./bot-registry";
 import {
+  createBacktestIdentity,
+  createFailedBacktestRecord,
+  createRunningBacktestRecord,
+  replayBacktestRecord,
+} from "./monitoring/backtests";
+import {
+  BACKTEST_EVENT_DETAIL_TYPE_REQUESTED,
+  BACKTEST_EVENT_SOURCE,
+  type BacktestRequestedDetail,
+} from "./monitoring/backtest-events";
+import {
+  RANGE_VALIDATION_EVENT_DETAIL_TYPE_REQUESTED,
+  RANGE_VALIDATION_EVENT_SOURCE,
+  type RangeValidationRequestedDetail,
+} from "./monitoring/validation-events";
+import {
+  getAccountRecordById,
+  getBotRecordById,
+  getBotRecordBySymbol,
   getBacktestById,
+  getLatestOpenPositionByBot,
+  getRangeValidationById,
   getRunBySymbolAndTime,
+  listAccountRecords,
+  listBotRecords,
+  listLatestRunsByBotIds,
+  listRecentRangeValidations,
+  listRecentRangeValidationsByBotId,
+  listRecentRangeValidationsBySymbol,
   listRecentBacktests,
+  listRecentBacktestsByBotId,
   listRecentBacktestsBySymbol,
-  listLatestRunsBySymbols,
   listRecentRuns,
+  listPositionsByBot,
   listRecentRunsBySymbol,
+  putAccountRecord,
+  putBotRecord,
   putBacktestRecord,
+  putRangeValidationRecord,
 } from "./monitoring/store";
 import type {
+  AccountRecord,
+  BacktestAiConfig,
   BacktestRecord,
   BacktestTradeView,
+  BotRecord,
   BotStatsSummary,
   BotRunRecord,
   DashboardPayload,
   KlineCacheReference,
+  PositionRecord,
+  StrategyDetailsPayload,
+  StrategySummary,
   TradeSignalRecord,
 } from "./monitoring/types";
 import { fetchTradeContextKlines } from "./monitoring/kucoin-public-klines";
 import { decodeTradeId } from "./monitoring/trades";
-import { parseBotConfigs } from "./runtime-config";
 import type { OrchestratorTimeframe } from "./contracts";
+import {
+  normalizeBotConfig,
+  toBotDefinition,
+  type RuntimeBotConfig,
+} from "./runtime-config";
+import {
+  createFailedValidationRecord,
+  createPendingValidationRecord,
+  createValidationIdentity,
+} from "./monitoring/validations";
 
 const DEFAULT_LIMIT = 200;
 const MAX_LIMIT = 500;
@@ -39,9 +89,31 @@ const MAX_BACKTEST_PERIOD_DAYS = 365;
 const DEFAULT_STATS_WINDOW_HOURS = 24;
 const MAX_STATS_WINDOW_HOURS = 24 * 30;
 const DEFAULT_BACKTEST_CHART_TIMEFRAME: OrchestratorTimeframe = "4h";
+const DEFAULT_VALIDATION_TIMEFRAME: OrchestratorTimeframe = "15m";
+const DEFAULT_VALIDATION_CANDLE_COUNT = 240;
+const MAX_VALIDATION_CANDLE_COUNT = 600;
+const DEFAULT_BACKTEST_AI_LOOKBACK_CANDLES = 240;
+const DEFAULT_BACKTEST_AI_CADENCE_BARS = 1;
+const DEFAULT_BACKTEST_AI_MAX_EVALUATIONS = 50;
+const MAX_BACKTEST_AI_EVALUATIONS = 400;
+const DEFAULT_BACKTEST_RUNNING_STALE_MS = 20 * 60_000;
+const DEFAULT_VALIDATION_CONFIDENCE_THRESHOLD = 0.72;
+const DEFAULT_VALIDATION_MODEL_PRIMARY = "gpt-5-nano-2025-08-07";
+const DEFAULT_VALIDATION_MODEL_FALLBACK = "gpt-5-mini-2025-08-07";
 const DEMO_TRADE_ID = "demo";
+const BACKTEST_BUS_NAME_ENV_KEY = "RANGING_BACKTEST_BUS_NAME";
+const SUPPORTED_EXCHANGE_IDS = new Set(["kucoin"]);
+
+let cachedEventBridgeClient: EventBridgeClient | null = null;
 
 const DEMO_RUN: BotRunRecord = {
+  id: "demo-run",
+  botId: "demo-bot",
+  botName: "BTCUSDTM",
+  strategyId: "range-reversal",
+  strategyVersion: "1",
+  exchangeId: "kucoin",
+  accountId: "default",
   symbol: "BTCUSDTM",
   generatedAtMs: Date.UTC(2026, 1, 20, 12, 0, 0),
   recordedAtMs: Date.UTC(2026, 1, 20, 12, 0, 5),
@@ -77,6 +149,7 @@ const DEMO_RUN: BotRunRecord = {
 
 const DEMO_TRADE: TradeSignalRecord = {
   id: DEMO_TRADE_ID,
+  botId: DEMO_RUN.botId,
   symbol: DEMO_RUN.symbol,
   side: "long",
   generatedAtMs: DEMO_RUN.generatedAtMs,
@@ -113,6 +186,73 @@ function json(statusCode: number, data: unknown): APIGatewayProxyResultV2 {
   };
 }
 
+function getEventBridgeClient(): EventBridgeClient {
+  if (cachedEventBridgeClient) return cachedEventBridgeClient;
+  cachedEventBridgeClient = new EventBridgeClient({});
+  return cachedEventBridgeClient;
+}
+
+function getBacktestBusName(): string {
+  const busName = process.env[BACKTEST_BUS_NAME_ENV_KEY];
+  if (typeof busName === "string" && busName.trim().length > 0) {
+    return busName.trim();
+  }
+
+  throw new Error(
+    `Missing ${BACKTEST_BUS_NAME_ENV_KEY}. Link the backtest bus and pass its name to the API function environment.`,
+  );
+}
+
+async function publishBacktestRequested(detail: BacktestRequestedDetail): Promise<void> {
+  const busName = getBacktestBusName();
+  const result = await getEventBridgeClient().send(
+    new PutEventsCommand({
+      Entries: [
+        {
+          EventBusName: busName,
+          Source: BACKTEST_EVENT_SOURCE,
+          DetailType: BACKTEST_EVENT_DETAIL_TYPE_REQUESTED,
+          Detail: JSON.stringify(detail),
+        },
+      ],
+    }),
+  );
+
+  if ((result.FailedEntryCount ?? 0) > 0) {
+    const first = result.Entries?.[0];
+    const message = first
+      ? `${first.ErrorCode ?? "unknown_error"}: ${first.ErrorMessage ?? "unknown"}`
+      : "unknown_eventbridge_error";
+    throw new Error(`EventBridge rejected backtest event (${message})`);
+  }
+}
+
+async function publishRangeValidationRequested(
+  detail: RangeValidationRequestedDetail,
+): Promise<void> {
+  const busName = getBacktestBusName();
+  const result = await getEventBridgeClient().send(
+    new PutEventsCommand({
+      Entries: [
+        {
+          EventBusName: busName,
+          Source: RANGE_VALIDATION_EVENT_SOURCE,
+          DetailType: RANGE_VALIDATION_EVENT_DETAIL_TYPE_REQUESTED,
+          Detail: JSON.stringify(detail),
+        },
+      ],
+    }),
+  );
+
+  if ((result.FailedEntryCount ?? 0) > 0) {
+    const first = result.Entries?.[0];
+    const message = first
+      ? `${first.ErrorCode ?? "unknown_error"}: ${first.ErrorMessage ?? "unknown"}`
+      : "unknown_eventbridge_error";
+    throw new Error(`EventBridge rejected range validation event (${message})`);
+  }
+}
+
 function parseLimit(raw: string | undefined): number {
   if (!raw) return DEFAULT_LIMIT;
   const parsed = Number(raw);
@@ -129,11 +269,31 @@ function parseSymbols(raw: string | undefined): string[] {
     .filter((symbol) => symbol.length > 0))];
 }
 
+function parseIds(raw: string | undefined): string[] {
+  if (!raw) return [];
+
+  return [...new Set(raw
+    .split(",")
+    .map((value) => value.trim())
+    .filter((value) => value.length > 0))];
+}
+
 function parsePositiveInt(raw: string | undefined, fallback: number, max: number): number {
   if (!raw) return fallback;
   const parsed = Number(raw);
   if (!Number.isFinite(parsed) || parsed <= 0) return fallback;
   return Math.min(Math.floor(parsed), max);
+}
+
+function parseConfidence(
+  raw: unknown,
+  fallback: number,
+): number {
+  const parsed = Number(raw);
+  if (!Number.isFinite(parsed)) return fallback;
+  if (parsed <= 0) return 0;
+  if (parsed >= 1) return 1;
+  return parsed;
 }
 
 function normalizePositiveNumber(raw: unknown, fallback: number, max: number): number {
@@ -143,8 +303,56 @@ function normalizePositiveNumber(raw: unknown, fallback: number, max: number): n
   return Math.min(parsed, max);
 }
 
+function sanitizeSegment(value: string): string {
+  return value
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "") || "default";
+}
+
+function buildAccountId(exchangeId: string, name: string): string {
+  return `${sanitizeSegment(exchangeId)}-${sanitizeSegment(name)}`;
+}
+
+function toAccountSummary(account: AccountRecord) {
+  return {
+    id: account.id,
+    name: account.name,
+    exchangeId: account.exchangeId,
+    status: account.status,
+    createdAtMs: account.createdAtMs,
+    updatedAtMs: account.updatedAtMs,
+    hasAuth: {
+      apiKey: account.auth.apiKey.trim().length > 0,
+      apiSecret: account.auth.apiSecret.trim().length > 0,
+      apiPassphrase: (account.auth.apiPassphrase?.trim().length ?? 0) > 0,
+    },
+  };
+}
+
+function normalizeExchangeId(raw: unknown): string | undefined {
+  if (typeof raw !== "string") return undefined;
+  const normalized = raw.trim().toLowerCase();
+  return normalized.length > 0 ? normalized : undefined;
+}
+
+function normalizeNonEmptyString(raw: unknown): string | undefined {
+  if (typeof raw !== "string") return undefined;
+  const normalized = raw.trim();
+  return normalized.length > 0 ? normalized : undefined;
+}
+
+function isSupportedExchangeId(exchangeId: string): boolean {
+  return SUPPORTED_EXCHANGE_IDS.has(exchangeId);
+}
+
 function isTimeframe(value: string | undefined): value is OrchestratorTimeframe {
   return Boolean(value && value in timeframeMs);
+}
+
+function timeframeDurationMs(timeframe: OrchestratorTimeframe): number {
+  return timeframeMs[timeframe];
 }
 
 function isBacktestChartTimeframe(
@@ -168,6 +376,59 @@ function parseJsonBody<T>(event: APIGatewayProxyEventV2): T | null {
   } catch {
     return null;
   }
+}
+
+function parseBacktestStaleMs(): number {
+  const raw = Number(process.env.RANGING_BACKTEST_RUNNING_STALE_MS);
+  if (!Number.isFinite(raw) || raw <= 0) return DEFAULT_BACKTEST_RUNNING_STALE_MS;
+  return Math.floor(raw);
+}
+
+function isStaleRunningBacktest(backtest: BacktestRecord, nowMs = Date.now()): boolean {
+  return (
+    backtest.status === "running" &&
+    nowMs - backtest.createdAtMs > parseBacktestStaleMs()
+  );
+}
+
+async function markBacktestAsFailed(
+  backtest: BacktestRecord,
+  reason: string,
+): Promise<BacktestRecord> {
+  const failed: BacktestRecord = {
+    ...backtest,
+    status: "failed",
+    errorMessage: reason,
+  };
+  await putBacktestRecord(failed);
+  return failed;
+}
+
+async function markStaleBacktests(
+  backtests: BacktestRecord[],
+): Promise<BacktestRecord[]> {
+  const nowMs = Date.now();
+  const out = [...backtests];
+
+  for (let index = 0; index < out.length; index += 1) {
+    const backtest = out[index];
+    if (!backtest || !isStaleRunningBacktest(backtest, nowMs)) continue;
+
+    try {
+      out[index] = await markBacktestAsFailed(
+        backtest,
+        "Backtest timed out while running. Retry with lower AI max calls or wider cadence.",
+      );
+    } catch (error) {
+      console.error("[ranging-api] failed to mark stale backtest", {
+        backtestId: backtest.id,
+        symbol: backtest.symbol,
+        error,
+      });
+    }
+  }
+
+  return out;
 }
 
 function haveRefsChanged(
@@ -210,33 +471,195 @@ async function persistBacktestRefsIfNeeded(
   }
 }
 
-function getConfiguredSymbols(): string[] {
-  const fromConfig = parseBotConfigs(process.env.RANGING_BOTS_JSON)
-    .map((config) => config.symbol)
-    .filter((symbol): symbol is string => symbol.length > 0);
+async function syncConfiguredBots(): Promise<BotRecord[]> {
+  const runtimeBots = listActiveRuntimeBots();
+  await Promise.allSettled(runtimeBots.map((bot) => putBotRecord(bot)));
 
-  return [...new Set(fromConfig)];
+  const stored = await listBotRecords(MAX_LIMIT);
+  const byId = new Map<string, BotRecord>();
+
+  for (const bot of stored) {
+    byId.set(bot.id, bot);
+  }
+  for (const bot of runtimeBots) {
+    byId.set(bot.id, bot);
+  }
+
+  return [...byId.values()].sort((a, b) => a.name.localeCompare(b.name));
 }
 
-function getBotDefaults(symbol: string): {
+function completedBacktests(backtests: BacktestRecord[]): BacktestRecord[] {
+  return backtests.filter((backtest) => backtest.status === "completed");
+}
+
+function buildStrategyPerformanceStats(backtests: BacktestRecord[]) {
+  const completed = completedBacktests(backtests);
+  const latestCompleted = completed[0];
+
+  return {
+    netPnl: completed.reduce((sum, backtest) => sum + backtest.netPnl, 0),
+    grossProfit: completed.reduce((sum, backtest) => sum + backtest.grossProfit, 0),
+    grossLoss: completed.reduce((sum, backtest) => sum + backtest.grossLoss, 0),
+    winRate: completed.length > 0
+      ? completed.reduce((sum, backtest) => sum + backtest.winRate, 0) / completed.length
+      : 0,
+    totalTrades: backtests.reduce((sum, backtest) => sum + backtest.totalTrades, 0),
+    profitableBacktests: completed.filter((backtest) => backtest.netPnl > 0).length,
+    latestNetPnl: latestCompleted?.netPnl,
+    maxDrawdownPct: latestCompleted?.maxDrawdownPct,
+  };
+}
+
+function buildPositionLifecycleStats(positions: PositionRecord[]) {
+  return {
+    openPositions: positions.filter((position) => position.status === "open").length,
+    reducingPositions: positions.filter((position) => position.status === "reducing").length,
+    closingPositions: positions.filter((position) => position.status === "closing").length,
+    reconciliationsPending: positions.filter((position) => position.status === "reconciling").length,
+    forcedCloseCount: 0,
+    breakevenMoves: 0,
+  };
+}
+
+function buildBacktestStats(backtests: BacktestRecord[]) {
+  const completed = completedBacktests(backtests);
+  const latestCompleted = completed[0];
+
+  return {
+    total: backtests.length,
+    running: backtests.filter((backtest) => backtest.status === "running").length,
+    completed: completed.length,
+    failed: backtests.filter((backtest) => backtest.status === "failed").length,
+    profitable: completed.filter((backtest) => backtest.netPnl > 0).length,
+    latestNetPnl: latestCompleted?.netPnl,
+  };
+}
+
+async function loadStrategySummaries(
+  windowHours: number,
+  runsLimit: number,
+  backtestLimit: number,
+): Promise<StrategySummary[]> {
+  const bots = await syncConfiguredBots();
+  const [runs, backtests, positionsByBot] = await Promise.all([
+    listRecentRuns(runsLimit),
+    listRecentBacktests(backtestLimit),
+    Promise.all(bots.map((bot) => listPositionsByBot(bot.id, 20))),
+  ]);
+
+  const latestRuns =
+    bots.length > 0
+      ? await listLatestRunsByBotIds(bots.map((bot) => bot.id))
+      : [];
+  const summariesByBot = buildBotSummaries(bots, latestRuns);
+  const summaryByBotId = new Map(summariesByBot.map((bot) => [bot.botId, bot]));
+
+  const windowStartMs = Date.now() - windowHours * 60 * 60_000;
+  const positions = positionsByBot.flat();
+  const strategyIds = [...new Set(bots.map((bot) => bot.strategyId))];
+
+  return strategyIds.map((strategyId) => {
+    const strategyBots = bots.filter((bot) => bot.strategyId === strategyId);
+    const strategyBotIds = new Set(strategyBots.map((bot) => bot.id));
+    const strategyRuns = runs.filter((run) => strategyBotIds.has(run.botId));
+    const strategyRunsInWindow = strategyRuns.filter((run) => run.generatedAtMs >= windowStartMs);
+    const strategyBacktests = backtests.filter((backtest) => strategyBotIds.has(backtest.botId));
+    const strategyPositions = positions.filter((position) => strategyBotIds.has(position.botId));
+
+    return {
+      strategyId,
+      versions: [...new Set(strategyBots.map((bot) => bot.strategyVersion))].sort(),
+      configuredBots: strategyBots.length,
+      activeBots: strategyBots.filter((bot) => bot.status === "active").length,
+      symbols: [...new Set(strategyBots.map((bot) => bot.symbol))].sort(),
+      operations: computeDashboardMetrics(strategyRunsInWindow),
+      strategy: buildStrategyPerformanceStats(strategyBacktests),
+      positions: buildPositionLifecycleStats(strategyPositions),
+      backtests: buildBacktestStats(strategyBacktests),
+      bots: strategyBots
+        .map((bot) => summaryByBotId.get(bot.id))
+        .filter((bot): bot is NonNullable<typeof bot> => Boolean(bot)),
+    };
+  }).map(({ bots: _bots, ...summary }) => summary)
+    .sort((a, b) => b.configuredBots - a.configuredBots || a.strategyId.localeCompare(b.strategyId));
+}
+
+async function resolveBotById(botId: string): Promise<BotRecord | undefined> {
+  const stored = await getBotRecordById(botId);
+  if (stored) return stored;
+
+  const runtime = getRuntimeBotById(botId);
+  if (runtime) {
+    await putBotRecord(runtime);
+  }
+  return runtime;
+}
+
+async function resolveBotBySymbol(symbol: string): Promise<BotRecord | undefined> {
+  const stored = await getBotRecordBySymbol(symbol);
+  if (stored) return stored;
+
+  const runtime = getRuntimeBotBySymbol(symbol);
+  if (runtime) {
+    await putBotRecord(runtime);
+  }
+  return runtime;
+}
+
+async function loadStrategyDetails(
+  strategyId: string,
+  windowHours: number,
+  runsLimit: number,
+  backtestLimit: number,
+): Promise<StrategyDetailsPayload | undefined> {
+  const bots = (await syncConfiguredBots()).filter((bot) => bot.strategyId === strategyId);
+  if (bots.length === 0) return undefined;
+
+  const botIds = new Set(bots.map((bot) => bot.id));
+  const [runs, backtests, positionsByBot, latestRuns] = await Promise.all([
+    listRecentRuns(runsLimit),
+    listRecentBacktests(backtestLimit),
+    Promise.all(bots.map((bot) => listPositionsByBot(bot.id, 20))),
+    listLatestRunsByBotIds(bots.map((bot) => bot.id)),
+  ]);
+
+  const summaries = buildBotSummaries(bots, latestRuns);
+  const strategyRuns = runs.filter((run) => botIds.has(run.botId));
+  const strategyRunsInWindow = strategyRuns.filter(
+    (run) => run.generatedAtMs >= Date.now() - windowHours * 60 * 60_000,
+  );
+  const strategyBacktests = backtests.filter((backtest) => botIds.has(backtest.botId));
+  const strategyPositions = positionsByBot.flat();
+
+  return {
+    generatedAt: new Date().toISOString(),
+    strategy: {
+      strategyId,
+      versions: [...new Set(bots.map((bot) => bot.strategyVersion))].sort(),
+      configuredBots: bots.length,
+      activeBots: bots.filter((bot) => bot.status === "active").length,
+      symbols: [...new Set(bots.map((bot) => bot.symbol))].sort(),
+      operations: computeDashboardMetrics(strategyRunsInWindow),
+      strategy: buildStrategyPerformanceStats(strategyBacktests),
+      positions: buildPositionLifecycleStats(strategyPositions),
+      backtests: buildBacktestStats(strategyBacktests),
+    },
+    bots: summaries,
+    recentRuns: strategyRuns
+      .sort((a, b) => b.generatedAtMs - a.generatedAtMs)
+      .slice(0, runsLimit),
+  };
+}
+
+function getBotDefaults(bot: BotRecord): {
   executionTimeframe: OrchestratorTimeframe;
   primaryRangeTimeframe: OrchestratorTimeframe;
   secondaryRangeTimeframe: OrchestratorTimeframe;
 } {
-  const all = parseBotConfigs(process.env.RANGING_BOTS_JSON);
-  const match = all.find((config) => config.symbol === symbol);
-  if (match) {
-    return {
-      executionTimeframe: match.executionTimeframe,
-      primaryRangeTimeframe: match.primaryRangeTimeframe,
-      secondaryRangeTimeframe: match.secondaryRangeTimeframe,
-    };
-  }
-
   return {
-    executionTimeframe: "15m",
-    primaryRangeTimeframe: "1d",
-    secondaryRangeTimeframe: "4h",
+    executionTimeframe: bot.runtime.executionTimeframe,
+    primaryRangeTimeframe: bot.runtime.primaryRangeTimeframe,
+    secondaryRangeTimeframe: bot.runtime.secondaryRangeTimeframe,
   };
 }
 
@@ -283,13 +706,16 @@ function buildDemoKlines(
   return candles;
 }
 
-async function loadDashboard(limit: number, symbols?: string[]): Promise<DashboardPayload> {
+async function loadDashboard(limit: number, botIds?: string[]): Promise<DashboardPayload> {
   const recentRuns = await listRecentRuns(limit);
-  const configuredSymbols = symbols && symbols.length > 0 ? symbols : getConfiguredSymbols();
+  const configuredBots = await syncConfiguredBots();
+  const selectedBots = botIds && botIds.length > 0
+    ? configuredBots.filter((bot) => botIds.includes(bot.id))
+    : configuredBots;
 
-  const latestRunsBySymbol =
-    configuredSymbols.length > 0
-      ? await listLatestRunsBySymbols(configuredSymbols)
+  const latestRunsByBotId =
+    selectedBots.length > 0
+      ? await listLatestRunsByBotIds(selectedBots.map((bot) => bot.id))
       : [];
 
   const mappedTrades = mapRunsToTrades(recentRuns);
@@ -298,7 +724,7 @@ async function loadDashboard(limit: number, symbols?: string[]): Promise<Dashboa
   return {
     generatedAt: new Date().toISOString(),
     metrics: computeDashboardMetrics(recentRuns),
-    bots: buildBotSummaries(configuredSymbols, latestRunsBySymbol),
+    bots: buildBotSummaries(selectedBots, latestRunsByBotId),
     recentRuns,
     trades,
   };
@@ -317,8 +743,8 @@ export async function dashboardHandler(
 ): Promise<APIGatewayProxyResultV2> {
   try {
     const limit = parseLimit(event.queryStringParameters?.limit);
-    const symbols = parseSymbols(event.queryStringParameters?.symbols);
-    const payload = await loadDashboard(limit, symbols);
+    const botIds = parseIds(event.queryStringParameters?.botIds);
+    const payload = await loadDashboard(limit, botIds);
     return json(200, payload);
   } catch (error) {
     console.error("[ranging-api] dashboard failed", { error });
@@ -333,11 +759,14 @@ export async function runsHandler(
 ): Promise<APIGatewayProxyResultV2> {
   try {
     const limit = parseLimit(event.queryStringParameters?.limit);
+    const botId = event.queryStringParameters?.botId?.trim();
     const symbol = event.queryStringParameters?.symbol?.trim();
 
-    const runs = symbol
-      ? await listRecentRunsBySymbol(symbol, limit)
-      : await listRecentRuns(limit);
+    const runs = botId
+      ? (await listRecentRuns(limit)).filter((run) => run.botId === botId)
+      : symbol
+        ? await listRecentRunsBySymbol(symbol, limit)
+        : await listRecentRuns(limit);
 
     return json(200, {
       generatedAt: new Date().toISOString(),
@@ -352,18 +781,48 @@ export async function runsHandler(
   }
 }
 
+export async function botRunsHandler(
+  event: APIGatewayProxyEventV2,
+): Promise<APIGatewayProxyResultV2> {
+  const rawBotId = event.pathParameters?.botId?.trim();
+  if (!rawBotId) {
+    return json(400, { error: "missing_bot_id" });
+  }
+
+  try {
+    const limit = parseLimit(event.queryStringParameters?.limit);
+    const botId = decodeURIComponent(rawBotId);
+    const runs = (await listRecentRuns(limit)).filter((run) => run.botId === botId);
+
+    return json(200, {
+      generatedAt: new Date().toISOString(),
+      count: runs.length,
+      runs,
+    });
+  } catch (error) {
+    console.error("[bot-api] bot runs failed", { error });
+    return json(500, {
+      error: "failed_to_load_runs",
+    });
+  }
+}
+
 export async function botsHandler(
   event: APIGatewayProxyEventV2,
 ): Promise<APIGatewayProxyResultV2> {
   try {
-    const symbols = parseSymbols(event.queryStringParameters?.symbols);
-    const selectedSymbols = symbols.length > 0 ? symbols : getConfiguredSymbols();
+    const botIds = parseIds(event.queryStringParameters?.botIds);
+    const configuredBots = await syncConfiguredBots();
+    const selectedBots =
+      botIds.length > 0
+        ? configuredBots.filter((bot) => botIds.includes(bot.id))
+        : configuredBots;
     const latestRuns =
-      selectedSymbols.length > 0
-        ? await listLatestRunsBySymbols(selectedSymbols)
+      selectedBots.length > 0
+        ? await listLatestRunsByBotIds(selectedBots.map((bot) => bot.id))
         : [];
 
-    const bots = buildBotSummaries(selectedSymbols, latestRuns);
+    const bots = buildBotSummaries(selectedBots, latestRuns);
 
     return json(200, {
       generatedAt: new Date().toISOString(),
@@ -375,6 +834,293 @@ export async function botsHandler(
     return json(500, {
       error: "failed_to_load_bots",
     });
+  }
+}
+
+export async function accountsHandler(
+  event: APIGatewayProxyEventV2,
+): Promise<APIGatewayProxyResultV2> {
+  try {
+    const limit = parseLimit(event.queryStringParameters?.limit);
+    const exchangeId = normalizeExchangeId(event.queryStringParameters?.exchangeId);
+    const accounts = (await listAccountRecords(limit))
+      .filter((account) => !exchangeId || account.exchangeId === exchangeId)
+      .map((account) => toAccountSummary(account));
+
+    return json(200, {
+      generatedAt: new Date().toISOString(),
+      count: accounts.length,
+      accounts,
+    });
+  } catch (error) {
+    console.error("[account-api] accounts failed", { error });
+    return json(500, { error: "failed_to_load_accounts" });
+  }
+}
+
+export async function createAccountHandler(
+  event: APIGatewayProxyEventV2,
+): Promise<APIGatewayProxyResultV2> {
+  try {
+    const body = parseJsonBody<CreateAccountBody>(event);
+    if (!body) {
+      return json(400, { error: "invalid_json_body" });
+    }
+
+    const exchangeId = normalizeExchangeId(body.exchangeId);
+    const name = normalizeNonEmptyString(body.name);
+    const apiKey = normalizeNonEmptyString(body.auth?.apiKey);
+    const apiSecret = normalizeNonEmptyString(body.auth?.apiSecret);
+    const apiPassphrase = normalizeNonEmptyString(body.auth?.apiPassphrase);
+
+    if (!exchangeId) {
+      return json(400, { error: "missing_exchange_id" });
+    }
+    if (!isSupportedExchangeId(exchangeId)) {
+      return json(400, { error: "unsupported_exchange" });
+    }
+    if (!name) {
+      return json(400, { error: "missing_account_name" });
+    }
+    if (!apiKey || !apiSecret) {
+      return json(400, { error: "missing_account_auth" });
+    }
+    if (exchangeId === "kucoin" && !apiPassphrase) {
+      return json(400, { error: "missing_account_passphrase" });
+    }
+
+    const accountId = buildAccountId(exchangeId, name);
+    const existing = await getAccountRecordById(accountId);
+    if (existing) {
+      return json(409, {
+        error: "account_already_exists",
+        account: toAccountSummary(existing),
+      });
+    }
+
+    const nowMs = Date.now();
+    const account: AccountRecord = {
+      id: accountId,
+      name,
+      exchangeId,
+      status: "active",
+      auth: {
+        apiKey,
+        apiSecret,
+        apiPassphrase,
+      },
+      createdAtMs: nowMs,
+      updatedAtMs: nowMs,
+    };
+
+    await putAccountRecord(account);
+    return json(201, {
+      generatedAt: new Date().toISOString(),
+      account: toAccountSummary(account),
+    });
+  } catch (error) {
+    console.error("[account-api] create account failed", { error });
+    return json(500, { error: "failed_to_create_account" });
+  }
+}
+
+export async function createBotHandler(
+  event: APIGatewayProxyEventV2,
+): Promise<APIGatewayProxyResultV2> {
+  try {
+    const body = parseJsonBody<CreateBotBody>(event);
+    if (!body) {
+      return json(400, { error: "invalid_json_body" });
+    }
+
+    const exchangeId = normalizeExchangeId(body.exchangeId);
+    const accountId = normalizeNonEmptyString(body.accountId);
+    if (!exchangeId) {
+      return json(400, { error: "missing_exchange_id" });
+    }
+    if (!isSupportedExchangeId(exchangeId)) {
+      return json(400, { error: "unsupported_exchange" });
+    }
+    if (!accountId) {
+      return json(400, { error: "missing_account_id" });
+    }
+
+    const normalized = normalizeBotConfig({
+      ...body,
+      exchangeId,
+      accountId,
+    });
+    if (!normalized) {
+      return json(400, { error: "invalid_bot_config" });
+    }
+
+    const bot: BotRecord = {
+      ...toBotDefinition(normalized),
+      runtime: normalized,
+    };
+
+    if (bot.strategyId !== "range-reversal") {
+      return json(400, { error: "unsupported_strategy" });
+    }
+
+    const account = await getAccountRecordById(accountId);
+    if (!account) {
+      return json(400, { error: "unknown_account" });
+    }
+    if (account.status !== "active") {
+      return json(400, { error: "inactive_account" });
+    }
+    if (account.exchangeId !== bot.exchangeId) {
+      return json(400, { error: "account_exchange_mismatch" });
+    }
+
+    const existing = await getBotRecordById(bot.id);
+    if (existing) {
+      return json(409, { error: "bot_already_exists", bot: existing });
+    }
+
+    await putBotRecord(bot);
+    return json(201, {
+      generatedAt: new Date().toISOString(),
+      bot,
+    });
+  } catch (error) {
+    console.error("[bot-api] create bot failed", { error });
+    return json(500, { error: "failed_to_create_bot" });
+  }
+}
+
+export async function strategiesHandler(
+  event: APIGatewayProxyEventV2,
+): Promise<APIGatewayProxyResultV2> {
+  try {
+    const windowHours = parsePositiveInt(
+      event.queryStringParameters?.windowHours,
+      DEFAULT_STATS_WINDOW_HOURS,
+      MAX_STATS_WINDOW_HOURS,
+    );
+    const runsLimit = parsePositiveInt(
+      event.queryStringParameters?.runsLimit,
+      MAX_LIMIT,
+      MAX_LIMIT,
+    );
+    const backtestLimit = parsePositiveInt(
+      event.queryStringParameters?.backtestLimit,
+      200,
+      MAX_LIMIT,
+    );
+
+    const strategies = await loadStrategySummaries(windowHours, runsLimit, backtestLimit);
+    return json(200, {
+      generatedAt: new Date().toISOString(),
+      count: strategies.length,
+      strategies,
+    });
+  } catch (error) {
+    console.error("[strategy-api] strategies failed", { error });
+    return json(500, { error: "failed_to_load_strategies" });
+  }
+}
+
+export async function strategyDetailsHandler(
+  event: APIGatewayProxyEventV2,
+): Promise<APIGatewayProxyResultV2> {
+  const rawStrategyId = event.pathParameters?.strategyId?.trim();
+  if (!rawStrategyId) {
+    return json(400, { error: "missing_strategy_id" });
+  }
+
+  try {
+    const strategyId = decodeURIComponent(rawStrategyId);
+    const windowHours = parsePositiveInt(
+      event.queryStringParameters?.windowHours,
+      DEFAULT_STATS_WINDOW_HOURS,
+      MAX_STATS_WINDOW_HOURS,
+    );
+    const runsLimit = parsePositiveInt(
+      event.queryStringParameters?.runsLimit,
+      MAX_LIMIT,
+      MAX_LIMIT,
+    );
+    const backtestLimit = parsePositiveInt(
+      event.queryStringParameters?.backtestLimit,
+      200,
+      MAX_LIMIT,
+    );
+
+    const details = await loadStrategyDetails(
+      strategyId,
+      windowHours,
+      runsLimit,
+      backtestLimit,
+    );
+
+    if (!details) {
+      return json(404, { error: "strategy_not_found" });
+    }
+
+    return json(200, details);
+  } catch (error) {
+    console.error("[strategy-api] strategy details failed", { error });
+    return json(500, { error: "failed_to_load_strategy_details" });
+  }
+}
+
+export async function botDetailsHandler(
+  event: APIGatewayProxyEventV2,
+): Promise<APIGatewayProxyResultV2> {
+  const rawBotId = event.pathParameters?.botId?.trim();
+  if (!rawBotId) {
+    return json(400, { error: "missing_bot_id" });
+  }
+
+  try {
+    const bot = await resolveBotById(decodeURIComponent(rawBotId));
+    if (!bot) {
+      return json(404, { error: "bot_not_found" });
+    }
+
+    const [latestRun, openPosition, recentBacktests, recentValidations] = await Promise.all([
+      listLatestRunsByBotIds([bot.id]).then((runs) => runs[0]),
+      getLatestOpenPositionByBot(bot.id),
+      listRecentBacktestsByBotId(bot.id, 10),
+      listRecentRangeValidationsByBotId(bot.id, 10),
+    ]);
+
+    const summary = buildBotSummaries([bot], latestRun ? [latestRun] : [])[0];
+
+    return json(200, {
+      generatedAt: new Date().toISOString(),
+      bot,
+      summary,
+      openPosition,
+      backtests: recentBacktests,
+      validations: recentValidations,
+    });
+  } catch (error) {
+    console.error("[bot-api] bot details failed", { error });
+    return json(500, { error: "failed_to_load_bot_details" });
+  }
+}
+
+export async function botPositionsHandler(
+  event: APIGatewayProxyEventV2,
+): Promise<APIGatewayProxyResultV2> {
+  const rawBotId = event.pathParameters?.botId?.trim();
+  if (!rawBotId) {
+    return json(400, { error: "missing_bot_id" });
+  }
+
+  try {
+    const positions = await listPositionsByBot(decodeURIComponent(rawBotId), 50);
+    return json(200, {
+      generatedAt: new Date().toISOString(),
+      count: positions.length,
+      positions,
+    });
+  } catch (error) {
+    console.error("[bot-api] bot positions failed", { error });
+    return json(500, { error: "failed_to_load_positions" });
   }
 }
 
@@ -398,32 +1144,60 @@ export async function botStatsHandler(
       MAX_LIMIT,
     );
 
-    const [runs, backtests] = await Promise.all([
+    const bots = await syncConfiguredBots();
+    const [runs, backtests, positionsByBot] = await Promise.all([
       listRecentRuns(runsLimit),
       listRecentBacktests(backtestLimit),
+      Promise.all(bots.map((bot) => listPositionsByBot(bot.id, 20))),
     ]);
 
     const windowStartMs = Date.now() - windowHours * 60 * 60_000;
     const runsInWindow = runs.filter((run) => run.generatedAtMs >= windowStartMs);
-    const signalsInWindow = runsInWindow.filter((run) => run.signal !== null).length;
-    const failuresInWindow = runsInWindow.filter(
-      (run) => run.runStatus === "failed" || run.processing.status === "error",
-    ).length;
     const profitableBacktests = backtests.filter(
       (backtest) => backtest.status === "completed" && backtest.netPnl > 0,
     ).length;
     const latestCompleted = backtests.find((backtest) => backtest.status === "completed");
+    const operations = computeDashboardMetrics(runsInWindow);
+    const flatPositions = positionsByBot.flat();
 
     const summary: BotStatsSummary = {
       generatedAt: new Date().toISOString(),
-      configuredBots: getConfiguredSymbols().length,
-      runsInWindow: runsInWindow.length,
-      signalsInWindow,
-      failuresInWindow,
-      signalRate: runsInWindow.length > 0 ? signalsInWindow / runsInWindow.length : 0,
-      failureRate: runsInWindow.length > 0 ? failuresInWindow / runsInWindow.length : 0,
+      bot: {
+        configured: bots.length,
+        active: bots.filter((bot) => bot.status === "active").length,
+      },
+      operations,
+      strategy: {
+        netPnl: backtests
+          .filter((backtest) => backtest.status === "completed")
+          .reduce((sum, backtest) => sum + backtest.netPnl, 0),
+        grossProfit: backtests
+          .filter((backtest) => backtest.status === "completed")
+          .reduce((sum, backtest) => sum + backtest.grossProfit, 0),
+        grossLoss: backtests
+          .filter((backtest) => backtest.status === "completed")
+          .reduce((sum, backtest) => sum + backtest.grossLoss, 0),
+        winRate: backtests.length > 0
+          ? backtests.reduce((sum, backtest) => sum + backtest.winRate, 0) / backtests.length
+          : 0,
+        totalTrades: backtests.reduce((sum, backtest) => sum + backtest.totalTrades, 0),
+        profitableBacktests,
+        latestNetPnl: latestCompleted?.netPnl,
+        maxDrawdownPct: latestCompleted?.maxDrawdownPct,
+      },
+      positions: {
+        openPositions: flatPositions.filter((position) => position.status === "open").length,
+        reducingPositions: flatPositions.filter((position) => position.status === "reducing").length,
+        closingPositions: flatPositions.filter((position) => position.status === "closing").length,
+        reconciliationsPending: flatPositions.filter((position) => position.status === "reconciling").length,
+        forcedCloseCount: 0,
+        breakevenMoves: 0,
+      },
       backtests: {
         total: backtests.length,
+        running: backtests.filter((backtest) => backtest.status === "running").length,
+        completed: backtests.filter((backtest) => backtest.status === "completed").length,
+        failed: backtests.filter((backtest) => backtest.status === "failed").length,
         profitable: profitableBacktests,
         latestNetPnl: latestCompleted?.netPnl,
       },
@@ -438,6 +1212,87 @@ export async function botStatsHandler(
   }
 }
 
+export async function botDetailsStatsHandler(
+  event: APIGatewayProxyEventV2,
+): Promise<APIGatewayProxyResultV2> {
+  const rawBotId = event.pathParameters?.botId?.trim();
+  if (!rawBotId) {
+    return json(400, { error: "missing_bot_id" });
+  }
+
+  try {
+    const botId = decodeURIComponent(rawBotId);
+    const bot = await resolveBotById(botId);
+    if (!bot) {
+      return json(404, { error: "bot_not_found" });
+    }
+
+    const windowHours = parsePositiveInt(
+      event.queryStringParameters?.windowHours,
+      DEFAULT_STATS_WINDOW_HOURS,
+      MAX_STATS_WINDOW_HOURS,
+    );
+    const [runs, backtests, positions] = await Promise.all([
+      listRecentRunsBySymbol(bot.symbol, MAX_LIMIT).then((all) => all.filter((run) => run.botId === botId)),
+      listRecentBacktestsByBotId(botId, MAX_LIMIT),
+      listPositionsByBot(botId, MAX_LIMIT),
+    ]);
+
+    const windowStartMs = Date.now() - windowHours * 60 * 60_000;
+    const runsInWindow = runs.filter((run) => run.generatedAtMs >= windowStartMs);
+    const operations = computeDashboardMetrics(runsInWindow);
+    const latestCompleted = backtests.find((backtest) => backtest.status === "completed");
+
+    const summary: BotStatsSummary = {
+      generatedAt: new Date().toISOString(),
+      bot: {
+        configured: 1,
+        active: bot.status === "active" ? 1 : 0,
+      },
+      operations,
+      strategy: {
+        netPnl: backtests
+          .filter((backtest) => backtest.status === "completed")
+          .reduce((sum, backtest) => sum + backtest.netPnl, 0),
+        grossProfit: backtests
+          .filter((backtest) => backtest.status === "completed")
+          .reduce((sum, backtest) => sum + backtest.grossProfit, 0),
+        grossLoss: backtests
+          .filter((backtest) => backtest.status === "completed")
+          .reduce((sum, backtest) => sum + backtest.grossLoss, 0),
+        winRate: backtests.length > 0
+          ? backtests.reduce((sum, backtest) => sum + backtest.winRate, 0) / backtests.length
+          : 0,
+        totalTrades: backtests.reduce((sum, backtest) => sum + backtest.totalTrades, 0),
+        profitableBacktests: backtests.filter((backtest) => backtest.status === "completed" && backtest.netPnl > 0).length,
+        latestNetPnl: latestCompleted?.netPnl,
+        maxDrawdownPct: latestCompleted?.maxDrawdownPct,
+      },
+      positions: {
+        openPositions: positions.filter((position) => position.status === "open").length,
+        reducingPositions: positions.filter((position) => position.status === "reducing").length,
+        closingPositions: positions.filter((position) => position.status === "closing").length,
+        reconciliationsPending: positions.filter((position) => position.status === "reconciling").length,
+        forcedCloseCount: 0,
+        breakevenMoves: 0,
+      },
+      backtests: {
+        total: backtests.length,
+        running: backtests.filter((backtest) => backtest.status === "running").length,
+        completed: backtests.filter((backtest) => backtest.status === "completed").length,
+        failed: backtests.filter((backtest) => backtest.status === "failed").length,
+        profitable: backtests.filter((backtest) => backtest.status === "completed" && backtest.netPnl > 0).length,
+        latestNetPnl: latestCompleted?.netPnl,
+      },
+    };
+
+    return json(200, summary);
+  } catch (error) {
+    console.error("[bot-api] bot stats failed", { error });
+    return json(500, { error: "failed_to_load_bot_stats" });
+  }
+}
+
 interface CreateBacktestBody {
   symbol?: string;
   periodDays?: number;
@@ -447,6 +1302,215 @@ interface CreateBacktestBody {
   executionTimeframe?: string;
   primaryRangeTimeframe?: string;
   secondaryRangeTimeframe?: string;
+  ai?: {
+    enabled?: boolean;
+    lookbackCandles?: number;
+    cadenceBars?: number;
+    maxEvaluations?: number;
+    confidenceThreshold?: number;
+    modelPrimary?: string;
+    modelFallback?: string;
+  };
+}
+
+interface CreateBotBody extends Partial<RuntimeBotConfig> {}
+
+interface CreateAccountBody {
+  name?: string;
+  exchangeId?: string;
+  auth?: {
+    apiKey?: string;
+    apiSecret?: string;
+    apiPassphrase?: string;
+  };
+}
+
+interface CreateValidationBody {
+  symbol?: string;
+  timeframe?: string;
+  fromMs?: number;
+  toMs?: number;
+  candlesCount?: number;
+  confidenceThreshold?: number;
+}
+
+function parseBacktestAiConfig(
+  raw: CreateBacktestBody["ai"],
+): BacktestAiConfig | undefined {
+  if (!raw || typeof raw !== "object") return undefined;
+
+  if (raw.enabled !== undefined && typeof raw.enabled !== "boolean") {
+    return undefined;
+  }
+  const enabled = raw.enabled === true;
+  const models = getValidationModels();
+  const confidenceThreshold = parseConfidence(
+    raw.confidenceThreshold,
+    parseConfidence(
+      process.env.RANGING_VALIDATION_CONFIDENCE_THRESHOLD,
+      DEFAULT_VALIDATION_CONFIDENCE_THRESHOLD,
+    ),
+  );
+
+  const modelPrimary =
+    typeof raw.modelPrimary === "string" && raw.modelPrimary.trim().length > 0
+      ? raw.modelPrimary.trim()
+      : models.primary;
+  const modelFallback =
+    typeof raw.modelFallback === "string" && raw.modelFallback.trim().length > 0
+      ? raw.modelFallback.trim()
+      : models.fallback;
+  const lookbackCandles = parsePositiveInt(
+    raw.lookbackCandles !== undefined ? String(raw.lookbackCandles) : undefined,
+    DEFAULT_BACKTEST_AI_LOOKBACK_CANDLES,
+    MAX_VALIDATION_CANDLE_COUNT,
+  );
+  const cadenceBars = parsePositiveInt(
+    raw.cadenceBars !== undefined ? String(raw.cadenceBars) : undefined,
+    DEFAULT_BACKTEST_AI_CADENCE_BARS,
+    24,
+  );
+  const maxEvaluations = parsePositiveInt(
+    raw.maxEvaluations !== undefined ? String(raw.maxEvaluations) : undefined,
+    DEFAULT_BACKTEST_AI_MAX_EVALUATIONS,
+    MAX_BACKTEST_AI_EVALUATIONS,
+  );
+
+  return {
+    enabled,
+    lookbackCandles,
+    cadenceBars,
+    maxEvaluations,
+    confidenceThreshold,
+    modelPrimary,
+    modelFallback,
+  };
+}
+
+async function enqueueBacktestForBot(
+  bot: BotRecord,
+  body: CreateBacktestBody,
+): Promise<APIGatewayProxyResultV2> {
+  const defaults = getBotDefaults(bot);
+  const nowMs = Date.now();
+  const toMs =
+    typeof body.toMs === "number" && Number.isFinite(body.toMs) && body.toMs > 0
+      ? Math.floor(body.toMs)
+      : nowMs;
+  const periodDays =
+    typeof body.periodDays === "number" && Number.isFinite(body.periodDays)
+      ? Math.max(1, Math.min(Math.floor(body.periodDays), MAX_BACKTEST_PERIOD_DAYS))
+      : DEFAULT_BACKTEST_PERIOD_DAYS;
+  const fromMs =
+    typeof body.fromMs === "number" && Number.isFinite(body.fromMs) && body.fromMs > 0
+      ? Math.floor(body.fromMs)
+      : toMs - periodDays * 24 * 60 * 60_000;
+
+  if (fromMs >= toMs) {
+    return json(400, { error: "invalid_time_window" });
+  }
+
+  const executionTimeframe = isTimeframe(body.executionTimeframe)
+    ? body.executionTimeframe
+    : defaults.executionTimeframe;
+  const primaryRangeTimeframe = isTimeframe(body.primaryRangeTimeframe)
+    ? body.primaryRangeTimeframe
+    : defaults.primaryRangeTimeframe;
+  const secondaryRangeTimeframe = isTimeframe(body.secondaryRangeTimeframe)
+    ? body.secondaryRangeTimeframe
+    : defaults.secondaryRangeTimeframe;
+  const initialEquity = normalizePositiveNumber(
+    body.initialEquity,
+    1_000,
+    100_000_000,
+  );
+  const aiConfig = parseBacktestAiConfig(body.ai);
+  if (body.ai !== undefined && !aiConfig) {
+    return json(400, { error: "invalid_ai_config" });
+  }
+
+  const input: Omit<
+    BacktestRequestedDetail,
+    "backtestId" | "createdAtMs"
+  > = {
+    botId: bot.id,
+    botName: bot.name,
+    strategyId: bot.strategyId,
+    strategyVersion: bot.strategyVersion,
+    exchangeId: bot.exchangeId,
+    accountId: bot.accountId,
+    symbol: bot.symbol,
+    fromMs,
+    toMs,
+    executionTimeframe,
+    primaryRangeTimeframe,
+    secondaryRangeTimeframe,
+    initialEquity,
+    ai: aiConfig,
+  };
+
+  const identity = createBacktestIdentity(bot.symbol);
+  const backtest = createRunningBacktestRecord(
+    input,
+    identity,
+  );
+
+  try {
+    await putBacktestRecord(backtest);
+  } catch (error) {
+    console.error("[ranging-api] failed to create queued backtest record", {
+      botId: bot.id,
+      symbol: bot.symbol,
+      backtestId: backtest.id,
+      error,
+    });
+    const details = error instanceof Error ? error.message : String(error);
+    return json(500, {
+      error: "failed_to_create_backtest_record",
+      details,
+    });
+  }
+
+  const detail: BacktestRequestedDetail = {
+    ...input,
+    backtestId: identity.backtestId,
+    createdAtMs: identity.createdAtMs,
+  };
+
+  try {
+    await publishBacktestRequested(detail);
+  } catch (queueError) {
+    const queueMessage =
+      queueError instanceof Error ? queueError.message : String(queueError);
+    const failedRecord = createFailedBacktestRecord(
+      input,
+      identity,
+      `Failed to enqueue backtest: ${queueMessage}`,
+    );
+
+    try {
+      await putBacktestRecord(failedRecord);
+    } catch (storeError) {
+      console.error("[ranging-api] failed to persist enqueue failure state", {
+        botId: bot.id,
+        symbol: bot.symbol,
+        backtestId: identity.backtestId,
+        queueError,
+        storeError,
+      });
+    }
+
+    return json(500, {
+      error: "failed_to_enqueue_backtest",
+      details: queueMessage,
+      backtest: failedRecord,
+    });
+  }
+
+  return json(202, {
+    generatedAt: new Date().toISOString(),
+    backtest,
+  });
 }
 
 export async function createBacktestHandler(
@@ -462,71 +1526,12 @@ export async function createBacktestHandler(
     if (!symbol) {
       return json(400, { error: "missing_symbol" });
     }
-
-    const defaults = getBotDefaults(symbol);
-    const nowMs = Date.now();
-    const toMs =
-      typeof body.toMs === "number" && Number.isFinite(body.toMs) && body.toMs > 0
-        ? Math.floor(body.toMs)
-        : nowMs;
-    const periodDays =
-      typeof body.periodDays === "number" && Number.isFinite(body.periodDays)
-        ? Math.max(1, Math.min(Math.floor(body.periodDays), MAX_BACKTEST_PERIOD_DAYS))
-        : DEFAULT_BACKTEST_PERIOD_DAYS;
-    const fromMs =
-      typeof body.fromMs === "number" && Number.isFinite(body.fromMs) && body.fromMs > 0
-        ? Math.floor(body.fromMs)
-        : toMs - periodDays * 24 * 60 * 60_000;
-
-    if (fromMs >= toMs) {
-      return json(400, { error: "invalid_time_window" });
+    const bot = await resolveBotBySymbol(symbol);
+    if (!bot) {
+      return json(404, { error: "bot_not_found_for_symbol" });
     }
 
-    const executionTimeframe = isTimeframe(body.executionTimeframe)
-      ? body.executionTimeframe
-      : defaults.executionTimeframe;
-    const primaryRangeTimeframe = isTimeframe(body.primaryRangeTimeframe)
-      ? body.primaryRangeTimeframe
-      : defaults.primaryRangeTimeframe;
-    const secondaryRangeTimeframe = isTimeframe(body.secondaryRangeTimeframe)
-      ? body.secondaryRangeTimeframe
-      : defaults.secondaryRangeTimeframe;
-    const initialEquity = normalizePositiveNumber(
-      body.initialEquity,
-      1_000,
-      100_000_000,
-    );
-
-    const backtest = await runBacktestJob({
-      symbol,
-      fromMs,
-      toMs,
-      executionTimeframe,
-      primaryRangeTimeframe,
-      secondaryRangeTimeframe,
-      initialEquity,
-    });
-
-    let storageWarning: string | undefined;
-    try {
-      await putBacktestRecord(backtest);
-    } catch (storeError) {
-      storageWarning =
-        storeError instanceof Error
-          ? storeError.message
-          : String(storeError);
-      console.error("[ranging-api] backtest persistence failed", {
-        symbol,
-        backtestId: backtest.id,
-        error: storeError,
-      });
-    }
-
-    return json(201, {
-      generatedAt: new Date().toISOString(),
-      backtest,
-      storageWarning,
-    });
+    return enqueueBacktestForBot(bot, body);
   } catch (error) {
     console.error("[ranging-api] create backtest failed", { error });
     const details = error instanceof Error ? error.message : String(error);
@@ -537,24 +1542,359 @@ export async function createBacktestHandler(
   }
 }
 
+export async function createBotBacktestHandler(
+  event: APIGatewayProxyEventV2,
+): Promise<APIGatewayProxyResultV2> {
+  try {
+    const rawBotId = event.pathParameters?.botId?.trim();
+    if (!rawBotId) {
+      return json(400, { error: "missing_bot_id" });
+    }
+
+    const body = parseJsonBody<CreateBacktestBody>(event);
+    if (!body) {
+      return json(400, { error: "invalid_json_body" });
+    }
+
+    const bot = await resolveBotById(decodeURIComponent(rawBotId));
+    if (!bot) {
+      return json(404, { error: "bot_not_found" });
+    }
+
+    return enqueueBacktestForBot(bot, body);
+  } catch (error) {
+    console.error("[bot-api] create bot backtest failed", { error });
+    const details = error instanceof Error ? error.message : String(error);
+    return json(500, {
+      error: "failed_to_create_backtest",
+      details,
+    });
+  }
+}
+
+function getValidationModels(): { primary: string; fallback: string } {
+  const primary = process.env.RANGING_VALIDATION_MODEL_PRIMARY?.trim();
+  const fallback = process.env.RANGING_VALIDATION_MODEL_FALLBACK?.trim();
+
+  return {
+    primary: primary && primary.length > 0
+      ? primary
+      : DEFAULT_VALIDATION_MODEL_PRIMARY,
+    fallback: fallback && fallback.length > 0
+      ? fallback
+      : DEFAULT_VALIDATION_MODEL_FALLBACK,
+  };
+}
+
+async function enqueueValidationForBot(
+  bot: BotRecord,
+  body: CreateValidationBody,
+): Promise<APIGatewayProxyResultV2> {
+  const defaults = getBotDefaults(bot);
+  const timeframe = isTimeframe(body.timeframe)
+    ? body.timeframe
+    : defaults.executionTimeframe || DEFAULT_VALIDATION_TIMEFRAME;
+  const candleCount = parsePositiveInt(
+    typeof body.candlesCount === "number" ? String(body.candlesCount) : undefined,
+    DEFAULT_VALIDATION_CANDLE_COUNT,
+    MAX_VALIDATION_CANDLE_COUNT,
+  );
+
+  const nowMs = Date.now();
+  const toMs =
+    typeof body.toMs === "number" && Number.isFinite(body.toMs) && body.toMs > 0
+      ? Math.floor(body.toMs)
+      : nowMs;
+  const fromMs =
+    typeof body.fromMs === "number" && Number.isFinite(body.fromMs) && body.fromMs > 0
+      ? Math.floor(body.fromMs)
+      : toMs - candleCount * timeframeDurationMs(timeframe);
+
+  if (fromMs >= toMs) {
+    return json(400, { error: "invalid_time_window" });
+  }
+
+  const models = getValidationModels();
+  const confidenceThreshold = parseConfidence(
+    body.confidenceThreshold,
+    parseConfidence(
+      process.env.RANGING_VALIDATION_CONFIDENCE_THRESHOLD,
+      DEFAULT_VALIDATION_CONFIDENCE_THRESHOLD,
+    ),
+  );
+
+  const identity = createValidationIdentity(bot.symbol);
+  const validation = createPendingValidationRecord(
+    {
+      botId: bot.id,
+      botName: bot.name,
+      strategyId: bot.strategyId,
+      symbol: bot.symbol,
+      timeframe,
+      fromMs,
+      toMs,
+      candlesCount: candleCount,
+      modelPrimary: models.primary,
+      modelFallback: models.fallback,
+      confidenceThreshold,
+    },
+    identity,
+  );
+
+  try {
+    await putRangeValidationRecord(validation);
+  } catch (error) {
+    const details = error instanceof Error ? error.message : String(error);
+    console.error("[ranging-api] failed to create validation record", {
+      botId: bot.id,
+      symbol: bot.symbol,
+      validationId: validation.id,
+      error,
+    });
+    return json(500, {
+      error: "failed_to_create_validation_record",
+      details,
+    });
+  }
+
+  const detail: RangeValidationRequestedDetail = {
+    validationId: identity.validationId,
+    createdAtMs: identity.createdAtMs,
+    botId: bot.id,
+    botName: bot.name,
+    strategyId: bot.strategyId,
+    symbol: bot.symbol,
+    timeframe,
+    fromMs,
+    toMs,
+    candlesCount: candleCount,
+  };
+
+  try {
+    await publishRangeValidationRequested(detail);
+  } catch (queueError) {
+    const queueMessage =
+      queueError instanceof Error ? queueError.message : String(queueError);
+    const failedRecord = createFailedValidationRecord(
+      validation,
+      `Failed to enqueue validation: ${queueMessage}`,
+    );
+
+    try {
+      await putRangeValidationRecord(failedRecord);
+    } catch (storeError) {
+      console.error("[ranging-api] failed to persist validation enqueue failure", {
+        botId: bot.id,
+        symbol: bot.symbol,
+        validationId: validation.id,
+        queueError,
+        storeError,
+      });
+    }
+
+    return json(500, {
+      error: "failed_to_enqueue_validation",
+      details: queueMessage,
+      validation: failedRecord,
+    });
+  }
+
+  return json(202, {
+    generatedAt: new Date().toISOString(),
+    validation,
+  });
+}
+
+export async function createRangeValidationHandler(
+  event: APIGatewayProxyEventV2,
+): Promise<APIGatewayProxyResultV2> {
+  try {
+    const body = parseJsonBody<CreateValidationBody>(event);
+    if (!body) {
+      return json(400, { error: "invalid_json_body" });
+    }
+
+    const symbol = typeof body.symbol === "string" ? body.symbol.trim() : "";
+    if (!symbol) {
+      return json(400, { error: "missing_symbol" });
+    }
+    const bot = await resolveBotBySymbol(symbol);
+    if (!bot) {
+      return json(404, { error: "bot_not_found_for_symbol" });
+    }
+    return enqueueValidationForBot(bot, body);
+  } catch (error) {
+    console.error("[ranging-api] create validation failed", { error });
+    const details = error instanceof Error ? error.message : String(error);
+    return json(500, {
+      error: "failed_to_create_validation",
+      details,
+    });
+  }
+}
+
+export async function createBotRangeValidationHandler(
+  event: APIGatewayProxyEventV2,
+): Promise<APIGatewayProxyResultV2> {
+  try {
+    const rawBotId = event.pathParameters?.botId?.trim();
+    if (!rawBotId) {
+      return json(400, { error: "missing_bot_id" });
+    }
+
+    const body = parseJsonBody<CreateValidationBody>(event);
+    if (!body) {
+      return json(400, { error: "invalid_json_body" });
+    }
+
+    const bot = await resolveBotById(decodeURIComponent(rawBotId));
+    if (!bot) {
+      return json(404, { error: "bot_not_found" });
+    }
+
+    return enqueueValidationForBot(bot, body);
+  } catch (error) {
+    console.error("[bot-api] create bot validation failed", { error });
+    const details = error instanceof Error ? error.message : String(error);
+    return json(500, {
+      error: "failed_to_create_validation",
+      details,
+    });
+  }
+}
+
+export async function rangeValidationsHandler(
+  event: APIGatewayProxyEventV2,
+): Promise<APIGatewayProxyResultV2> {
+  try {
+    const limit = parseLimit(event.queryStringParameters?.limit);
+    const botId = event.queryStringParameters?.botId?.trim();
+    const symbol = event.queryStringParameters?.symbol?.trim();
+
+    const validations = botId
+      ? await listRecentRangeValidationsByBotId(botId, limit)
+      : symbol
+        ? await listRecentRangeValidationsBySymbol(symbol, limit)
+        : await listRecentRangeValidations(limit);
+
+    return json(200, {
+      generatedAt: new Date().toISOString(),
+      count: validations.length,
+      validations,
+    });
+  } catch (error) {
+    console.error("[ranging-api] range validations failed", { error });
+    return json(500, {
+      error: "failed_to_load_range_validations",
+    });
+  }
+}
+
+export async function botRangeValidationsHandler(
+  event: APIGatewayProxyEventV2,
+): Promise<APIGatewayProxyResultV2> {
+  const rawBotId = event.pathParameters?.botId?.trim();
+  if (!rawBotId) {
+    return json(400, { error: "missing_bot_id" });
+  }
+
+  try {
+    const limit = parseLimit(event.queryStringParameters?.limit);
+    const validations = await listRecentRangeValidationsByBotId(
+      decodeURIComponent(rawBotId),
+      limit,
+    );
+
+    return json(200, {
+      generatedAt: new Date().toISOString(),
+      count: validations.length,
+      validations,
+    });
+  } catch (error) {
+    console.error("[bot-api] bot validations failed", { error });
+    return json(500, {
+      error: "failed_to_load_range_validations",
+    });
+  }
+}
+
+export async function rangeValidationDetailsHandler(
+  event: APIGatewayProxyEventV2,
+): Promise<APIGatewayProxyResultV2> {
+  try {
+    const rawValidationId = event.pathParameters?.id?.trim();
+    if (!rawValidationId) {
+      return json(400, { error: "missing_validation_id" });
+    }
+
+    const validationId = decodeURIComponent(rawValidationId);
+    const validation = await getRangeValidationById(validationId);
+    if (!validation) {
+      return json(404, {
+        error: "range_validation_not_found",
+      });
+    }
+
+    return json(200, {
+      generatedAt: new Date().toISOString(),
+      validation,
+    });
+  } catch (error) {
+    console.error("[ranging-api] range validation details failed", { error });
+    return json(500, {
+      error: "failed_to_load_range_validation_details",
+    });
+  }
+}
+
 export async function backtestsHandler(
   event: APIGatewayProxyEventV2,
 ): Promise<APIGatewayProxyResultV2> {
   try {
     const limit = parseLimit(event.queryStringParameters?.limit);
+    const botId = event.queryStringParameters?.botId?.trim();
     const symbol = event.queryStringParameters?.symbol?.trim();
 
-    const backtests = symbol
-      ? await listRecentBacktestsBySymbol(symbol, limit)
-      : await listRecentBacktests(limit);
+    const backtests = botId
+      ? await listRecentBacktestsByBotId(botId, limit)
+      : symbol
+        ? await listRecentBacktestsBySymbol(symbol, limit)
+        : await listRecentBacktests(limit);
+    const normalizedBacktests = await markStaleBacktests(backtests);
 
     return json(200, {
       generatedAt: new Date().toISOString(),
-      count: backtests.length,
-      backtests,
+      count: normalizedBacktests.length,
+      backtests: normalizedBacktests,
     });
   } catch (error) {
     console.error("[ranging-api] backtests failed", { error });
+    return json(500, {
+      error: "failed_to_load_backtests",
+    });
+  }
+}
+
+export async function botBacktestsHandler(
+  event: APIGatewayProxyEventV2,
+): Promise<APIGatewayProxyResultV2> {
+  const rawBotId = event.pathParameters?.botId?.trim();
+  if (!rawBotId) {
+    return json(400, { error: "missing_bot_id" });
+  }
+
+  try {
+    const limit = parseLimit(event.queryStringParameters?.limit);
+    const backtests = await listRecentBacktestsByBotId(decodeURIComponent(rawBotId), limit);
+    const normalizedBacktests = await markStaleBacktests(backtests);
+
+    return json(200, {
+      generatedAt: new Date().toISOString(),
+      count: normalizedBacktests.length,
+      backtests: normalizedBacktests,
+    });
+  } catch (error) {
+    console.error("[bot-api] bot backtests failed", { error });
     return json(500, {
       error: "failed_to_load_backtests",
     });
@@ -571,11 +1911,31 @@ async function loadBacktestDetails(
       return json(404, { error: "backtest_not_found" });
     }
 
+    if (backtest.status === "running" && isStaleRunningBacktest(backtest)) {
+      try {
+        backtest = await markBacktestAsFailed(
+          backtest,
+          "Backtest timed out while running. Retry with lower AI max calls or wider cadence.",
+        );
+      } catch (error) {
+        console.error("[ranging-api] failed to mark stale backtest in details", {
+          backtestId: backtest.id,
+          symbol: backtest.symbol,
+          error,
+        });
+      }
+    }
+
     const chartTimeframe = isBacktestChartTimeframe(timeframeInput)
       ? timeframeInput
       : DEFAULT_BACKTEST_CHART_TIMEFRAME;
 
-    if (backtest.status === "failed") {
+    if (backtest.status !== "completed") {
+      const replayError =
+        backtest.status === "running"
+          ? "Backtest is still running. It will appear in the list shortly."
+          : backtest.errorMessage;
+
       return json(200, {
         generatedAt: new Date().toISOString(),
         backtest,
@@ -583,6 +1943,7 @@ async function loadBacktestDetails(
         candles: [],
         trades: [],
         equityCurve: [],
+        replayError,
       });
     }
 

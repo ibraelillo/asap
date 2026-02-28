@@ -1,66 +1,28 @@
 import type {
-  Candle,
-  EntryDecision,
-  RangingBotApi,
-  SignalSnapshot,
-  Side,
-} from "@repo/ranging-core";
+  ExchangeKlineProvider,
+  SignalProcessor,
+  Timeframe,
+} from "@repo/trading-engine";
 
-export type OrchestratorTimeframe =
-  | "1m"
-  | "3m"
-  | "5m"
-  | "15m"
-  | "30m"
-  | "1h"
-  | "2h"
-  | "4h"
-  | "6h"
-  | "8h"
-  | "12h"
-  | "1d"
-  | "1w";
+export type {
+  AccountResolver,
+  ExchangeAccount,
+  ExchangeAccountAuth,
+  ExchangeAdapter,
+  ExchangeKlineProvider,
+  ExchangePositionSnapshot,
+  ExecutionContext,
+  KlineQuery,
+  SignalProcessingResult,
+  SignalProcessingStatus,
+  SignalProcessor,
+  StrategySignalEvent,
+} from "@repo/trading-engine";
 
-export interface KlineQuery {
-  symbol: string;
-  timeframe: OrchestratorTimeframe;
-  limit: number;
-  endTimeMs?: number;
-}
-
-export interface ExchangeKlineProvider {
-  fetchKlines(query: KlineQuery): Promise<Candle[]>;
-}
-
-export interface StrategySignalEvent {
-  symbol: string;
-  generatedAtMs: number;
-  decision: EntryDecision;
-  snapshot: SignalSnapshot;
-  processing?: SignalProcessingResult;
-}
-
-export type SignalProcessingStatus =
-  | "no-signal"
-  | "skipped-existing-position"
-  | "dry-run"
-  | "order-submitted"
-  | "error";
-
-export interface SignalProcessingResult {
-  status: SignalProcessingStatus;
-  side?: Side;
-  message?: string;
-  orderId?: string;
-  clientOid?: string;
-}
-
-export interface SignalProcessor {
-  process(event: StrategySignalEvent): Promise<SignalProcessingResult>;
-}
+export type OrchestratorTimeframe = Timeframe;
 
 export interface OrchestratorRunInput {
-  symbol: string;
+  bot: import("@repo/trading-engine").BotDefinition;
   executionTimeframe: OrchestratorTimeframe;
   primaryRangeTimeframe: OrchestratorTimeframe;
   secondaryRangeTimeframe: OrchestratorTimeframe;
@@ -70,8 +32,8 @@ export interface OrchestratorRunInput {
   endTimeMs?: number;
 }
 
-export interface OrchestratorDependencies {
-  bot: RangingBotApi;
+export interface OrchestratorDependencies<TSnapshot = unknown, TMeta = unknown> {
   klineProvider: ExchangeKlineProvider;
-  signalProcessor: SignalProcessor;
+  signalProcessor: SignalProcessor<TSnapshot, TMeta>;
 }
+

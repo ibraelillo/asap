@@ -15,9 +15,9 @@ import {
  */
 export const config = {
   kucoin: {
-    apiKey: "67cbafebdf512e0001bbea87", //Resource.Kucoin.apiKey,
-    apiSecret: "4bb0677f-62a9-4263-b837-b445f317dee7", //Resource.Kucoin.apiSecret,
-    passphrase: "Ricolino01!!", //Resource.Kucoin.passphrase,
+    apiKey: process.env.KUCOIN_API_KEY ?? "",
+    apiSecret: process.env.KUCOIN_API_SECRET ?? "",
+    passphrase: process.env.KUCOIN_API_PASSPHRASE ?? "",
   },
 };
 

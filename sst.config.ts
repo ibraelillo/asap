@@ -19,26 +19,13 @@ const DEFAULT_SYMBOLS = [
 
 const DEFAULT_BOTS = DEFAULT_SYMBOLS.map((symbol) => ({
   symbol,
-  executionTimeframe: "15m",
+  executionTimeframe: "1h",
   primaryRangeTimeframe: "1d",
   secondaryRangeTimeframe: "4h",
   executionLimit: 240,
   primaryRangeLimit: 90,
   secondaryRangeLimit: 180,
 }));
-
-function extractSymbolsFromBotsJson(botsJson: string): string[] {
-  try {
-    const parsed = JSON.parse(botsJson);
-    if (!Array.isArray(parsed)) return [];
-
-    return parsed
-      .map((item) => (item && typeof item === "object" ? (item as { symbol?: unknown }).symbol : undefined))
-      .filter((symbol): symbol is string => typeof symbol === "string" && symbol.length > 0);
-  } catch {
-    return [];
-  }
-}
 
 export default $config({
   app(input) {
@@ -62,14 +49,32 @@ export default $config({
     });
 
     const botsJson = process.env.RANGING_BOTS_JSON ?? JSON.stringify(DEFAULT_BOTS);
-    const schedule = process.env.RANGING_SCHEDULE ?? "rate(1 minute)";
-    const symbols = extractSymbolsFromBotsJson(botsJson);
+    const schedule = process.env.RANGING_SCHEDULE ?? "cron(0 * * * ? *)";
     const realtimeToken = process.env.RANGING_REALTIME_TOKEN ?? "";
     const realtimeTopicPrefix = `${$app.name}/${$app.stage}/ranging-bot`;
 
     const kucoinApiKey = process.env.KUCOIN_API_KEY ?? "";
     const kucoinApiSecret = process.env.KUCOIN_API_SECRET ?? "";
     const kucoinApiPassphrase = process.env.KUCOIN_API_PASSPHRASE ?? "";
+    const openAiApiKey = process.env.OPENAI_API_KEY ?? "";
+    const validationModelPrimary =
+      process.env.RANGING_VALIDATION_MODEL_PRIMARY ?? "gpt-5-nano-2025-08-07";
+    const validationModelFallback =
+      process.env.RANGING_VALIDATION_MODEL_FALLBACK ?? "gpt-5-mini-2025-08-07";
+    const validationConfidenceThreshold =
+      process.env.RANGING_VALIDATION_CONFIDENCE_THRESHOLD ?? "0.72";
+    const validationMaxOutputTokens =
+      process.env.RANGING_VALIDATION_MAX_OUTPUT_TOKENS ?? "800";
+    const validationTimeoutMs =
+      process.env.RANGING_VALIDATION_TIMEOUT_MS ?? "45000";
+    const klineHttpTimeoutMs =
+      process.env.RANGING_KLINE_HTTP_TIMEOUT_MS ?? "20000";
+    const klineHttpRetries =
+      process.env.RANGING_KLINE_HTTP_RETRIES ?? "3";
+    const klineHttpBackoffMs =
+      process.env.RANGING_KLINE_HTTP_BACKOFF_MS ?? "350";
+    const backtestRunningStaleMs =
+      process.env.RANGING_BACKTEST_RUNNING_STALE_MS ?? "1200000";
 
     const runsTable = new sst.aws.Dynamo("RangingBotRuns", {
       fields: {
@@ -98,6 +103,7 @@ export default $config({
         allowHeaders: ["*"],
       },
     });
+    const backtestBus = new sst.aws.Bus("RangingBacktestBus");
 
     const router = new sst.aws.Router("RangingRouter");
     router.routeBucket("/klines", klineCacheBucket, {
@@ -122,7 +128,7 @@ export default $config({
     });
 
     const api = new sst.aws.ApiGatewayV2("RangingBotApi", {
-      link: [runsTable, klineCacheBucket],
+      link: [runsTable, klineCacheBucket, backtestBus],
       cors: {
         allowMethods: ["GET", "POST", "OPTIONS"],
         allowOrigins: ["*"],
@@ -135,6 +141,11 @@ export default $config({
       RANGING_BOTS_JSON: botsJson,
       RANGING_KLINES_BUCKET: klineCacheBucket.name,
       RANGING_KLINES_PUBLIC_BASE_URL: klinesBaseUrl,
+      RANGING_BACKTEST_BUS_NAME: backtestBus.name,
+      RANGING_VALIDATION_MODEL_PRIMARY: validationModelPrimary,
+      RANGING_VALIDATION_MODEL_FALLBACK: validationModelFallback,
+      RANGING_VALIDATION_CONFIDENCE_THRESHOLD: validationConfidenceThreshold,
+      RANGING_BACKTEST_RUNNING_STALE_MS: backtestRunningStaleMs,
     };
 
     api.route("GET /v1/ranging/health", {
@@ -153,15 +164,63 @@ export default $config({
       handler: "apps/ranging-bot/src/results-api.botsHandler",
       environment: apiRouteEnv,
     });
+    api.route("GET /v1/bots", {
+      handler: "apps/ranging-bot/src/results-api.botsHandler",
+      environment: apiRouteEnv,
+    });
+    api.route("POST /v1/bots", {
+      handler: "apps/ranging-bot/src/results-api.createBotHandler",
+      environment: apiRouteEnv,
+    });
+    api.route("GET /v1/accounts", {
+      handler: "apps/ranging-bot/src/results-api.accountsHandler",
+      environment: apiRouteEnv,
+    });
+    api.route("POST /v1/accounts", {
+      handler: "apps/ranging-bot/src/results-api.createAccountHandler",
+      environment: apiRouteEnv,
+    });
+    api.route("GET /v1/strategies", {
+      handler: "apps/ranging-bot/src/results-api.strategiesHandler",
+      environment: apiRouteEnv,
+    });
+    api.route("GET /v1/strategies/{strategyId}", {
+      handler: "apps/ranging-bot/src/results-api.strategyDetailsHandler",
+      environment: apiRouteEnv,
+    });
     api.route("GET /v1/ranging/bots/stats", {
       handler: "apps/ranging-bot/src/results-api.botStatsHandler",
+      environment: apiRouteEnv,
+    });
+    api.route("GET /v1/bots/{botId}", {
+      handler: "apps/ranging-bot/src/results-api.botDetailsHandler",
+      environment: apiRouteEnv,
+    });
+    api.route("GET /v1/bots/{botId}/runs", {
+      handler: "apps/ranging-bot/src/results-api.botRunsHandler",
+      environment: apiRouteEnv,
+    });
+    api.route("GET /v1/bots/{botId}/stats", {
+      handler: "apps/ranging-bot/src/results-api.botDetailsStatsHandler",
+      environment: apiRouteEnv,
+    });
+    api.route("GET /v1/bots/{botId}/positions", {
+      handler: "apps/ranging-bot/src/results-api.botPositionsHandler",
       environment: apiRouteEnv,
     });
     api.route("GET /v1/ranging/backtests", {
       handler: "apps/ranging-bot/src/results-api.backtestsHandler",
       environment: apiRouteEnv,
     });
+    api.route("GET /v1/bots/{botId}/backtests", {
+      handler: "apps/ranging-bot/src/results-api.botBacktestsHandler",
+      environment: apiRouteEnv,
+    });
     api.route("GET /v1/ranging/backtests/{id}", {
+      handler: "apps/ranging-bot/src/results-api.backtestDetailsHandler",
+      environment: apiRouteEnv,
+    });
+    api.route("GET /v1/backtests/{id}", {
       handler: "apps/ranging-bot/src/results-api.backtestDetailsHandler",
       environment: apiRouteEnv,
     });
@@ -169,10 +228,87 @@ export default $config({
       handler: "apps/ranging-bot/src/results-api.createBacktestHandler",
       environment: apiRouteEnv,
     });
+    api.route("POST /v1/bots/{botId}/backtests", {
+      handler: "apps/ranging-bot/src/results-api.createBotBacktestHandler",
+      environment: apiRouteEnv,
+    });
+    api.route("POST /v1/ranging/validations", {
+      handler: "apps/ranging-bot/src/results-api.createRangeValidationHandler",
+      environment: apiRouteEnv,
+    });
+    api.route("POST /v1/bots/{botId}/validations", {
+      handler: "apps/ranging-bot/src/results-api.createBotRangeValidationHandler",
+      environment: apiRouteEnv,
+    });
+    api.route("GET /v1/ranging/validations", {
+      handler: "apps/ranging-bot/src/results-api.rangeValidationsHandler",
+      environment: apiRouteEnv,
+    });
+    api.route("GET /v1/bots/{botId}/validations", {
+      handler: "apps/ranging-bot/src/results-api.botRangeValidationsHandler",
+      environment: apiRouteEnv,
+    });
+    api.route("GET /v1/ranging/validations/{id}", {
+      handler: "apps/ranging-bot/src/results-api.rangeValidationDetailsHandler",
+      environment: apiRouteEnv,
+    });
     api.route("GET /v1/ranging/trades/{id}", {
       handler: "apps/ranging-bot/src/results-api.tradeDetailsHandler",
       environment: apiRouteEnv,
     });
+
+    backtestBus.subscribe(
+      "BacktestWorker",
+      {
+        handler: "apps/ranging-bot/src/backtest-worker.handler",
+        timeout: "15 minutes",
+        link: [runsTable, klineCacheBucket],
+        environment: {
+          RANGING_BOT_RUNS_TABLE: runsTable.name,
+          RANGING_KLINES_BUCKET: klineCacheBucket.name,
+          RANGING_KLINES_PUBLIC_BASE_URL: klinesBaseUrl,
+          OPENAI_API_KEY: openAiApiKey,
+          RANGING_VALIDATION_MODEL_PRIMARY: validationModelPrimary,
+          RANGING_VALIDATION_MODEL_FALLBACK: validationModelFallback,
+          RANGING_VALIDATION_CONFIDENCE_THRESHOLD: validationConfidenceThreshold,
+          RANGING_VALIDATION_MAX_OUTPUT_TOKENS: validationMaxOutputTokens,
+          RANGING_VALIDATION_TIMEOUT_MS: validationTimeoutMs,
+          RANGING_KLINE_HTTP_TIMEOUT_MS: klineHttpTimeoutMs,
+          RANGING_KLINE_HTTP_RETRIES: klineHttpRetries,
+          RANGING_KLINE_HTTP_BACKOFF_MS: klineHttpBackoffMs,
+        },
+      },
+      {
+        pattern: {
+          source: ["asap.ranging.backtest"],
+          detailType: ["backtest.requested"],
+        },
+      },
+    );
+
+    backtestBus.subscribe(
+      "RangeValidationWorker",
+      {
+        handler: "apps/ranging-bot/src/validation-worker.handler",
+        timeout: "2 minutes",
+        link: [runsTable],
+        environment: {
+          RANGING_BOT_RUNS_TABLE: runsTable.name,
+          OPENAI_API_KEY: openAiApiKey,
+          RANGING_VALIDATION_MODEL_PRIMARY: validationModelPrimary,
+          RANGING_VALIDATION_MODEL_FALLBACK: validationModelFallback,
+          RANGING_VALIDATION_CONFIDENCE_THRESHOLD: validationConfidenceThreshold,
+          RANGING_VALIDATION_MAX_OUTPUT_TOKENS: validationMaxOutputTokens,
+          RANGING_VALIDATION_TIMEOUT_MS: validationTimeoutMs,
+        },
+      },
+      {
+        pattern: {
+          source: ["asap.ranging.validation"],
+          detailType: ["range.validation.requested"],
+        },
+      },
+    );
 
     const web = new sst.aws.StaticSite("Web", {
       path: "apps/web",
@@ -219,7 +355,6 @@ export default $config({
       },
       event: {
         trigger: "ranging-bot-cron",
-        symbols: JSON.stringify(symbols),
       },
     });
 
@@ -245,6 +380,7 @@ export default $config({
       realtimeTopicPrefix,
       klineCacheBucket: klineCacheBucket.name,
       klinesBaseUrl,
+      backtestBusName: backtestBus.name,
     };
   },
 });

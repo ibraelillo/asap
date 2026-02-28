@@ -1,13 +1,15 @@
-export type Side = "long" | "short";
+import type {
+  BacktestMetrics as EngineBacktestMetrics,
+  BacktestResult as EngineBacktestResult,
+  BotDefinition,
+  Candle,
+  EquityPoint,
+  Side,
+  StrategyDecision,
+  Timeframe,
+} from "@repo/trading-engine";
 
-export interface Candle {
-  time: number;
-  open: number;
-  high: number;
-  low: number;
-  close: number;
-  volume: number;
-}
+export type { BotDefinition, Candle, EquityPoint, Side, Timeframe } from "@repo/trading-engine";
 
 export interface ValueAreaLevels {
   val: number;
@@ -25,6 +27,8 @@ export interface FeatureOverrides {
   moneyFlowSlope?: number;
   bullishSfp?: boolean;
   bearishSfp?: boolean;
+  recentLowBrokeVal?: boolean;
+  recentHighBrokeVah?: boolean;
 }
 
 export interface BacktestCandle extends Candle {
@@ -39,7 +43,7 @@ export interface RangeContext {
   isAligned: boolean;
 }
 
-export interface SignalSnapshot {
+export interface RangeReversalSnapshot {
   time: number;
   price: number;
   range: RangeContext;
@@ -48,12 +52,22 @@ export interface SignalSnapshot {
   moneyFlowSlope: number;
   bullishSfp: boolean;
   bearishSfp: boolean;
+  recentLowBrokeVal: boolean;
+  recentHighBrokeVah: boolean;
+}
+
+export interface RangeReversalDecisionDiagnostics {
+  signal: Side | null;
+  failedLongReasons: string[];
+  failedShortReasons: string[];
 }
 
 export interface EntryDecision {
   signal: Side | null;
   reasons: string[];
 }
+
+export type SignalSnapshot = RangeReversalSnapshot;
 
 export interface RiskConfig {
   riskPctPerTrade: number;
@@ -83,6 +97,9 @@ export interface SignalConfig {
   requireDivergence: boolean;
   requireSfp: boolean;
   maxBarsAfterDivergence: number;
+  priceExcursionLookbackBars: number;
+  allowArmedReentry: boolean;
+  armedReentryMaxDistancePct: number;
 }
 
 export type RangeLevel = "VAL" | "VAH" | "POC";
@@ -147,26 +164,63 @@ export interface BacktestTrade {
   netPnl: number;
 }
 
-export interface EquityPoint {
-  time: number;
-  equity: number;
-}
-
-export interface BacktestMetrics {
-  totalTrades: number;
-  wins: number;
-  losses: number;
-  winRate: number;
-  netPnl: number;
-  grossProfit: number;
-  grossLoss: number;
-  maxDrawdownPct: number;
-  endingEquity: number;
-}
+export type BacktestMetrics = EngineBacktestMetrics;
 
 export interface BacktestResult {
   config: RangeReversalConfig;
   trades: BacktestTrade[];
   equityCurve: EquityPoint[];
   metrics: BacktestMetrics;
+  engine?: EngineBacktestResult<RangeReversalIntentMeta>;
+}
+
+export interface RangeReversalIntentMeta {
+  range: ValueAreaLevels;
+  stopPrice: number;
+  tp1Price: number;
+  tp2Price: number;
+  diagnostics: RangeReversalDecisionDiagnostics;
+}
+
+export type RangeReversalStrategyDecision = StrategyDecision<RangeReversalIntentMeta>;
+
+export interface RangeReversalBotDefinitionInput {
+  botId: string;
+  symbol: string;
+  executionTimeframe?: Timeframe;
+  createdAtMs?: number;
+  updatedAtMs?: number;
+}
+
+export function createRangeReversalBotDefinition(
+  input: RangeReversalBotDefinitionInput,
+): BotDefinition {
+  const createdAtMs = input.createdAtMs ?? Date.now();
+  const updatedAtMs = input.updatedAtMs ?? createdAtMs;
+
+  return {
+    id: input.botId,
+    name: input.symbol,
+    strategyId: "range-reversal",
+    strategyVersion: "1",
+    exchangeId: "paper",
+    accountId: "default",
+    symbol: input.symbol,
+    marketType: "futures",
+    status: "active",
+    execution: {
+      trigger: "cron",
+      executionTimeframe: input.executionTimeframe ?? "1h",
+      warmupBars: 120,
+    },
+    context: {
+      primaryPriceTimeframe: input.executionTimeframe ?? "1h",
+      additionalTimeframes: ["4h", "1d"],
+      providers: [],
+    },
+    riskProfileId: `${input.botId}:risk`,
+    strategyConfig: {},
+    createdAtMs,
+    updatedAtMs,
+  };
 }

@@ -19,7 +19,7 @@ interface ResultsPageProps {
   realtimeState: RealtimeState;
   realtimeDetails?: string;
   apiUrl: string;
-  onOpenBot?: (symbol: string) => void;
+  onOpenBot?: (botId: string) => void;
 }
 
 function realtimeTone(state: RealtimeState): string {
@@ -168,7 +168,7 @@ export function ResultsPage({
                     <td className="py-3 pr-4 text-xs text-slate-300">{formatDateTime(trade.generatedAtMs)}</td>
                     <td className="py-3 pr-4 font-medium">
                       <button
-                        onClick={() => onOpenBot?.(trade.symbol)}
+                        onClick={() => onOpenBot?.(trade.botId)}
                         className="text-left text-cyan-200 transition hover:text-cyan-100"
                       >
                         {trade.symbol}
