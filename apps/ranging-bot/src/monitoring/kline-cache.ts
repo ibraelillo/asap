@@ -9,7 +9,6 @@ import type { OrchestratorTimeframe } from "../contracts";
 import { getRuntimeSettings } from "../runtime-settings";
 import type { KlineCacheReference } from "./types";
 
-const BUCKET_ENV_KEY = "RANGING_KLINES_BUCKET";
 const CACHE_SCHEMA_VERSION = 1;
 
 let cachedClient: S3Client | null = null;
@@ -40,11 +39,6 @@ function getS3Client(): S3Client {
 }
 
 function getBucketName(): string | undefined {
-  const fromEnv = process.env[BUCKET_ENV_KEY];
-  if (fromEnv && fromEnv.trim().length > 0) {
-    return fromEnv.trim();
-  }
-
   const resources = Resource as unknown as Record<
     string,
     { name?: string } | undefined

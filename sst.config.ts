@@ -129,7 +129,6 @@ export default $config({
         handler: "apps/ranging-bot/src/realtime-authorizer.handler",
         environment: {
           RANGING_REALTIME_TOKEN: realtimeToken,
-          RANGING_REALTIME_TOPIC_PREFIX: realtimeTopicPrefix,
         },
       },
     });
@@ -309,8 +308,6 @@ export default $config({
           KUCOIN_API_KEY: kucoinApiKey,
           KUCOIN_API_SECRET: kucoinApiSecret,
           KUCOIN_API_PASSPHRASE: kucoinApiPassphrase,
-          RANGING_REALTIME_ENDPOINT: realtime.endpoint,
-          RANGING_REALTIME_TOPIC_PREFIX: realtimeTopicPrefix,
         },
       },
       event: {

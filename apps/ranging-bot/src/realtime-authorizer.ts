@@ -2,10 +2,6 @@ import { realtime } from "sst/aws/realtime";
 import { Resource } from "sst";
 
 function getTopicPrefix(): string {
-  if (process.env.RANGING_REALTIME_TOPIC_PREFIX) {
-    return process.env.RANGING_REALTIME_TOPIC_PREFIX;
-  }
-
   try {
     return `${Resource.App.name}/${Resource.App.stage}/ranging-bot`;
   } catch {

@@ -30,17 +30,13 @@ function getResourceConfig(): Partial<RealtimeConfig> {
 
 function getRealtimeConfig(): RealtimeConfig | null {
   const fromResource = getResourceConfig();
-
-  const endpoint =
-    process.env.RANGING_REALTIME_ENDPOINT ?? fromResource.endpoint;
+  const endpoint = fromResource.endpoint;
 
   if (!endpoint) {
     return null;
   }
 
-  const topicPrefix =
-    process.env.RANGING_REALTIME_TOPIC_PREFIX ??
-    `${process.env.SST_APP ?? "asap"}/${process.env.SST_STAGE ?? "dev"}/ranging-bot`;
+  const topicPrefix = `${Resource.App.name}/${Resource.App.stage}/ranging-bot`;
 
   return {
     endpoint,

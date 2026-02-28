@@ -26,7 +26,6 @@ import type {
 
 const MAX_LIMIT = 500;
 const DEFAULT_LIMIT = 120;
-const TABLE_ENV_KEY = "RANGING_BOT_RUNS_TABLE";
 const PK_RUN = "RUN";
 const PK_BACKTEST = "BACKTEST";
 const PK_VALIDATION = "VALIDATION";
@@ -51,9 +50,6 @@ function getDocClient(): DynamoDBDocumentClient {
 }
 
 function getTableName(): string {
-  const fromEnv = process.env[TABLE_ENV_KEY];
-  if (fromEnv) return fromEnv;
-
   const resources = Resource as unknown as Record<
     string,
     { name?: string } | undefined
@@ -61,9 +57,7 @@ function getTableName(): string {
   const fromResource = resources.RangingBotRuns?.name;
   if (fromResource) return fromResource;
 
-  throw new Error(
-    `Missing table name. Set ${TABLE_ENV_KEY} or link Resource.RangingBotRuns to this function.`,
-  );
+  throw new Error("Missing linked Resource.RangingBotRuns");
 }
 
 function normalizeLimit(limit?: number): number {

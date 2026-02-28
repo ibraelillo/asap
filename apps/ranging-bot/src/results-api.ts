@@ -121,7 +121,6 @@ const DEFAULT_VALIDATION_CONFIDENCE_THRESHOLD = 0.72;
 const DEFAULT_VALIDATION_MODEL_PRIMARY = "gpt-5-nano-2025-08-07";
 const DEFAULT_VALIDATION_MODEL_FALLBACK = "gpt-5-mini-2025-08-07";
 const DEMO_TRADE_ID = "demo";
-const BACKTEST_BUS_NAME_ENV_KEY = "RANGING_BACKTEST_BUS_NAME";
 const SUPPORTED_EXCHANGE_IDS = new Set(["kucoin"]);
 
 let cachedEventBridgeClient: EventBridgeClient | null = null;
@@ -213,11 +212,6 @@ function getEventBridgeClient(): EventBridgeClient {
 }
 
 function getBacktestBusName(): string {
-  const busName = process.env[BACKTEST_BUS_NAME_ENV_KEY];
-  if (typeof busName === "string" && busName.trim().length > 0) {
-    return busName.trim();
-  }
-
   const resources = Resource as unknown as Record<
     string,
     { name?: string } | undefined
@@ -227,9 +221,7 @@ function getBacktestBusName(): string {
     return linkedName.trim();
   }
 
-  throw new Error(
-    `Missing ${BACKTEST_BUS_NAME_ENV_KEY}. Link the backtest bus to this function.`,
-  );
+  throw new Error("Missing linked Resource.RangingBacktestBus");
 }
 
 async function publishBacktestRequested(
