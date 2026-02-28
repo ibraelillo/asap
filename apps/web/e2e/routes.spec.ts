@@ -149,7 +149,7 @@ test("bot backtests page can queue jobs without browser errors", async ({
     page.getByText(/Validation queued|Validation completed/),
   ).toBeVisible();
 
-  await page.getByRole("button", { name: /Review Diff/i }).nth(1).click();
+  await page.getByRole("button", { name: "Compare" }).nth(1).click();
   const compareDrawer = page.getByRole("dialog");
   await expect(
     compareDrawer.getByRole("heading", { name: "Compare Backtest Settings" }),

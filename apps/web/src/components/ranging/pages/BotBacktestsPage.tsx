@@ -726,9 +726,9 @@ export function BotBacktestsPage() {
                           variant="secondary"
                           className="whitespace-nowrap"
                           onClick={() => openCompareBacktest(backtest.id)}
-                          disabled={!differsFromBot}
+                          disabled={!hasSnapshot}
                         >
-                          Review Diff
+                          {hasSnapshot ? "Compare" : "No Snapshot"}
                         </Button>
                       </div>
                     </td>
