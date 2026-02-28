@@ -30,13 +30,14 @@ import {
 } from "../StrategyConfigEditor";
 import { BacktestConfigDrawer } from "../BacktestConfigDrawer";
 import { BacktestComparisonDrawer } from "../BacktestComparisonDrawer";
-import { asRecord, cloneRecord, mergeConfigDefaults } from "../config-utils";
+import {
+  asRecord,
+  cloneRecord,
+  configsEqual,
+  mergeConfigDefaults,
+} from "../config-utils";
 
 type DrawerMode = "bot-settings" | "new-backtest" | "rerun-backtest" | null;
-
-function normalizeConfigString(value: unknown): string {
-  return JSON.stringify(asRecord(value));
-}
 
 function toDateInputValue(date: Date): string {
   const year = date.getFullYear();
@@ -188,7 +189,6 @@ export function BotBacktestsPage() {
         ? botDetails.bot.symbol
         : botId;
   const strategySummary = strategyDetails?.strategy;
-  const currentBotConfigString = normalizeConfigString(currentBotStrategyConfig);
   const selectedBacktest =
     selectedBacktestId !== undefined
       ? (backtests ?? []).find((entry) => entry.id === selectedBacktestId)
@@ -455,10 +455,13 @@ export function BotBacktestsPage() {
                 const hasSnapshot =
                   !!backtest.strategyConfig &&
                   Object.keys(backtest.strategyConfig).length > 0;
-                const differsFromBot =
+                const effectiveBacktestConfig = mergeConfigDefaults(
+                  asRecord(strategySummary?.configDefaults),
+                  asRecord(backtest.strategyConfig),
+                );
+                const isLiveConfig =
                   hasSnapshot &&
-                  normalizeConfigString(backtest.strategyConfig) !==
-                    currentBotConfigString;
+                  configsEqual(effectiveBacktestConfig, currentBotStrategyConfig);
                 const selectedForCompare = selectedComparisonIds.includes(
                   backtest.id,
                 );
@@ -504,13 +507,13 @@ export function BotBacktestsPage() {
                     </td>
                     <td className="py-3 pr-4 text-xs">
                       {hasSnapshot ? (
-                        differsFromBot ? (
-                          <span className="rounded-full border border-amber-300/30 bg-amber-400/10 px-2 py-0.5 text-amber-100">
-                            snapshot differs
+                        isLiveConfig ? (
+                          <span className="rounded-full border border-emerald-300/30 bg-emerald-400/10 px-2 py-0.5 text-emerald-100">
+                            live
                           </span>
                         ) : (
-                          <span className="rounded-full border border-emerald-300/30 bg-emerald-400/10 px-2 py-0.5 text-emerald-100">
-                            matches bot
+                          <span className="rounded-full border border-amber-300/30 bg-amber-400/10 px-2 py-0.5 text-amber-100">
+                            snapshot differs
                           </span>
                         )
                       ) : (

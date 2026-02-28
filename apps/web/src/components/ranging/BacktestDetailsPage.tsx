@@ -9,6 +9,7 @@ import {
 import { Button, MetricCard, Panel, Select } from "@repo/ui";
 import { Link, useNavigate } from "react-router-dom";
 import {
+  fetchBotDetails,
   fetchBacktestDetails,
   fetchStrategyDetails,
 } from "../../lib/ranging-api";
@@ -16,7 +17,7 @@ import type { BacktestRecord, BacktestTrade } from "../../types/ranging-dashboar
 import { BacktestReplayChart } from "./BacktestReplayChart";
 import { BacktestConfigDrawer } from "./BacktestConfigDrawer";
 import { StrategyConfigSnapshot } from "./StrategyConfigSnapshot";
-import { asRecord, mergeConfigDefaults } from "./config-utils";
+import { asRecord, configsEqual, mergeConfigDefaults } from "./config-utils";
 
 interface BacktestDetailsPageProps {
   botId: string;
@@ -96,6 +97,11 @@ export function BacktestDetailsPage({
     ([, strategyId]) => fetchStrategyDetails(String(strategyId)),
     { revalidateOnFocus: false },
   );
+  const { data: botDetails } = useSWR(
+    botId ? ["bot-details", botId] : null,
+    ([, id]) => fetchBotDetails(String(id)),
+    { revalidateOnFocus: false },
+  );
 
   const bestTrade = useMemo(() => {
     if (!details) return undefined;
@@ -144,7 +150,13 @@ export function BacktestDetailsPage({
     asRecord(strategySummary?.configDefaults),
     asRecord(backtest.strategyConfig),
   );
+  const currentBotStrategyConfig = mergeConfigDefaults(
+    asRecord(strategySummary?.configDefaults),
+    asRecord(botDetails?.bot.runtime.strategyConfig),
+  );
   const hasSnapshot = Object.keys(backtestStrategyConfig).length > 0;
+  const isLiveConfig =
+    hasSnapshot && configsEqual(backtestStrategyConfig, currentBotStrategyConfig);
 
   return (
     <div className="space-y-6">
@@ -278,11 +290,18 @@ export function BacktestDetailsPage({
               Settings frozen into this backtest at queue time.
             </p>
           </div>
-          {hasSnapshot ? null : (
-            <span className="rounded-full border border-white/10 bg-white/5 px-2 py-1 text-xs text-slate-400">
-              no snapshot stored
-            </span>
-          )}
+          <div className="flex flex-wrap items-center gap-2">
+            {isLiveConfig ? (
+              <span className="rounded-full border border-emerald-300/30 bg-emerald-400/10 px-2 py-1 text-xs text-emerald-100">
+                live
+              </span>
+            ) : null}
+            {hasSnapshot ? null : (
+              <span className="rounded-full border border-white/10 bg-white/5 px-2 py-1 text-xs text-slate-400">
+                no snapshot stored
+              </span>
+            )}
+          </div>
         </div>
 
         {hasSnapshot ? (
