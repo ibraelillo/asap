@@ -6,6 +6,10 @@ import {
   type StrategyDecision,
 } from "./contracts";
 
+/**
+ * Core domain event catalogue. These names form the stable language between
+ * pure strategy code and the application/infrastructure layers.
+ */
 export const DomainEventTypeSchema = z.enum([
   "context.built",
   "strategy.decision.emitted",
@@ -14,6 +18,13 @@ export const DomainEventTypeSchema = z.enum([
 ]);
 export type DomainEventType = z.infer<typeof DomainEventTypeSchema>;
 
+/**
+ * Immutable event emitted when a strategy produces a decision from a concrete
+ * context snapshot.
+ *
+ * The event stores both lightweight references and a copied snapshot so later
+ * audits do not depend on external mutable storage.
+ */
 export const DecisionEventSchema = z.object({
   id: z.string().min(1),
   type: z.literal("strategy.decision.emitted"),
@@ -28,6 +39,11 @@ export const DecisionEventSchema = z.object({
 });
 export type DecisionEvent = z.infer<typeof DecisionEventSchema>;
 
+/**
+ * Creates and validates a normalized decision event. Centralizing construction
+ * here prevents partial or inconsistent event payloads from leaking into the
+ * rest of the system.
+ */
 export function createDecisionEvent(input: {
   id: string;
   strategyId: string;

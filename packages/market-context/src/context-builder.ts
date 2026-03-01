@@ -1,6 +1,11 @@
 import type { Candle, Timeframe } from "@repo/trading-core";
 import { DecisionContextSchema, TimeframeContextSchema, type BuildTimeframeContextInput, type DecisionContext, type TimeframeContext } from "./types";
 
+/**
+ * Hammer detection focused on a large lower wick relative to the body. The
+ * context layer only needs a boolean flag here; detailed candlestick semantics
+ * belong to strategy refinement, not context storage.
+ */
 function detectHammer(candle: Candle): boolean {
   const body = Math.abs(candle.close - candle.open);
   const lowerWick = Math.min(candle.open, candle.close) - candle.low;
@@ -8,6 +13,9 @@ function detectHammer(candle: Candle): boolean {
   return lowerWick > body * 2 && upperWick <= body;
 }
 
+/**
+ * Inverted hammer detection using the mirrored wick/body relationship.
+ */
 function detectInvertedHammer(candle: Candle): boolean {
   const body = Math.abs(candle.close - candle.open);
   const lowerWick = Math.min(candle.open, candle.close) - candle.low;
@@ -15,6 +23,9 @@ function detectInvertedHammer(candle: Candle): boolean {
   return upperWick > body * 2 && lowerWick <= body;
 }
 
+/**
+ * Minimal morning star detector using the last three candles.
+ */
 function detectMorningStar(candles: Candle[]): boolean {
   const a = candles.at(-3);
   const b = candles.at(-2);
@@ -26,6 +37,14 @@ function detectMorningStar(candles: Candle[]): boolean {
   return firstBearish && secondSmallBody && thirdBullishRecovery;
 }
 
+/**
+ * Builds a storable single-timeframe context from candles plus indicator
+ * requests.
+ *
+ * The output is intentionally compact but complete enough for later decision
+ * replay: it contains the last candle time/price, a bounded candle window,
+ * indicator payloads, higher-order features, and explicit versioning.
+ */
 export function buildTimeframeContext(input: BuildTimeframeContextInput): TimeframeContext {
   const lastCandle = input.candles.at(-1);
   if (!lastCandle) {
@@ -78,6 +97,13 @@ export function buildTimeframeContext(input: BuildTimeframeContextInput): Timefr
   });
 }
 
+/**
+ * Aggregates multiple timeframe contexts into one decision input object.
+ *
+ * This is the shape strategies should consume in the next architectural phase:
+ * the decision engine receives prepared context instead of fetching or
+ * computing data on demand.
+ */
 export function aggregateDecisionContext(input: {
   symbol: string;
   decisionTime: number;

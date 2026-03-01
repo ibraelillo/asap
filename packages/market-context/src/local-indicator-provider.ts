@@ -1,10 +1,19 @@
 import type { Candle } from "@repo/trading-core";
 import type { IndicatorProvider, IndicatorRequest } from "./types";
 
+/**
+ * Uses the candle close as the default source series for indicators that only
+ * need a single scalar input.
+ */
 function getSourceValue(candle: Candle): number {
   return candle.close;
 }
 
+/**
+ * Simple moving average over the latest `length` values. When fewer values are
+ * available, it degrades gracefully to the mean of the available slice so
+ * context building still works on short histories.
+ */
 function sma(values: number[], length: number): number {
   const start = Math.max(0, values.length - length);
   const slice = values.slice(start);
@@ -12,6 +21,11 @@ function sma(values: number[], length: number): number {
   return slice.reduce((sum, value) => sum + value, 0) / slice.length;
 }
 
+/**
+ * Exponential moving average with the standard `2 / (length + 1)` smoothing
+ * factor. The first value seeds the series to keep the function deterministic
+ * and side-effect free.
+ */
 function ema(values: number[], length: number): number {
   if (values.length === 0) return 0;
   const alpha = 2 / (length + 1);
@@ -23,6 +37,13 @@ function ema(values: number[], length: number): number {
   return current;
 }
 
+/**
+ * Relative Strength Index computed from the latest `length` deltas.
+ *
+ * This implementation is intentionally lightweight and deterministic. It is
+ * suitable for building stored decision contexts, not for exact exchange-side
+ * indicator parity claims.
+ */
 function rsi(candles: Candle[], length: number): number {
   if (candles.length < 2) return 50;
   let gains = 0;
@@ -41,6 +62,9 @@ function rsi(candles: Candle[], length: number): number {
   return 100 - 100 / (1 + rs);
 }
 
+/**
+ * Money Flow Index computed from typical price and volume.
+ */
 function mfi(candles: Candle[], length: number): number {
   if (candles.length < 2) return 50;
   let positiveFlow = 0;
@@ -61,6 +85,9 @@ function mfi(candles: Candle[], length: number): number {
   return 100 - 100 / (1 + ratio);
 }
 
+/**
+ * On-Balance Volume over the provided candle window.
+ */
 function obv(candles: Candle[]): number {
   let total = 0;
   for (let index = 1; index < candles.length; index += 1) {
@@ -73,6 +100,11 @@ function obv(candles: Candle[]): number {
   return total;
 }
 
+/**
+ * Returns the latest WaveTrend values. The function keeps only the latest
+ * useful values because the market-context package stores compact snapshots,
+ * not full indicator series.
+ */
 function waveTrend(candles: Candle[], channelLength: number, averageLength: number): Record<string, number> {
   const prices = candles.map((candle) => (candle.high + candle.low + candle.close) / 3);
   const esa = ema(prices, channelLength);
@@ -84,6 +116,15 @@ function waveTrend(candles: Candle[], channelLength: number, averageLength: numb
   return { wt1, wt2 };
 }
 
+/**
+ * Detects coarse bullish/bearish oscillator divergence by comparing the latest
+ * price extremum with an earlier extremum and checking whether the oscillator
+ * improved or deteriorated over the same window.
+ *
+ * This is deliberately simple. The goal in this package is to produce stable,
+ * storable features that strategies can refine later, not to claim exhaustive
+ * pattern fidelity.
+ */
 function detectOscillatorDivergence(input: {
   candles: Candle[];
   lookbackBars: number;
@@ -110,6 +151,11 @@ function detectOscillatorDivergence(input: {
   };
 }
 
+/**
+ * Computes the latest Fibonacci retracement levels over the provided candle
+ * range. These are stored as explicit levels so strategies can reason about
+ * them later without recomputing the range every time.
+ */
 function fibonacciRetracement(candles: Candle[]): Record<string, number> {
   const highest = candles.reduce((acc, candle) => Math.max(acc, candle.high), Number.NEGATIVE_INFINITY);
   const lowest = candles.reduce((acc, candle) => Math.min(acc, candle.low), Number.POSITIVE_INFINITY);
@@ -122,7 +168,17 @@ function fibonacciRetracement(candles: Candle[]): Record<string, number> {
   };
 }
 
+/**
+ * Pure local indicator provider used for deterministic tests, research, and
+ * as the default implementation before plugging in external vendors.
+ */
 export class LocalIndicatorProvider implements IndicatorProvider {
+  /**
+   * Computes the latest value payload for the requested indicator.
+   *
+   * Payloads are kept serializable and compact so they can be embedded directly
+   * into timeframe contexts and later persisted as part of decision history.
+   */
   computeLatest(input: { candles: Candle[]; request: IndicatorRequest }): Record<string, unknown> {
     const values = input.candles.map(getSourceValue);
     const length = Number(input.request.params.length ?? 14);

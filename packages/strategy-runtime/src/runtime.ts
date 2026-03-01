@@ -6,11 +6,24 @@ import {
   type StrategyDeployment,
 } from "@repo/trading-core";
 
+/**
+ * Result of a single pure strategy execution step.
+ *
+ * The decision is returned for immediate use and the corresponding domain event
+ * is returned for persistence, replay, or later publishing.
+ */
 export interface ExecutionStepResult<TDecision extends StrategyDecision> {
   decision: TDecision;
   event: ReturnType<typeof createDecisionEvent>;
 }
 
+/**
+ * Executes one strategy deployment step from a prepared context.
+ *
+ * This function is intentionally infrastructure-free. It validates the input
+ * context against the strategy contract, validates the emitted decision, and
+ * then emits a normalized domain event containing copied context evidence.
+ */
 export function executeDeploymentStep<
   TConfig extends Record<string, unknown>,
   TContext,
@@ -48,6 +61,14 @@ export function executeDeploymentStep<
   return { decision, event };
 }
 
+/**
+ * Replays a deployment over an ordered list of decision contexts.
+ *
+ * Backtests and research tools can use this directly to guarantee that the
+ * same pure decision logic used in live mode is also used in historical
+ * evaluation. The function deliberately stays simple: it produces decisions and
+ * decision events, leaving execution simulation to higher layers.
+ */
 export function replayDeployment<
   TConfig extends Record<string, unknown>,
   TDecision extends StrategyDecision,
