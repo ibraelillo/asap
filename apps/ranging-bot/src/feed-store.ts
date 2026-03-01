@@ -3,6 +3,7 @@ import {
   DynamoDBDocumentClient,
   GetCommand,
   PutCommand,
+  QueryCommand,
 } from "@aws-sdk/lib-dynamodb";
 import { createIndicatorParamsHash } from "@repo/trading-engine";
 import { Resource } from "sst";
@@ -10,10 +11,7 @@ import type {
   IndicatorFeedRequirement,
   CandleFeedRequirement,
 } from "@repo/trading-engine";
-import type {
-  IndicatorFeedState,
-  MarketFeedState,
-} from "./monitoring/types";
+import type { IndicatorFeedState, MarketFeedState } from "./monitoring/types";
 
 export interface BotExecutionCursorRecord {
   botId: string;
@@ -120,7 +118,9 @@ function asMarketFeedState(
         ? item.lastClosedCandleTime
         : undefined,
     lastRefreshedAt:
-      typeof item.lastRefreshedAt === "number" ? item.lastRefreshedAt : undefined,
+      typeof item.lastRefreshedAt === "number"
+        ? item.lastRefreshedAt
+        : undefined,
     nextDueAt: Number(item.nextDueAt ?? 0),
     status:
       item.status === "ready" ||
@@ -129,7 +129,8 @@ function asMarketFeedState(
       item.status === "error"
         ? item.status
         : "stale",
-    storageKey: typeof item.storageKey === "string" ? item.storageKey : undefined,
+    storageKey:
+      typeof item.storageKey === "string" ? item.storageKey : undefined,
     candleCount:
       typeof item.candleCount === "number" ? item.candleCount : undefined,
     errorMessage:
@@ -177,7 +178,8 @@ function asIndicatorFeedState(
       item.status === "error"
         ? item.status
         : "pending",
-    storageKey: typeof item.storageKey === "string" ? item.storageKey : undefined,
+    storageKey:
+      typeof item.storageKey === "string" ? item.storageKey : undefined,
     errorMessage:
       typeof item.errorMessage === "string" ? item.errorMessage : undefined,
     requirement: item.requirement as IndicatorFeedRequirement,
@@ -203,7 +205,9 @@ export async function getMarketFeedState(input: {
   return asMarketFeedState(response.Item as Record<string, unknown>);
 }
 
-export async function putMarketFeedState(record: MarketFeedState): Promise<void> {
+export async function putMarketFeedState(
+  record: MarketFeedState,
+): Promise<void> {
   await getDocClient().send(
     new PutCommand({
       TableName: getFeedsTableName(),
@@ -242,6 +246,26 @@ export async function putIndicatorFeedState(
       Item: toIndicatorFeedItem(record),
     }),
   );
+}
+
+export async function listIndicatorFeedStatesForTimeframe(input: {
+  exchangeId: string;
+  symbol: string;
+  timeframe: string;
+}): Promise<IndicatorFeedState[]> {
+  const response = await getDocClient().send(
+    new QueryCommand({
+      TableName: getFeedsTableName(),
+      KeyConditionExpression: "PK = :pk",
+      ExpressionAttributeValues: {
+        ":pk": indicatorFeedPk(input.exchangeId, input.symbol, input.timeframe),
+      },
+    }),
+  );
+
+  return (response.Items ?? [])
+    .map((item) => asIndicatorFeedState(item as Record<string, unknown>))
+    .filter((item): item is IndicatorFeedState => Boolean(item));
 }
 
 function asBotExecutionCursor(

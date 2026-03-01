@@ -6,6 +6,7 @@ import type {
   EquityPoint,
   ExchangeAccount,
   IndicatorFeedRequirement,
+  IndicatorFeedSnapshot,
   IndicatorFeedSnapshotMeta,
   StrategyAnalysisJsonSchema,
   StrategyAnalysisUiField,
@@ -95,6 +96,8 @@ export interface IndicatorFeedState extends IndicatorFeedSnapshotMeta {
   requirement: IndicatorFeedRequirement;
   lastComputedAt?: number;
 }
+
+export interface SharedIndicatorSnapshot extends IndicatorFeedSnapshot {}
 
 export interface FeedRegistrySnapshot {
   generatedAt: string;

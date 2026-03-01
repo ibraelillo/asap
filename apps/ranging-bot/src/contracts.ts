@@ -1,6 +1,7 @@
 import type {
   ExchangeKlineProvider,
   SignalProcessor,
+  StrategyMarketContext,
   Timeframe,
 } from "@repo/trading-engine";
 
@@ -42,4 +43,5 @@ export interface OrchestratorDependencies<
 > {
   klineProvider: ExchangeKlineProvider;
   signalProcessor: SignalProcessor<TSnapshot, TMeta>;
+  indicators?: StrategyMarketContext["indicators"];
 }

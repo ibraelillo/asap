@@ -1,9 +1,26 @@
-import { createIndicatorParamsHash, type IndicatorFeedRequirement, type StrategyFeedRequirements } from "@repo/trading-engine";
-import { getTimeframeDurationMs, getClosedCandleEndTime } from "./runtime-config";
+import {
+  createIndicatorParamsHash,
+  type IndicatorFeedRequirement,
+  type StrategyFeedRequirements,
+} from "@repo/trading-engine";
+import {
+  getTimeframeDurationMs,
+  getClosedCandleEndTime,
+} from "./runtime-config";
 import { loadActiveBots } from "./runtime-bots";
 import { strategyRegistry } from "./strategy-registry";
-import { getIndicatorFeedState, getMarketFeedState, putIndicatorFeedState, putMarketFeedState } from "./feed-store";
-import type { BotRecord, FeedRegistrySnapshot, IndicatorFeedState, MarketFeedState } from "./monitoring/types";
+import {
+  getIndicatorFeedState,
+  getMarketFeedState,
+  putIndicatorFeedState,
+  putMarketFeedState,
+} from "./feed-store";
+import type {
+  BotRecord,
+  FeedRegistrySnapshot,
+  IndicatorFeedState,
+  MarketFeedState,
+} from "./monitoring/types";
 
 const GLOBAL_DISPATCH_MS = 5 * 60_000;
 
@@ -16,7 +33,21 @@ export interface DueMarketFeedRefresh {
   reason: string;
 }
 
-function marketFeedKey(input: { exchangeId: string; symbol: string; timeframe: string }): string {
+export interface DueIndicatorFeedRefresh {
+  exchangeId: string;
+  symbol: string;
+  timeframe: BotRecord["runtime"]["executionTimeframe"];
+  indicatorId: string;
+  paramsHash: string;
+  requiredAt: number;
+  reason: string;
+}
+
+function marketFeedKey(input: {
+  exchangeId: string;
+  symbol: string;
+  timeframe: string;
+}): string {
   return `${input.exchangeId}::${input.symbol}::${input.timeframe}`;
 }
 
@@ -30,12 +61,19 @@ function indicatorFeedKey(input: {
   return `${input.exchangeId}::${input.symbol}::${input.timeframe}::${input.indicatorId}::${input.paramsHash}`;
 }
 
-function canDispatchTimeframe(timeframe: BotRecord["runtime"]["executionTimeframe"]): boolean {
+function canDispatchTimeframe(
+  timeframe: BotRecord["runtime"]["executionTimeframe"],
+): boolean {
   const durationMs = getTimeframeDurationMs(timeframe);
-  return durationMs >= GLOBAL_DISPATCH_MS && durationMs % GLOBAL_DISPATCH_MS === 0;
+  return (
+    durationMs >= GLOBAL_DISPATCH_MS && durationMs % GLOBAL_DISPATCH_MS === 0
+  );
 }
 
-function aggregateBotRequirements(bot: BotRecord, requirements: StrategyFeedRequirements) {
+function aggregateBotRequirements(
+  bot: BotRecord,
+  requirements: StrategyFeedRequirements,
+) {
   const market = new Map<string, MarketFeedState>();
   const indicators = new Map<string, IndicatorFeedState>();
 
@@ -48,11 +86,17 @@ function aggregateBotRequirements(bot: BotRecord, requirements: StrategyFeedRequ
     const existing = market.get(key);
     if (existing) {
       existing.requiredByCount += 1;
-      existing.maxLookbackBars = Math.max(existing.maxLookbackBars, requirement.lookbackBars);
+      existing.maxLookbackBars = Math.max(
+        existing.maxLookbackBars,
+        requirement.lookbackBars,
+      );
       existing.requirement = {
         role: "shared",
         timeframe: requirement.timeframe,
-        lookbackBars: Math.max(existing.requirement.lookbackBars, requirement.lookbackBars),
+        lookbackBars: Math.max(
+          existing.requirement.lookbackBars,
+          requirement.lookbackBars,
+        ),
       };
       continue;
     }
@@ -89,10 +133,16 @@ function aggregateBotRequirements(bot: BotRecord, requirements: StrategyFeedRequ
     const existing = indicators.get(key);
     if (existing) {
       existing.requiredByCount += 1;
-      existing.maxLookbackBars = Math.max(existing.maxLookbackBars, requirement.lookbackBars);
+      existing.maxLookbackBars = Math.max(
+        existing.maxLookbackBars,
+        requirement.lookbackBars,
+      );
       existing.requirement = {
         ...existing.requirement,
-        lookbackBars: Math.max(existing.requirement.lookbackBars, requirement.lookbackBars),
+        lookbackBars: Math.max(
+          existing.requirement.lookbackBars,
+          requirement.lookbackBars,
+        ),
       };
       continue;
     }
@@ -123,6 +173,7 @@ function aggregateBotRequirements(bot: BotRecord, requirements: StrategyFeedRequ
 export async function buildFeedRegistrySnapshot(nowMs = Date.now()): Promise<{
   snapshot: FeedRegistrySnapshot;
   dueMarketFeeds: DueMarketFeedRefresh[];
+  dueIndicatorFeeds: DueIndicatorFeedRefresh[];
 }> {
   const bots = await loadActiveBots();
   const aggregatedMarket = new Map<string, MarketFeedState>();
@@ -141,8 +192,14 @@ export async function buildFeedRegistrySnapshot(nowMs = Date.now()): Promise<{
       const existing = aggregatedMarket.get(key);
       if (existing) {
         existing.requiredByCount += state.requiredByCount;
-        existing.maxLookbackBars = Math.max(existing.maxLookbackBars, state.maxLookbackBars);
-        existing.requirement.lookbackBars = Math.max(existing.requirement.lookbackBars, state.requirement.lookbackBars);
+        existing.maxLookbackBars = Math.max(
+          existing.maxLookbackBars,
+          state.maxLookbackBars,
+        );
+        existing.requirement.lookbackBars = Math.max(
+          existing.requirement.lookbackBars,
+          state.requirement.lookbackBars,
+        );
       } else {
         aggregatedMarket.set(key, state);
       }
@@ -153,8 +210,14 @@ export async function buildFeedRegistrySnapshot(nowMs = Date.now()): Promise<{
       const existing = aggregatedIndicators.get(key);
       if (existing) {
         existing.requiredByCount += state.requiredByCount;
-        existing.maxLookbackBars = Math.max(existing.maxLookbackBars, state.maxLookbackBars);
-        existing.requirement.lookbackBars = Math.max(existing.requirement.lookbackBars, state.requirement.lookbackBars);
+        existing.maxLookbackBars = Math.max(
+          existing.maxLookbackBars,
+          state.maxLookbackBars,
+        );
+        existing.requirement.lookbackBars = Math.max(
+          existing.requirement.lookbackBars,
+          state.requirement.lookbackBars,
+        );
       } else {
         aggregatedIndicators.set(key, state);
       }
@@ -162,10 +225,14 @@ export async function buildFeedRegistrySnapshot(nowMs = Date.now()): Promise<{
   }
 
   const dueMarketFeeds: DueMarketFeedRefresh[] = [];
+  const dueIndicatorFeeds: DueIndicatorFeedRefresh[] = [];
   const marketFeeds = await Promise.all(
     [...aggregatedMarket.values()].map(async (state) => {
       const existing = await getMarketFeedState(state);
-      const expectedClosedCandleTime = getClosedCandleEndTime(nowMs, state.timeframe);
+      const expectedClosedCandleTime = getClosedCandleEndTime(
+        nowMs,
+        state.timeframe,
+      );
       const durationMs = getTimeframeDurationMs(state.timeframe);
       const isFresh =
         existing?.status === "ready" &&
@@ -223,7 +290,10 @@ export async function buildFeedRegistrySnapshot(nowMs = Date.now()): Promise<{
           market.symbol === state.symbol &&
           market.timeframe === state.timeframe,
       );
-      const expectedClosedCandleTime = getClosedCandleEndTime(nowMs, state.timeframe);
+      const expectedClosedCandleTime = getClosedCandleEndTime(
+        nowMs,
+        state.timeframe,
+      );
       const upstreamFresh =
         upstream?.status === "ready" &&
         typeof upstream.lastClosedCandleTime === "number" &&
@@ -243,6 +313,25 @@ export async function buildFeedRegistrySnapshot(nowMs = Date.now()): Promise<{
       };
 
       await putIndicatorFeedState(nextState);
+      if (
+        upstreamFresh &&
+        expectedClosedCandleTime > 0 &&
+        (!existing ||
+          existing.lastComputedCandleTime !== expectedClosedCandleTime) &&
+        nextState.status !== "ready"
+      ) {
+        dueIndicatorFeeds.push({
+          exchangeId: state.exchangeId,
+          symbol: state.symbol,
+          timeframe: state.timeframe,
+          indicatorId: state.indicatorId,
+          paramsHash: state.paramsHash,
+          requiredAt: expectedClosedCandleTime,
+          reason: existing
+            ? "stale_or_missing_indicator"
+            : "new_indicator_requirement",
+        });
+      }
       return nextState;
     }),
   );
@@ -254,5 +343,6 @@ export async function buildFeedRegistrySnapshot(nowMs = Date.now()): Promise<{
       indicatorFeeds,
     },
     dueMarketFeeds,
+    dueIndicatorFeeds,
   };
 }

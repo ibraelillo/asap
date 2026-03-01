@@ -1,10 +1,18 @@
 import { SendMessageCommand, SQSClient } from "@aws-sdk/client-sqs";
 import { Resource } from "sst";
-import { getBotExecutionCursor, getMarketFeedState } from "./feed-store";
-import { getClosedCandleEndTime, getTimeframeDurationMs } from "./runtime-config";
+import {
+  getBotExecutionCursor,
+  getIndicatorFeedState,
+  getMarketFeedState,
+} from "./feed-store";
+import {
+  getClosedCandleEndTime,
+  getTimeframeDurationMs,
+} from "./runtime-config";
 import { loadActiveBots } from "./runtime-bots";
 import { getRuntimeSettings } from "./runtime-settings";
 import { strategyRegistry } from "./strategy-registry";
+import { createIndicatorParamsHash } from "@repo/trading-engine";
 
 const sqs = new SQSClient({});
 const GLOBAL_DISPATCH_MS = 5 * 60_000;
@@ -17,7 +25,10 @@ interface ExecutionJobMessage {
 }
 
 function getQueueUrl(name: string): string {
-  const resources = Resource as unknown as Record<string, { url?: string } | undefined>;
+  const resources = Resource as unknown as Record<
+    string,
+    { url?: string } | undefined
+  >;
   const url = resources[name]?.url;
   if (typeof url === "string" && url.length > 0) {
     return url;
@@ -27,7 +38,9 @@ function getQueueUrl(name: string): string {
 
 function canDispatchTimeframe(timeframe: string): boolean {
   const durationMs = getTimeframeDurationMs(timeframe as never);
-  return durationMs >= GLOBAL_DISPATCH_MS && durationMs % GLOBAL_DISPATCH_MS === 0;
+  return (
+    durationMs >= GLOBAL_DISPATCH_MS && durationMs % GLOBAL_DISPATCH_MS === 0
+  );
 }
 
 export async function handler() {
@@ -56,19 +69,17 @@ export async function handler() {
       continue;
     }
 
-    const closedCandleTime = getClosedCandleEndTime(nowMs, bot.runtime.executionTimeframe);
     const cursor = await getBotExecutionCursor({
       botId: bot.id,
       timeframe: bot.runtime.executionTimeframe,
     });
-    if (cursor && cursor.lastProcessedCandleCloseMs >= closedCandleTime) {
-      skippedNotDue += 1;
-      continue;
-    }
 
     const resolved = strategyRegistry.get(bot);
-    const feeds = resolved.manifest.requiredFeeds({ bot, config: resolved.config });
-    const feedStates = await Promise.all(
+    const feeds = resolved.manifest.requiredFeeds({
+      bot,
+      config: resolved.config,
+    });
+    const marketFeedStates = await Promise.all(
       feeds.candles.map((requirement) =>
         getMarketFeedState({
           exchangeId: bot.exchangeId,
@@ -77,16 +88,74 @@ export async function handler() {
         }),
       ),
     );
+    const indicatorFeedStates = await Promise.all(
+      feeds.indicators.map((requirement) =>
+        getIndicatorFeedState({
+          exchangeId: bot.exchangeId,
+          symbol: bot.symbol,
+          timeframe: requirement.timeframe,
+          indicatorId: requirement.indicatorId,
+          paramsHash: createIndicatorParamsHash({
+            indicatorId: requirement.indicatorId,
+            source: requirement.source,
+            params: requirement.params,
+          }),
+        }),
+      ),
+    );
 
-    const allFresh = feedStates.every((state, index) => {
+    const executionFeed = marketFeedStates.find(
+      (state) => state?.timeframe === bot.runtime.executionTimeframe,
+    );
+    const executionClosedCandleTime =
+      executionFeed?.status === "ready"
+        ? executionFeed.lastClosedCandleTime
+        : 0;
+    if (
+      !executionClosedCandleTime ||
+      !Number.isFinite(executionClosedCandleTime)
+    ) {
+      skippedMissingFeeds += 1;
+      continue;
+    }
+
+    if (
+      cursor &&
+      cursor.lastProcessedCandleCloseMs >= executionClosedCandleTime
+    ) {
+      skippedNotDue += 1;
+      continue;
+    }
+
+    const allMarketFeedsFresh = marketFeedStates.every((state, index) => {
       if (!state || state.status !== "ready") return false;
       const requirement = feeds.candles[index];
       if (!requirement) return false;
-      const requiredClosedTime = getClosedCandleEndTime(nowMs, requirement.timeframe);
-      return typeof state.lastClosedCandleTime === "number" && state.lastClosedCandleTime >= requiredClosedTime;
+      const requiredClosedTime = getClosedCandleEndTime(
+        executionClosedCandleTime + 1,
+        requirement.timeframe,
+      );
+      return (
+        typeof state.lastClosedCandleTime === "number" &&
+        state.lastClosedCandleTime >= requiredClosedTime
+      );
     });
 
-    if (!allFresh) {
+    const allIndicatorFeedsFresh = indicatorFeedStates.every((state, index) => {
+      if (!state || state.status !== "ready") return false;
+      const requirement = feeds.indicators[index];
+      if (!requirement) return false;
+      const requiredClosedTime = getClosedCandleEndTime(
+        executionClosedCandleTime + 1,
+        requirement.timeframe,
+      );
+      return (
+        typeof state.lastComputedCandleTime === "number" &&
+        state.lastComputedCandleTime >= requiredClosedTime
+      );
+    });
+
+    if (!allMarketFeedsFresh || !allIndicatorFeedsFresh) {
       skippedMissingFeeds += 1;
       continue;
     }
@@ -94,9 +163,16 @@ export async function handler() {
     const message: ExecutionJobMessage = {
       botId: bot.id,
       executionTimeframe: bot.runtime.executionTimeframe,
-      closedCandleTime,
-      requiredFeedVersion: feedStates
-        .map((state) => `${state?.timeframe}:${state?.lastClosedCandleTime ?? 0}`)
+      closedCandleTime: executionClosedCandleTime,
+      requiredFeedVersion: [
+        ...marketFeedStates.map(
+          (state) => `${state?.timeframe}:${state?.lastClosedCandleTime ?? 0}`,
+        ),
+        ...indicatorFeedStates.map(
+          (state) =>
+            `${state?.timeframe}:${state?.indicatorId ?? "unknown"}:${state?.lastComputedCandleTime ?? 0}`,
+        ),
+      ]
         .sort()
         .join("|"),
     };
@@ -113,7 +189,7 @@ export async function handler() {
       botId: bot.id,
       symbol: bot.symbol,
       executionTimeframe: bot.runtime.executionTimeframe,
-      closedCandleTime,
+      closedCandleTime: executionClosedCandleTime,
       requiredFeedsFresh: true,
     });
   }

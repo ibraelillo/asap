@@ -55,6 +55,7 @@ export class BotRuntimeOrchestrator<TConfig, TSnapshot, TMeta = unknown> {
         primaryRange: primaryRangeCandles,
         secondaryRange: secondaryRangeCandles,
       },
+      indicators: this.deps.indicators,
     };
 
     const snapshot = this.strategy.buildSnapshot({

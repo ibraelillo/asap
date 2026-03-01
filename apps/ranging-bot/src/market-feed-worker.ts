@@ -1,10 +1,18 @@
+import { SendMessageCommand, SQSClient } from "@aws-sdk/client-sqs";
+import { Resource } from "sst";
 import type { SQSEvent } from "aws-lambda";
 import { exchangeAdapterRegistry } from "./exchange-adapter-registry";
-import { getMarketFeedState, putMarketFeedState } from "./feed-store";
+import {
+  getMarketFeedState,
+  listIndicatorFeedStatesForTimeframe,
+  putMarketFeedState,
+} from "./feed-store";
 import { getRuntimeSettings } from "./runtime-settings";
 import { saveMarketFeedSnapshot } from "./shared-market-snapshots";
 import { getTimeframeDurationMs } from "./runtime-config";
 import type { MarketFeedState } from "./monitoring/types";
+
+const sqs = new SQSClient({});
 
 interface MarketFeedRefreshMessage {
   exchangeId: string;
@@ -42,6 +50,18 @@ function asMessage(body: string): MarketFeedRefreshMessage | null {
   }
 }
 
+function getQueueUrl(name: string): string {
+  const resources = Resource as unknown as Record<
+    string,
+    { url?: string } | undefined
+  >;
+  const url = resources[name]?.url;
+  if (typeof url === "string" && url.length > 0) {
+    return url;
+  }
+  throw new Error(`Missing linked Resource.${name}.url`);
+}
+
 async function markRefreshing(message: MarketFeedRefreshMessage) {
   const existing = await getMarketFeedState(message);
   const nextState: MarketFeedState = {
@@ -49,7 +69,10 @@ async function markRefreshing(message: MarketFeedRefreshMessage) {
     symbol: message.symbol,
     timeframe: message.timeframe,
     requiredByCount: existing?.requiredByCount ?? 0,
-    maxLookbackBars: Math.max(existing?.maxLookbackBars ?? 0, message.lookbackBars),
+    maxLookbackBars: Math.max(
+      existing?.maxLookbackBars ?? 0,
+      message.lookbackBars,
+    ),
     lastClosedCandleTime: existing?.lastClosedCandleTime,
     lastRefreshedAt: existing?.lastRefreshedAt,
     nextDueAt: message.requiredAt + getTimeframeDurationMs(message.timeframe),
@@ -84,7 +107,9 @@ export async function handler(event: SQSEvent) {
 
     try {
       await markRefreshing(message);
-      const publicAdapter = exchangeAdapterRegistry.getPublic(message.exchangeId);
+      const publicAdapter = exchangeAdapterRegistry.getPublic(
+        message.exchangeId,
+      );
       const provider = publicAdapter.createKlineProvider({
         exchangeId: message.exchangeId,
         nowMs: Date.now(),
@@ -114,10 +139,14 @@ export async function handler(event: SQSEvent) {
         symbol: message.symbol,
         timeframe: message.timeframe,
         requiredByCount: existing?.requiredByCount ?? 0,
-        maxLookbackBars: Math.max(existing?.maxLookbackBars ?? 0, message.lookbackBars),
+        maxLookbackBars: Math.max(
+          existing?.maxLookbackBars ?? 0,
+          message.lookbackBars,
+        ),
         lastClosedCandleTime: snapshot.lastClosedCandleTime,
         lastRefreshedAt: Date.now(),
-        nextDueAt: message.requiredAt + getTimeframeDurationMs(message.timeframe),
+        nextDueAt:
+          message.requiredAt + getTimeframeDurationMs(message.timeframe),
         status: "ready",
         storageKey: snapshot.storageKey,
         candleCount: snapshot.candles.length,
@@ -128,6 +157,28 @@ export async function handler(event: SQSEvent) {
           lookbackBars: message.lookbackBars,
         },
       });
+      const indicatorQueueUrl = getQueueUrl("RangingIndicatorRefreshQueue");
+      const dependentIndicators = await listIndicatorFeedStatesForTimeframe({
+        exchangeId: message.exchangeId,
+        symbol: message.symbol,
+        timeframe: message.timeframe,
+      });
+      for (const indicator of dependentIndicators) {
+        await sqs.send(
+          new SendMessageCommand({
+            QueueUrl: indicatorQueueUrl,
+            MessageBody: JSON.stringify({
+              exchangeId: indicator.exchangeId,
+              symbol: indicator.symbol,
+              timeframe: indicator.timeframe,
+              indicatorId: indicator.indicatorId,
+              paramsHash: indicator.paramsHash,
+              requiredAt: snapshot.lastClosedCandleTime,
+              reason: "upstream_market_feed_refreshed",
+            }),
+          }),
+        );
+      }
       processed += 1;
       console.log("[market-feed-worker] refreshed", {
         exchangeId: message.exchangeId,
@@ -146,10 +197,14 @@ export async function handler(event: SQSEvent) {
         symbol: message.symbol,
         timeframe: message.timeframe,
         requiredByCount: existing?.requiredByCount ?? 0,
-        maxLookbackBars: Math.max(existing?.maxLookbackBars ?? 0, message.lookbackBars),
+        maxLookbackBars: Math.max(
+          existing?.maxLookbackBars ?? 0,
+          message.lookbackBars,
+        ),
         lastClosedCandleTime: existing?.lastClosedCandleTime,
         lastRefreshedAt: Date.now(),
-        nextDueAt: message.requiredAt + getTimeframeDurationMs(message.timeframe),
+        nextDueAt:
+          message.requiredAt + getTimeframeDurationMs(message.timeframe),
         status: "error",
         storageKey: existing?.storageKey,
         candleCount: existing?.candleCount,

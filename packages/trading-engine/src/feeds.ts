@@ -52,6 +52,18 @@ export interface IndicatorFeedSnapshotMeta {
   errorMessage?: string;
 }
 
+export interface IndicatorFeedSnapshot {
+  exchangeId: string;
+  symbol: string;
+  timeframe: Timeframe;
+  indicatorId: string;
+  paramsHash: string;
+  generatedAt: string;
+  lastComputedCandleTime: number;
+  times: number[];
+  outputs: Record<string, number[]>;
+}
+
 export function stableStringify(value: unknown): string {
   if (Array.isArray(value)) {
     return `[${value.map((entry) => stableStringify(entry)).join(",")}]`;

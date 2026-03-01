@@ -85,6 +85,16 @@ export interface StrategyMarketContext {
   executionCandles: Candle[];
   index: number;
   series: Record<string, Candle[]>;
+  indicators?: Record<
+    string,
+    {
+      timeframe: Timeframe;
+      indicatorId: string;
+      paramsHash: string;
+      times: number[];
+      outputs: Record<string, number[]>;
+    }
+  >;
   validations?: Record<string, unknown>;
 }
 

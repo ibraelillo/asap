@@ -36,6 +36,12 @@ export interface SignalSnapshotInput {
   index: number;
   primaryRangeCandles?: Candle[];
   secondaryRangeCandles?: Candle[];
+  indicators?: Record<
+    string,
+    {
+      outputs: Record<string, number[]>;
+    }
+  >;
   config: RangeReversalConfig;
 }
 
@@ -117,16 +123,28 @@ export function buildSignalSnapshot(
   );
   range = applyRangeOverrides(range, candle);
 
-  const wt = computeWaveTrend(
-    executionSlice,
-    config.signal.waveTrendChannelLength,
-    config.signal.waveTrendAverageLength,
-    config.signal.waveTrendSignalLength,
-  );
-  const moneyFlow = computeMoneyFlow(
-    executionSlice,
-    config.signal.moneyFlowPeriod,
-  );
+  const sharedWaveTrend = input.indicators?.wavetrend?.outputs;
+  const sharedMoneyFlow = input.indicators?.moneyflow?.outputs?.value;
+  const wt =
+    Array.isArray(sharedWaveTrend?.wt1) &&
+    Array.isArray(sharedWaveTrend?.wt2) &&
+    sharedWaveTrend.wt1.length >= executionSlice.length &&
+    sharedWaveTrend.wt2.length >= executionSlice.length
+      ? {
+          wt1: sharedWaveTrend.wt1.slice(0, executionSlice.length),
+          wt2: sharedWaveTrend.wt2.slice(0, executionSlice.length),
+        }
+      : computeWaveTrend(
+          executionSlice,
+          config.signal.waveTrendChannelLength,
+          config.signal.waveTrendAverageLength,
+          config.signal.waveTrendSignalLength,
+        );
+  const moneyFlow =
+    Array.isArray(sharedMoneyFlow) &&
+    sharedMoneyFlow.length >= executionSlice.length
+      ? sharedMoneyFlow.slice(0, executionSlice.length)
+      : computeMoneyFlow(executionSlice, config.signal.moneyFlowPeriod);
 
   const moneyFlowSlope =
     candle.features?.moneyFlowSlope ??
@@ -541,6 +559,7 @@ export function createRangeReversalStrategy(
         index: market.index,
         primaryRangeCandles: market.series.primaryRange,
         secondaryRangeCandles: market.series.secondaryRange,
+        indicators: market.indicators,
         config,
       });
     },

@@ -20,6 +20,16 @@ export interface CreateBotRuntimeInput<
   executionContext: ExecutionContext<TAccount>;
   signalProcessorOptions?: unknown;
   klineProviderOverride?: ExchangeKlineProvider;
+  indicatorsOverride?: Record<
+    string,
+    {
+      timeframe: import("@repo/trading-engine").Timeframe;
+      indicatorId: string;
+      paramsHash: string;
+      times: number[];
+      outputs: Record<string, number[]>;
+    }
+  >;
 }
 
 export function createBotRuntime<
@@ -46,6 +56,7 @@ export function createBotRuntime<
     {
       klineProvider,
       signalProcessor,
+      indicators: input.indicatorsOverride,
     },
     resolved.strategy,
     resolved.config,

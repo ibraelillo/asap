@@ -1,9 +1,26 @@
 import type { SQSEvent } from "aws-lambda";
+import { createIndicatorParamsHash } from "@repo/trading-engine";
 import { exchangeAdapterRegistry } from "./exchange-adapter-registry";
-import { advanceBotExecutionCursor, getBotExecutionCursor } from "./feed-store";
-import { buildExecutionContext, getGlobalExecutionDefaults, persistRunOutcome, toFailedRunRecord, toPositionState, toRunInput, toRunRecord } from "./bot-run-runtime";
-import { getLatestOpenPositionByBot, getBotRecordById } from "./monitoring/store";
+import {
+  advanceBotExecutionCursor,
+  getBotExecutionCursor,
+  getIndicatorFeedState,
+} from "./feed-store";
+import {
+  buildExecutionContext,
+  getGlobalExecutionDefaults,
+  persistRunOutcome,
+  toFailedRunRecord,
+  toPositionState,
+  toRunInput,
+  toRunRecord,
+} from "./bot-run-runtime";
+import {
+  getLatestOpenPositionByBot,
+  getBotRecordById,
+} from "./monitoring/store";
 import { loadLatestMarketFeedSnapshot } from "./shared-market-snapshots";
+import { loadLatestIndicatorFeedSnapshot } from "./shared-indicator-snapshots";
 import { SharedFeedBackedKlineProvider } from "./shared-kline-provider";
 import { getClosedCandleEndTime } from "./runtime-config";
 import { getRuntimeSettings } from "./runtime-settings";
@@ -67,7 +84,10 @@ export async function handler(event: SQSEvent) {
       botId: bot.id,
       timeframe: bot.runtime.executionTimeframe,
     });
-    if (cursor && cursor.lastProcessedCandleCloseMs >= message.closedCandleTime) {
+    if (
+      cursor &&
+      cursor.lastProcessedCandleCloseMs >= message.closedCandleTime
+    ) {
       skipped += 1;
       continue;
     }
@@ -77,7 +97,10 @@ export async function handler(event: SQSEvent) {
 
     try {
       const resolved = strategyRegistry.get(bot);
-      const requiredFeeds = resolved.manifest.requiredFeeds({ bot, config: resolved.config });
+      const requiredFeeds = resolved.manifest.requiredFeeds({
+        bot,
+        config: resolved.config,
+      });
       const snapshots = await Promise.all(
         requiredFeeds.candles.map((requirement) =>
           loadLatestMarketFeedSnapshot({
@@ -85,6 +108,34 @@ export async function handler(event: SQSEvent) {
             symbol: bot.symbol,
             timeframe: requirement.timeframe,
           }),
+        ),
+      );
+      const indicatorStates = await Promise.all(
+        requiredFeeds.indicators.map((requirement) =>
+          getIndicatorFeedState({
+            exchangeId: bot.exchangeId,
+            symbol: bot.symbol,
+            timeframe: requirement.timeframe,
+            indicatorId: requirement.indicatorId,
+            paramsHash: createIndicatorParamsHash({
+              indicatorId: requirement.indicatorId,
+              source: requirement.source,
+              params: requirement.params,
+            }),
+          }),
+        ),
+      );
+      const indicatorSnapshots = await Promise.all(
+        indicatorStates.map((state) =>
+          state
+            ? loadLatestIndicatorFeedSnapshot({
+                exchangeId: state.exchangeId,
+                symbol: state.symbol,
+                timeframe: state.timeframe,
+                indicatorId: state.indicatorId,
+                paramsHash: state.paramsHash,
+              })
+            : Promise.resolve(null),
         ),
       );
 
@@ -98,7 +149,21 @@ export async function handler(event: SQSEvent) {
         return snapshot.lastClosedCandleTime >= requiredClosed;
       });
 
-      if (!allFresh) {
+      const allIndicatorsFresh = indicatorStates.every((state, index) => {
+        const requirement = requiredFeeds.indicators[index];
+        if (!state || !requirement) return false;
+        const requiredClosed = getClosedCandleEndTime(
+          message.closedCandleTime + 1,
+          requirement.timeframe,
+        );
+        return (
+          state.status === "ready" &&
+          typeof state.lastComputedCandleTime === "number" &&
+          state.lastComputedCandleTime >= requiredClosed
+        );
+      });
+
+      if (!allFresh || !allIndicatorsFresh) {
         skipped += 1;
         console.warn("[bot-execution-worker] skipped due stale shared feeds", {
           botId: bot.id,
@@ -109,11 +174,35 @@ export async function handler(event: SQSEvent) {
         continue;
       }
 
-      const executionContext = await buildExecutionContext(bot, defaults.dryRun);
+      const executionContext = await buildExecutionContext(
+        bot,
+        defaults.dryRun,
+      );
       const publicAdapter = exchangeAdapterRegistry.getPublic(bot.exchangeId);
       const privateAdapter = exchangeAdapterRegistry.getPrivate(bot.exchangeId);
       const sharedKlineProvider = new SharedFeedBackedKlineProvider(
-        snapshots.filter((snapshot): snapshot is NonNullable<typeof snapshot> => Boolean(snapshot)),
+        snapshots.filter((snapshot): snapshot is NonNullable<typeof snapshot> =>
+          Boolean(snapshot),
+        ),
+      );
+      const indicatorsOverride = Object.fromEntries(
+        requiredFeeds.indicators.flatMap((requirement, index) => {
+          const snapshot = indicatorSnapshots[index];
+          const state = indicatorStates[index];
+          if (!snapshot || !state) return [];
+          return [
+            [
+              requirement.role,
+              {
+                timeframe: snapshot.timeframe,
+                indicatorId: snapshot.indicatorId,
+                paramsHash: snapshot.paramsHash,
+                times: snapshot.times,
+                outputs: snapshot.outputs,
+              },
+            ],
+          ];
+        }),
       );
       const runtime = createBotRuntime({
         bot,
@@ -121,6 +210,7 @@ export async function handler(event: SQSEvent) {
         executionAdapter: privateAdapter,
         executionContext,
         klineProviderOverride: sharedKlineProvider,
+        indicatorsOverride,
         signalProcessorOptions: {
           dryRun: executionContext.dryRun,
           marginMode: bot.runtime.marginMode ?? defaults.marginMode,
@@ -132,7 +222,12 @@ export async function handler(event: SQSEvent) {
         runInput,
         toPositionState(positionBefore ?? null),
       );
-      const runRecord = toRunRecord(bot, runInput, positionBefore ?? null, strategyEvent);
+      const runRecord = toRunRecord(
+        bot,
+        runInput,
+        positionBefore ?? null,
+        strategyEvent,
+      );
       await persistRunOutcome(bot, positionBefore ?? null, runRecord);
       await advanceBotExecutionCursor({
         botId: bot.id,

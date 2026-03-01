@@ -373,6 +373,17 @@ export default $config({
     marketFeedRefreshQueue.subscribe({
       handler: "apps/ranging-bot/src/market-feed-worker.handler",
       timeout: "2 minutes",
+      link: [
+        feedsTable,
+        klineCacheBucket,
+        runtimeConfig,
+        indicatorRefreshQueue,
+      ],
+    });
+
+    indicatorRefreshQueue.subscribe({
+      handler: "apps/ranging-bot/src/indicator-refresh-worker.handler",
+      timeout: "2 minutes",
       link: [feedsTable, klineCacheBucket, runtimeConfig],
     });
 

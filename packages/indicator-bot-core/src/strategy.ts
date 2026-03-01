@@ -29,6 +29,43 @@ function latestSeriesValuesAt(
   };
 }
 
+function getIndicatorValuesAtRole(
+  market: StrategySnapshotInput<IndicatorBotConfig>["market"],
+  role: string,
+  output = "value",
+): number[] | null {
+  const outputs = market.indicators?.[role]?.outputs;
+  if (!outputs) return null;
+  const series = outputs[output];
+  return Array.isArray(series) ? series : null;
+}
+
+function classifyHigherTimeframeTrendFromShared(
+  candles: Candle[],
+  emaValues: number[] | null,
+  slopeLookbackBars: number,
+): Side | "neutral" {
+  if (!emaValues || emaValues.length === 0 || candles.length === 0) {
+    return "neutral";
+  }
+  const index = candles.length - 1;
+  const price = candles[index]?.close;
+  const emaValue = emaValues[index];
+  if (
+    price === undefined ||
+    emaValue === undefined ||
+    !Number.isFinite(price) ||
+    !Number.isFinite(emaValue)
+  ) {
+    return "neutral";
+  }
+
+  const slopePct = slopePctAt(emaValues, index, slopeLookbackBars, price);
+  if (price > emaValue && slopePct > 0) return "long";
+  if (price < emaValue && slopePct < 0) return "short";
+  return "neutral";
+}
+
 function classifyHigherTimeframeTrend(
   candles: Candle[],
   emaLength: number,
@@ -292,11 +329,21 @@ export function buildIndicatorBotSnapshot({
 
   const closes = executionCandles.map((candle) => candle.close);
   const volumes = executionCandles.map((candle) => candle.volume);
-  const fastEmaSeries = ema(closes, config.trend.fastEmaLength);
-  const slowEmaSeries = ema(closes, config.trend.slowEmaLength);
-  const rsiSeries = computeRsi(closes, config.momentum.rsiLength);
-  const atrSeries = computeAtr(executionCandles, config.volatility.atrLength);
-  const volumeSmaSeries = sma(volumes, config.volume.volumeSmaLength);
+  const fastEmaSeries =
+    getIndicatorValuesAtRole(market, "fastEma") ??
+    ema(closes, config.trend.fastEmaLength);
+  const slowEmaSeries =
+    getIndicatorValuesAtRole(market, "slowEma") ??
+    ema(closes, config.trend.slowEmaLength);
+  const rsiSeries =
+    getIndicatorValuesAtRole(market, "rsi") ??
+    computeRsi(closes, config.momentum.rsiLength);
+  const atrSeries =
+    getIndicatorValuesAtRole(market, "atr") ??
+    computeAtr(executionCandles, config.volatility.atrLength);
+  const volumeSmaSeries =
+    getIndicatorValuesAtRole(market, "volumeSma") ??
+    sma(volumes, config.volume.volumeSmaLength);
   const index = executionCandles.length - 1;
 
   const fastEma = fastEmaSeries[index] ?? current.close;
@@ -334,18 +381,36 @@ export function buildIndicatorBotSnapshot({
     atr,
     volumeRatio,
     primaryTrend: primarySeries
-      ? classifyHigherTimeframeTrend(
-          primarySeries.candles,
-          config.trend.higherTimeframeEmaLength,
-          config.trend.slopeLookbackBars,
-        )
+      ? (() => {
+          const sharedTrend = classifyHigherTimeframeTrendFromShared(
+            primarySeries.candles,
+            getIndicatorValuesAtRole(market, "higherTimeframeEmaPrimary"),
+            config.trend.slopeLookbackBars,
+          );
+          return sharedTrend !== "neutral"
+            ? sharedTrend
+            : classifyHigherTimeframeTrend(
+                primarySeries.candles,
+                config.trend.higherTimeframeEmaLength,
+                config.trend.slopeLookbackBars,
+              );
+        })()
       : ("neutral" as const),
     secondaryTrend: secondarySeries
-      ? classifyHigherTimeframeTrend(
-          secondarySeries.candles,
-          config.trend.higherTimeframeEmaLength,
-          config.trend.slopeLookbackBars,
-        )
+      ? (() => {
+          const sharedTrend = classifyHigherTimeframeTrendFromShared(
+            secondarySeries.candles,
+            getIndicatorValuesAtRole(market, "higherTimeframeEmaSecondary"),
+            config.trend.slopeLookbackBars,
+          );
+          return sharedTrend !== "neutral"
+            ? sharedTrend
+            : classifyHigherTimeframeTrend(
+                secondarySeries.candles,
+                config.trend.higherTimeframeEmaLength,
+                config.trend.slopeLookbackBars,
+              );
+        })()
       : ("neutral" as const),
   };
 
