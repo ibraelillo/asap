@@ -11,6 +11,7 @@ import {
   advanceProcessingCursor,
   getLatestOpenPositionByBot,
   getProcessingCursor,
+  putDecisionRecord,
   putFillRecord,
   putOrderRecord,
   putPositionRecord,
@@ -198,6 +199,7 @@ function toRunRecord(
   return {
     id: `${bot.id}-${event.generatedAtMs}`,
     botId: bot.id,
+    deploymentId: bot.deploymentId,
     botName: bot.name,
     strategyId: bot.strategyId,
     strategyVersion: bot.strategyVersion,
@@ -244,6 +246,7 @@ function toFailedRunRecord(
   return {
     id: `${bot.id}-${recordedAtMs}`,
     botId: bot.id,
+    deploymentId: bot.deploymentId,
     botName: bot.name,
     strategyId: bot.strategyId,
     strategyVersion: bot.strategyVersion,
@@ -288,6 +291,50 @@ function toPositionState(record: PositionRecord | null): PositionState | null {
 
 async function persistAndBroadcast(record: BotRunRecord): Promise<void> {
   await Promise.allSettled([putRunRecord(record), publishRunRecord(record)]);
+}
+
+function toDecisionRecord(
+  bot: BotRecord,
+  event: StrategySignalEvent,
+): import("./monitoring/types").DecisionRecord {
+  const manifest = strategyRegistry.getManifest(bot.strategyId);
+  const primaryIntent = event.decision.intents.find(
+    (intent) =>
+      intent.kind === "enter" ||
+      intent.kind === "close" ||
+      intent.kind === "reduce" ||
+      intent.kind === "move-stop",
+  );
+
+  return {
+    id: `${bot.deploymentId}-${event.generatedAtMs}`,
+    deploymentId: bot.deploymentId,
+    strategyId: bot.strategyId,
+    strategyVersion: bot.strategyVersion,
+    botId: bot.id,
+    symbol: bot.symbol,
+    decisionTime: event.generatedAtMs,
+    generatedAtMs: event.generatedAtMs,
+    action:
+      primaryIntent?.kind === "enter"
+        ? "trade"
+        : primaryIntent?.kind === "close"
+          ? "exit"
+          : event.decision.intents.some((intent) => intent.kind !== "hold")
+            ? "trade"
+            : "hold",
+    direction:
+      primaryIntent && "side" in primaryIntent
+        ? primaryIntent.side
+        : undefined,
+    reasons: event.decision.reasons,
+    decision: event.decision as unknown as Record<string, unknown>,
+    snapshot: event.snapshot as Record<string, unknown>,
+    strategyAnalysis: manifest.buildAnalysis({
+      snapshot: event.snapshot,
+      decision: event.decision,
+    }),
+  };
 }
 
 export const handler = async (incomingEvent?: CronTickEvent) => {
@@ -425,6 +472,7 @@ export const handler = async (incomingEvent?: CronTickEvent) => {
         positionBefore ?? null,
         strategyEvent,
       );
+      const decisionRecord = toDecisionRecord(bot, strategyEvent);
       const reconciledPosition = reconcilePositionRecord(
         bot,
         positionBefore ?? null,
@@ -450,7 +498,10 @@ export const handler = async (incomingEvent?: CronTickEvent) => {
         runRecord.generatedAtMs,
       );
 
-      await persistAndBroadcast(runRecord);
+      await Promise.allSettled([
+        persistAndBroadcast(runRecord),
+        putDecisionRecord(decisionRecord),
+      ]);
       await Promise.allSettled([
         reconciledPosition
           ? putPositionRecord(reconciledPosition)

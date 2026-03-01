@@ -8,6 +8,7 @@ export interface RangeValidationRequestedDetail {
   validationId: string;
   createdAtMs: number;
   botId: string;
+  deploymentId: string;
   botName: string;
   strategyId: string;
   symbol: string;

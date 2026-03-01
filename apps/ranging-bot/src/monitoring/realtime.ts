@@ -21,7 +21,7 @@ function getResourceConfig(): Partial<RealtimeConfig> {
     >;
 
     return {
-      endpoint: resources.RangingRealtime?.endpoint,
+      endpoint: resources.Realtime?.endpoint,
     };
   } catch {
     return {};

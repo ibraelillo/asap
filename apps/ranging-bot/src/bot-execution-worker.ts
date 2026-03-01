@@ -10,6 +10,7 @@ import {
   buildExecutionContext,
   getGlobalExecutionDefaults,
   persistRunOutcome,
+  toDecisionRecord,
   toFailedRunRecord,
   toPositionState,
   toRunInput,
@@ -228,7 +229,13 @@ export async function handler(event: SQSEvent) {
         positionBefore ?? null,
         strategyEvent,
       );
-      await persistRunOutcome(bot, positionBefore ?? null, runRecord);
+      const decisionRecord = toDecisionRecord(bot, strategyEvent);
+      await persistRunOutcome(
+        bot,
+        positionBefore ?? null,
+        runRecord,
+        decisionRecord,
+      );
       await advanceBotExecutionCursor({
         botId: bot.id,
         timeframe: bot.runtime.executionTimeframe,

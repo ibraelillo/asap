@@ -60,7 +60,7 @@ export default $config({
       process.env.RANGING_KLINE_HTTP_BACKOFF_MS ?? "350";
     const backtestRunningStaleMs =
       process.env.RANGING_BACKTEST_RUNNING_STALE_MS ?? "1200000";
-    const runsTable = new sst.aws.Dynamo("RangingBotRuns", {
+    const executionHistoryTable = new sst.aws.Dynamo("ExecutionHistory", {
       fields: {
         PK: "string",
         SK: "string",
@@ -78,7 +78,7 @@ export default $config({
         },
       },
     });
-    const accountsTable = new sst.aws.Dynamo("RangingAccounts", {
+    const accountsTable = new sst.aws.Dynamo("Accounts", {
       fields: {
         PK: "string",
         SK: "string",
@@ -96,7 +96,7 @@ export default $config({
         },
       },
     });
-    const feedsTable = new sst.aws.Dynamo("RangingFeeds", {
+    const feedsTable = new sst.aws.Dynamo("Feeds", {
       fields: {
         PK: "string",
         SK: "string",
@@ -115,7 +115,64 @@ export default $config({
       },
     });
 
-    const klineCacheBucket = new sst.aws.Bucket("RangingKlineCache", {
+    const deploymentsTable = new sst.aws.Dynamo("Deployments", {
+      fields: {
+        PK: "string",
+        SK: "string",
+        GSI1PK: "string",
+        GSI1SK: "string",
+      },
+      primaryIndex: {
+        hashKey: "PK",
+        rangeKey: "SK",
+      },
+      globalIndexes: {
+        ByStrategy: {
+          hashKey: "GSI1PK",
+          rangeKey: "GSI1SK",
+        },
+      },
+    });
+
+    const decisionsTable = new sst.aws.Dynamo("Decisions", {
+      fields: {
+        PK: "string",
+        SK: "string",
+        GSI1PK: "string",
+        GSI1SK: "string",
+      },
+      primaryIndex: {
+        hashKey: "PK",
+        rangeKey: "SK",
+      },
+      globalIndexes: {
+        ByDeployment: {
+          hashKey: "GSI1PK",
+          rangeKey: "GSI1SK",
+        },
+      },
+    });
+
+    const backtestsTable = new sst.aws.Dynamo("Backtests", {
+      fields: {
+        PK: "string",
+        SK: "string",
+        GSI1PK: "string",
+        GSI1SK: "string",
+      },
+      primaryIndex: {
+        hashKey: "PK",
+        rangeKey: "SK",
+      },
+      globalIndexes: {
+        ByDeployment: {
+          hashKey: "GSI1PK",
+          rangeKey: "GSI1SK",
+        },
+      },
+    });
+
+    const marketDataBucket = new sst.aws.Bucket("MarketData", {
       access: "cloudfront",
       cors: {
         allowOrigins: ["*"],
@@ -123,16 +180,16 @@ export default $config({
         allowHeaders: ["*"],
       },
     });
-    const backtestBus = new sst.aws.Bus("RangingBacktestBus");
+    const strategyBus = new sst.aws.Bus("StrategyBus");
 
-    const router = new sst.aws.Router("RangingRouter");
-    router.routeBucket("/klines", klineCacheBucket, {
+    const router = new sst.aws.Router("Router");
+    router.routeBucket("/klines", marketDataBucket, {
       rewrite: {
         regex: "^/klines/(.*)$",
         to: "/$1",
       },
     });
-    router.routeBucket("/symbols", klineCacheBucket, {
+    router.routeBucket("/symbols", marketDataBucket, {
       rewrite: {
         regex: "^/symbols/(.*)$",
         to: "/symbols/$1",
@@ -145,7 +202,7 @@ export default $config({
     const symbolsBaseUrl = router.url.apply(
       (url) => `${url.replace(/\/+$/, "")}/symbols`,
     );
-    const runtimeConfig = new sst.Linkable("RangingRuntimeConfig", {
+    const runtimeConfig = new sst.Linkable("RuntimeConfig", {
       properties: {
         openAiResponsesEndpoint:
           process.env.OPENAI_RESPONSES_ENDPOINT ??
@@ -172,7 +229,7 @@ export default $config({
       },
     });
 
-    const realtime = new sst.aws.Realtime("RangingRealtime", {
+    const realtime = new sst.aws.Realtime("Realtime", {
       authorizer: {
         handler: "apps/ranging-bot/src/realtime-authorizer.handler",
         environment: {
@@ -181,13 +238,16 @@ export default $config({
       },
     });
 
-    const api = new sst.aws.ApiGatewayV2("RangingBotApi", {
+    const api = new sst.aws.ApiGatewayV2("Api", {
       link: [
-        runsTable,
+        executionHistoryTable,
         accountsTable,
         feedsTable,
-        klineCacheBucket,
-        backtestBus,
+        deploymentsTable,
+        decisionsTable,
+        backtestsTable,
+        marketDataBucket,
+        strategyBus,
         runtimeConfig,
         accountsEncryptionKey,
       ],
@@ -302,12 +362,12 @@ export default $config({
       handler: "apps/ranging-bot/src/results-api.tradeDetailsHandler",
     });
 
-    backtestBus.subscribe(
+    strategyBus.subscribe(
       "BacktestWorker",
       {
         handler: "apps/ranging-bot/src/backtest-worker.handler",
         timeout: "15 minutes",
-        link: [runsTable, klineCacheBucket, runtimeConfig, openAiApiKey],
+        link: [backtestsTable, marketDataBucket, runtimeConfig, openAiApiKey],
       },
       {
         pattern: {
@@ -317,12 +377,12 @@ export default $config({
       },
     );
 
-    backtestBus.subscribe(
+    strategyBus.subscribe(
       "RangeValidationWorker",
       {
         handler: "apps/ranging-bot/src/validation-worker.handler",
         timeout: "2 minutes",
-        link: [runsTable, runtimeConfig, openAiApiKey],
+        link: [executionHistoryTable, runtimeConfig, openAiApiKey],
       },
       {
         pattern: {
@@ -358,16 +418,16 @@ export default $config({
     });
 
     const marketFeedRefreshQueue = new sst.aws.Queue(
-      "RangingMarketFeedRefreshQueue",
+      "MarketFeedRefreshQueue",
       {
         visibilityTimeout: "3 minutes",
       },
     );
-    const botExecutionQueue = new sst.aws.Queue("RangingBotExecutionQueue", {
+    const botExecutionQueue = new sst.aws.Queue("ExecutionQueue", {
       visibilityTimeout: "3 minutes",
     });
     const indicatorRefreshQueue = new sst.aws.Queue(
-      "RangingIndicatorRefreshQueue",
+      "IndicatorRefreshQueue",
       {
         visibilityTimeout: "3 minutes",
       },
@@ -378,7 +438,7 @@ export default $config({
       timeout: "2 minutes",
       link: [
         feedsTable,
-        klineCacheBucket,
+        marketDataBucket,
         realtime,
         runtimeConfig,
         indicatorRefreshQueue,
@@ -388,7 +448,7 @@ export default $config({
     indicatorRefreshQueue.subscribe({
       handler: "apps/ranging-bot/src/indicator-refresh-worker.handler",
       timeout: "2 minutes",
-      link: [feedsTable, klineCacheBucket, realtime, runtimeConfig],
+      link: [feedsTable, marketDataBucket, realtime, runtimeConfig],
     });
 
     botExecutionQueue.subscribe({
@@ -396,8 +456,9 @@ export default $config({
       timeout: "2 minutes",
       link: [
         feedsTable,
-        runsTable,
+        executionHistoryTable,
         accountsTable,
+        decisionsTable,
         realtime,
         runtimeConfig,
         accountsEncryptionKey,
@@ -409,13 +470,13 @@ export default $config({
       },
     });
 
-    new sst.aws.Cron("RangingFeedRegistryCron", {
+    new sst.aws.Cron("FeedRegistryCron", {
       schedule: sharedFeedSchedule,
       function: {
         handler: "apps/ranging-bot/src/market-feed-dispatcher.handler",
         timeout: "55 seconds",
         link: [
-          runsTable,
+          executionHistoryTable,
           feedsTable,
           runtimeConfig,
           marketFeedRefreshQueue,
@@ -427,27 +488,28 @@ export default $config({
       },
     });
 
-    new sst.aws.Cron("RangingBotExecutionDispatcherCron", {
+    new sst.aws.Cron("ExecutionDispatcherCron", {
       schedule: sharedFeedSchedule,
       function: {
         handler: "apps/ranging-bot/src/bot-execution-dispatcher.handler",
         timeout: "55 seconds",
-        link: [runsTable, feedsTable, runtimeConfig, botExecutionQueue],
+        link: [executionHistoryTable, feedsTable, runtimeConfig, botExecutionQueue],
       },
       event: {
         trigger: "ranging-bot-execution-dispatcher-cron",
       },
     });
 
-    new sst.aws.Cron("RangingBotTick", {
+    new sst.aws.Cron("ExecutionTick", {
       schedule,
       function: {
         handler: "apps/ranging-bot/src/tick.handler",
         timeout: "55 seconds",
         link: [
-          runsTable,
+          executionHistoryTable,
           accountsTable,
           feedsTable,
+          decisionsTable,
           realtime,
           runtimeConfig,
           accountsEncryptionKey,
@@ -463,13 +525,13 @@ export default $config({
       },
     });
 
-    new sst.aws.Cron("RangingBotReconciliation", {
+    new sst.aws.Cron("Reconciliation", {
       schedule: reconciliationSchedule,
       function: {
         handler: "apps/ranging-bot/src/reconciliation-worker.handler",
         timeout: "55 seconds",
         link: [
-          runsTable,
+          executionHistoryTable,
           accountsTable,
           feedsTable,
           runtimeConfig,
@@ -486,12 +548,12 @@ export default $config({
       },
     });
 
-    new sst.aws.Cron("RangingSymbolCatalogRefresh", {
+    new sst.aws.Cron("SymbolCatalogRefresh", {
       schedule: symbolsRefreshSchedule,
       function: {
         handler: "apps/ranging-bot/src/symbol-catalog-worker.handler",
         timeout: "2 minutes",
-        link: [runsTable, klineCacheBucket, runtimeConfig],
+        link: [executionHistoryTable, marketDataBucket, runtimeConfig],
       },
       event: {
         trigger: "ranging-symbol-catalog-refresh",
@@ -511,12 +573,15 @@ export default $config({
       routerUrl: router.url,
       realtimeEndpoint: realtime.endpoint,
       realtimeTopicPrefix,
-      klineCacheBucket: klineCacheBucket.name,
+      marketDataBucket: marketDataBucket.name,
       accountsTable: accountsTable.name,
+      deploymentsTable: deploymentsTable.name,
+      decisionsTable: decisionsTable.name,
+      backtestsTable: backtestsTable.name,
       feedsTable: feedsTable.name,
       klinesBaseUrl,
       symbolsBaseUrl,
-      backtestBusName: backtestBus.name,
+      strategyBusName: strategyBus.name,
     };
   },
 });

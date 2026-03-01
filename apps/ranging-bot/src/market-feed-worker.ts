@@ -166,7 +166,7 @@ export async function handler(event: SQSEvent) {
         status: "ready",
         updatedAt: Date.now(),
       });
-      const indicatorQueueUrl = getQueueUrl("RangingIndicatorRefreshQueue");
+      const indicatorQueueUrl = getQueueUrl("IndicatorRefreshQueue");
       const dependentIndicators = await listIndicatorFeedStatesForTimeframe({
         exchangeId: message.exchangeId,
         symbol: message.symbol,

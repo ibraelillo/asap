@@ -56,6 +56,8 @@ function parseRequestedDetail(
   const backtestId =
     typeof detail.backtestId === "string" ? detail.backtestId.trim() : "";
   const botId = typeof detail.botId === "string" ? detail.botId.trim() : "";
+  const deploymentId =
+    typeof detail.deploymentId === "string" ? detail.deploymentId.trim() : "";
   const botName =
     typeof detail.botName === "string" ? detail.botName.trim() : "";
   const strategyId =
@@ -86,6 +88,7 @@ function parseRequestedDetail(
   if (
     !backtestId ||
     !botId ||
+    !deploymentId ||
     !botName ||
     !strategyId ||
     !strategyVersion ||
@@ -150,6 +153,7 @@ function parseRequestedDetail(
     backtestId,
     createdAtMs: Math.floor(createdAtMs),
     botId,
+    deploymentId,
     botName,
     strategyId,
     strategyVersion,
@@ -181,6 +185,7 @@ function toCreateBacktestInput(
 ): CreateBacktestInput {
   return {
     botId: detail.botId,
+    deploymentId: detail.deploymentId,
     botName: detail.botName,
     strategyId: detail.strategyId,
     strategyVersion: detail.strategyVersion,

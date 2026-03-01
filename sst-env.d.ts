@@ -5,62 +5,9 @@
 
 declare module "sst" {
   export interface Resource {
-    OpenAiApiKey: {
-      type: "sst.sst.Secret";
-      value: string;
-    };
-    RangingBacktestBus: {
-      arn: string;
-      name: string;
-      type: "sst.aws.Bus";
-    };
-    RangingBotApi: {
-      type: "sst.aws.ApiGatewayV2";
-      url: string;
-    };
-    RangingBotRuns: {
-      name: string;
-      type: "sst.aws.Dynamo";
-    };
-    RangingKlineCache: {
-      name: string;
-      type: "sst.aws.Bucket";
-    };
-    RangingRealtime: {
-      authorizer: string;
-      endpoint: string;
-      type: "sst.aws.Realtime";
-    };
-    RangingRouter: {
-      type: "sst.aws.Router";
-      url: string;
-    };
-    RangingRuntimeConfig: {
-      backtestRunningStaleMs: string;
-      defaultDryRun: string;
-      defaultMarginMode: string;
-      defaultValueQty: string;
-      klineHttpBackoffMs: string;
-      klineHttpRetries: string;
-      klineHttpTimeoutMs: string;
-      klinesPublicBaseUrl: string;
-      kucoinPublicBaseUrl: string;
-      openAiResponsesEndpoint: string;
-      symbolsPublicBaseUrl: string;
-      type: "sst.sst.Linkable";
-      validationConfidenceThreshold: string;
-      validationMaxOutputTokens: string;
-      validationModelFallback: string;
-      validationModelPrimary: string;
-      validationTimeoutMs: string;
-    };
-    Web: {
-      type: "sst.aws.StaticSite";
-      url: string;
-    };
   }
 }
 /// <reference path="sst-env.d.ts" />
 
-import "sst";
-export {};
+import "sst"
+export {}

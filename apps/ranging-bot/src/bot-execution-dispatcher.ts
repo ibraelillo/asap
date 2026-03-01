@@ -56,7 +56,7 @@ export async function handler() {
   }
 
   const bots = await loadActiveBots();
-  const queueUrl = getQueueUrl("RangingBotExecutionQueue");
+  const queueUrl = getQueueUrl("ExecutionQueue");
   const nowMs = Date.now();
   let queued = 0;
   let skippedNotDue = 0;

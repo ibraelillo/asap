@@ -21,6 +21,8 @@ import type {
   BacktestRecord,
   BotRecord,
   BotRunRecord,
+  DecisionRecord,
+  DeploymentRecord,
   FillRecord,
   KlineCacheReference,
   OrderRecord,
@@ -33,6 +35,7 @@ import type {
 const MAX_LIMIT = 500;
 const DEFAULT_LIMIT = 120;
 const PK_RUN = "RUN";
+const PK_DECISION = "DECISION";
 const PK_BACKTEST = "BACKTEST";
 const PK_VALIDATION = "VALIDATION";
 const PK_CURSOR = "CURSOR";
@@ -40,6 +43,9 @@ const PK_BOT_PREFIX = "BOT#";
 const PK_ACCOUNT_PREFIX = "ACCOUNT#";
 const GSI_BY_SYMBOL = "BySymbol";
 const ACCOUNTS_GSI_BY_NAME = "ByName";
+const DEPLOYMENTS_GSI_BY_STRATEGY = "ByStrategy";
+const DECISIONS_GSI_BY_SYMBOL = "BySymbol";
+const BACKTESTS_GSI_BY_DEPLOYMENT = "ByDeployment";
 
 let cachedDocClient: DynamoDBDocumentClient | null = null;
 
@@ -61,10 +67,10 @@ function getTableName(): string {
     string,
     { name?: string } | undefined
   >;
-  const fromResource = resources.RangingBotRuns?.name;
+  const fromResource = resources.ExecutionHistory?.name;
   if (fromResource) return fromResource;
 
-  throw new Error("Missing linked Resource.RangingBotRuns");
+  throw new Error("Missing linked Resource.ExecutionHistory");
 }
 
 function getAccountsTableName(): string {
@@ -72,10 +78,43 @@ function getAccountsTableName(): string {
     string,
     { name?: string } | undefined
   >;
-  const fromResource = resources.RangingAccounts?.name;
+  const fromResource = resources.Accounts?.name;
   if (fromResource) return fromResource;
 
-  throw new Error("Missing linked Resource.RangingAccounts");
+  throw new Error("Missing linked Resource.Accounts");
+}
+
+function getDeploymentsTableName(): string {
+  const resources = Resource as unknown as Record<
+    string,
+    { name?: string } | undefined
+  >;
+  const fromResource = resources.Deployments?.name;
+  if (fromResource) return fromResource;
+
+  throw new Error("Missing linked Resource.Deployments");
+}
+
+function getDecisionsTableName(): string {
+  const resources = Resource as unknown as Record<
+    string,
+    { name?: string } | undefined
+  >;
+  const fromResource = resources.Decisions?.name;
+  if (fromResource) return fromResource;
+
+  throw new Error("Missing linked Resource.Decisions");
+}
+
+function getBacktestsTableName(): string {
+  const resources = Resource as unknown as Record<
+    string,
+    { name?: string } | undefined
+  >;
+  const fromResource = resources.Backtests?.name;
+  if (fromResource) return fromResource;
+
+  throw new Error("Missing linked Resource.Backtests");
 }
 
 function normalizeLimit(limit?: number): number {
@@ -131,6 +170,22 @@ function accountSortKey(accountId: string): string {
   return `ACCOUNT#${accountId}`;
 }
 
+function deploymentPartitionKey(deploymentId: string): string {
+  return `DEPLOYMENT#${deploymentId}`;
+}
+
+function deploymentSortKey(deploymentId: string): string {
+  return `DEPLOYMENT#${deploymentId}`;
+}
+
+function decisionSortKey(decisionTime: number, decisionId: string): string {
+  return `DECISION#${padTime(decisionTime)}#${decisionId}`;
+}
+
+function backtestSortKey(createdAtMs: number, backtestId: string): string {
+  return `BACKTEST#${padTime(createdAtMs)}#${backtestId}`;
+}
+
 function parseRunId(item: Record<string, unknown>): string {
   if (typeof item.id === "string" && item.id.length > 0) {
     return item.id;
@@ -154,6 +209,16 @@ function toBotItem(record: BotRecord): Record<string, unknown> {
     SK: botSortKey(record.id),
     GSI1PK: "BOTDEF",
     GSI1SK: `${record.name}#${record.id}`,
+    ...record,
+  };
+}
+
+function toDeploymentItem(record: DeploymentRecord): Record<string, unknown> {
+  return {
+    PK: deploymentPartitionKey(record.id),
+    SK: deploymentSortKey(record.id),
+    GSI1PK: `STRATEGY#${record.strategyId}`,
+    GSI1SK: `${record.status}#${padTime(record.updatedAtMs)}#${record.id}`,
     ...record,
   };
 }
@@ -231,9 +296,19 @@ function toReconciliationItem(
 function toBacktestItem(record: BacktestRecord): Record<string, unknown> {
   return {
     PK: PK_BACKTEST,
-    SK: sortKey(record.createdAtMs, record.id),
-    GSI1PK: `BACKTEST#${record.symbol}`,
+    SK: backtestSortKey(record.createdAtMs, record.id),
+    GSI1PK: `DEPLOYMENT#${record.deploymentId}`,
     GSI1SK: gsiKey(record.createdAtMs),
+    ...record,
+  };
+}
+
+function toDecisionItem(record: DecisionRecord): Record<string, unknown> {
+  return {
+    PK: PK_DECISION,
+    SK: decisionSortKey(record.decisionTime, record.id),
+    GSI1PK: `DEPLOYMENT#${record.deploymentId}`,
+    GSI1SK: gsiKey(record.decisionTime),
     ...record,
   };
 }
@@ -256,6 +331,10 @@ function fromItem(item: Record<string, unknown>): BotRunRecord {
     botId:
       typeof item.botId === "string"
         ? item.botId
+        : `legacy-${String(item.symbol ?? "unknown")}`,
+    deploymentId:
+      typeof item.deploymentId === "string"
+        ? item.deploymentId
         : `legacy-${String(item.symbol ?? "unknown")}`,
     botName:
       typeof item.botName === "string"
@@ -559,6 +638,10 @@ function fromBacktestItem(item: Record<string, unknown>): BacktestRecord {
       typeof item.botId === "string"
         ? item.botId
         : `legacy-${String(item.symbol ?? "unknown")}`,
+    deploymentId:
+      typeof item.deploymentId === "string"
+        ? item.deploymentId
+        : `legacy-${String(item.symbol ?? "unknown")}`,
     botName:
       typeof item.botName === "string"
         ? item.botName
@@ -600,6 +683,72 @@ function fromBacktestItem(item: Record<string, unknown>): BacktestRecord {
     ai,
     errorMessage:
       typeof item.errorMessage === "string" ? item.errorMessage : undefined,
+  };
+}
+
+function fromDecisionItem(
+  item: Record<string, unknown>,
+): DecisionRecord | undefined {
+  const id = typeof item.id === "string" ? item.id : undefined;
+  const deploymentId =
+    typeof item.deploymentId === "string" ? item.deploymentId : undefined;
+  const strategyId =
+    typeof item.strategyId === "string" ? item.strategyId : undefined;
+  const strategyVersion =
+    typeof item.strategyVersion === "string" ? item.strategyVersion : undefined;
+  const symbol = typeof item.symbol === "string" ? item.symbol : undefined;
+  const decisionTime = Number(item.decisionTime);
+  const generatedAtMs = Number(item.generatedAtMs);
+  const action =
+    item.action === "trade" ||
+    item.action === "hold" ||
+    item.action === "avoid" ||
+    item.action === "exit"
+      ? item.action
+      : undefined;
+  if (
+    !id ||
+    !deploymentId ||
+    !strategyId ||
+    !strategyVersion ||
+    !symbol ||
+    !action
+  ) {
+    return undefined;
+  }
+  if (!Number.isFinite(decisionTime) || !Number.isFinite(generatedAtMs)) {
+    return undefined;
+  }
+
+  return {
+    id,
+    deploymentId,
+    strategyId,
+    strategyVersion,
+    botId: typeof item.botId === "string" ? item.botId : undefined,
+    symbol,
+    decisionTime,
+    generatedAtMs,
+    action,
+    direction:
+      item.direction === "long" || item.direction === "short"
+        ? item.direction
+        : undefined,
+    reasons: Array.isArray(item.reasons)
+      ? item.reasons.filter((value): value is string => typeof value === "string")
+      : [],
+    decision:
+      item.decision && typeof item.decision === "object"
+        ? (item.decision as Record<string, unknown>)
+        : {},
+    snapshot:
+      item.snapshot && typeof item.snapshot === "object"
+        ? (item.snapshot as Record<string, unknown>)
+        : undefined,
+    strategyAnalysis:
+      item.strategyAnalysis && typeof item.strategyAnalysis === "object"
+        ? (item.strategyAnalysis as Record<string, unknown>)
+        : undefined,
   };
 }
 
@@ -688,6 +837,10 @@ function fromValidationItem(
       typeof item.botId === "string"
         ? item.botId
         : `legacy-${String(item.symbol ?? "unknown")}`,
+    deploymentId:
+      typeof item.deploymentId === "string"
+        ? item.deploymentId
+        : `legacy-${String(item.symbol ?? "unknown")}`,
     botName:
       typeof item.botName === "string"
         ? item.botName
@@ -758,6 +911,8 @@ function fromBotItem(item: Record<string, unknown>): BotRecord | undefined {
       : undefined;
   const createdAtMs = Number(item.createdAtMs);
   const updatedAtMs = Number(item.updatedAtMs);
+  const deploymentId =
+    typeof item.deploymentId === "string" ? item.deploymentId : undefined;
   const execution =
     item.execution && typeof item.execution === "object"
       ? (item.execution as Record<string, unknown>)
@@ -779,6 +934,7 @@ function fromBotItem(item: Record<string, unknown>): BotRecord | undefined {
     !strategyVersion ||
     !exchangeId ||
     !accountId ||
+    !deploymentId ||
     !status
   ) {
     return undefined;
@@ -796,6 +952,7 @@ function fromBotItem(item: Record<string, unknown>): BotRecord | undefined {
   return {
     id,
     name,
+    deploymentId,
     strategyId,
     strategyVersion,
     exchangeId,
@@ -871,6 +1028,74 @@ function fromBotItem(item: Record<string, unknown>): BotRecord | undefined {
       valueQty:
         typeof runtime.valueQty === "string" ? runtime.valueQty : undefined,
     },
+  };
+}
+
+function fromDeploymentItem(
+  item: Record<string, unknown>,
+): DeploymentRecord | undefined {
+  const id = typeof item.id === "string" ? item.id : undefined;
+  const name = typeof item.name === "string" ? item.name : undefined;
+  const strategyId =
+    typeof item.strategyId === "string" ? item.strategyId : undefined;
+  const strategyVersion =
+    typeof item.strategyVersion === "string" ? item.strategyVersion : undefined;
+  const exchangeId =
+    typeof item.exchangeId === "string" ? item.exchangeId : undefined;
+  const status =
+    item.status === "active" ||
+    item.status === "paused" ||
+    item.status === "archived"
+      ? item.status
+      : undefined;
+  const createdAtMs = Number(item.createdAtMs);
+  const updatedAtMs = Number(item.updatedAtMs);
+
+  if (
+    !id ||
+    !name ||
+    !strategyId ||
+    !strategyVersion ||
+    !exchangeId ||
+    !status
+  ) {
+    return undefined;
+  }
+  if (!Number.isFinite(createdAtMs) || !Number.isFinite(updatedAtMs)) {
+    return undefined;
+  }
+
+  return {
+    id,
+    name,
+    strategyId,
+    strategyVersion,
+    exchangeId,
+    symbolUniverse: Array.isArray(item.symbolUniverse)
+      ? item.symbolUniverse.filter(
+          (value): value is string => typeof value === "string",
+        )
+      : [],
+    executionTimeframe: String(
+      item.executionTimeframe,
+    ) as DeploymentRecord["executionTimeframe"],
+    requiredTimeframes: Array.isArray(item.requiredTimeframes)
+      ? item.requiredTimeframes.filter(
+          (value): value is DeploymentRecord["requiredTimeframes"][number] =>
+            typeof value === "string",
+        )
+      : [],
+    strategyConfig:
+      item.strategyConfig && typeof item.strategyConfig === "object"
+        ? (item.strategyConfig as Record<string, unknown>)
+        : {},
+    status,
+    createdAtMs,
+    updatedAtMs,
+    metadata:
+      item.metadata && typeof item.metadata === "object"
+        ? (item.metadata as Record<string, unknown>)
+        : undefined,
   };
 }
 
@@ -1277,6 +1502,32 @@ async function queryBacktests(
     .sort((a, b) => b.createdAtMs - a.createdAtMs);
 }
 
+async function queryDeployments(
+  input: Omit<QueryCommandInput, "TableName">,
+): Promise<DeploymentRecord[]> {
+  const items = await queryItems({
+    ...input,
+    TableName: getDeploymentsTableName(),
+  });
+  return items
+    .map((item) => fromDeploymentItem(item))
+    .filter((item): item is DeploymentRecord => Boolean(item))
+    .sort((a, b) => b.updatedAtMs - a.updatedAtMs);
+}
+
+async function queryDecisions(
+  input: Omit<QueryCommandInput, "TableName">,
+): Promise<DecisionRecord[]> {
+  const items = await queryItems({
+    ...input,
+    TableName: getDecisionsTableName(),
+  });
+  return items
+    .map((item) => fromDecisionItem(item))
+    .filter((item): item is DecisionRecord => Boolean(item))
+    .sort((a, b) => b.decisionTime - a.decisionTime);
+}
+
 async function queryValidations(
   input: QueryCommandInput,
 ): Promise<RangeValidationRecord[]> {
@@ -1406,6 +1657,18 @@ export async function putBotRecord(record: BotRecord): Promise<void> {
   );
 }
 
+export async function putDeploymentRecord(
+  record: DeploymentRecord,
+): Promise<void> {
+  const client = getDocClient();
+  await client.send(
+    new PutCommand({
+      TableName: getDeploymentsTableName(),
+      Item: toDeploymentItem(record),
+    }),
+  );
+}
+
 export async function putAccountRecord(record: AccountRecord): Promise<void> {
   const client = getDocClient();
   const tableName = getAccountsTableName();
@@ -1470,7 +1733,7 @@ export async function putReconciliationEventRecord(
 
 export async function putBacktestRecord(record: BacktestRecord): Promise<void> {
   const client = getDocClient();
-  const tableName = getTableName();
+  const tableName = getBacktestsTableName();
 
   await client.send(
     new PutCommand({
@@ -1480,19 +1743,29 @@ export async function putBacktestRecord(record: BacktestRecord): Promise<void> {
   );
 }
 
+export async function putDecisionRecord(record: DecisionRecord): Promise<void> {
+  const client = getDocClient();
+  await client.send(
+    new PutCommand({
+      TableName: getDecisionsTableName(),
+      Item: toDecisionItem(record),
+    }),
+  );
+}
+
 export async function deleteBacktestRecord(id: string): Promise<boolean> {
   const createdAtMs = parseCreatedAtMsFromEntityId(id);
   if (!createdAtMs) return false;
 
   const client = getDocClient();
-  const tableName = getTableName();
+  const tableName = getBacktestsTableName();
 
   const existing = await client.send(
     new GetCommand({
       TableName: tableName,
       Key: {
         PK: PK_BACKTEST,
-        SK: sortKey(createdAtMs, id),
+        SK: backtestSortKey(createdAtMs, id),
       },
     }),
   );
@@ -1504,7 +1777,7 @@ export async function deleteBacktestRecord(id: string): Promise<boolean> {
       TableName: tableName,
       Key: {
         PK: PK_BACKTEST,
-        SK: sortKey(createdAtMs, id),
+        SK: backtestSortKey(createdAtMs, id),
       },
     }),
   );
@@ -1725,6 +1998,23 @@ export async function getBotRecordById(
   return fromBotItem(result.Item as Record<string, unknown>);
 }
 
+export async function getDeploymentRecordById(
+  deploymentId: string,
+): Promise<DeploymentRecord | undefined> {
+  const result = await getDocClient().send(
+    new GetCommand({
+      TableName: getDeploymentsTableName(),
+      Key: {
+        PK: deploymentPartitionKey(deploymentId),
+        SK: deploymentSortKey(deploymentId),
+      },
+    }),
+  );
+
+  if (!result.Item) return undefined;
+  return fromDeploymentItem(result.Item as Record<string, unknown>);
+}
+
 export async function getBotRecordBySymbol(
   symbol: string,
 ): Promise<BotRecord | undefined> {
@@ -1817,7 +2107,7 @@ export async function getLatestOpenPositionByBot(
 export async function listRecentBacktests(
   limit?: number,
 ): Promise<BacktestRecord[]> {
-  const tableName = getTableName();
+  const tableName = getBacktestsTableName();
   return queryBacktests({
     TableName: tableName,
     KeyConditionExpression: "PK = :pk",
@@ -1848,18 +2138,10 @@ export async function listRecentBacktestsBySymbol(
   symbol: string,
   limit?: number,
 ): Promise<BacktestRecord[]> {
-  const tableName = getTableName();
-
-  return queryBacktests({
-    TableName: tableName,
-    IndexName: GSI_BY_SYMBOL,
-    KeyConditionExpression: "GSI1PK = :pk",
-    ExpressionAttributeValues: {
-      ":pk": `BACKTEST#${symbol}`,
-    },
-    ScanIndexForward: false,
-    Limit: normalizeLimit(limit),
-  });
+  const backtests = await listRecentBacktests(Math.max(normalizeLimit(limit), MAX_LIMIT));
+  return backtests
+    .filter((backtest) => backtest.symbol === symbol)
+    .slice(0, normalizeLimit(limit));
 }
 
 export async function listRecentRangeValidationsBySymbol(
@@ -1895,7 +2177,7 @@ export async function getBacktestById(
   const createdAtMs = parseCreatedAtMsFromEntityId(id);
   if (!createdAtMs) return undefined;
 
-  const tableName = getTableName();
+  const tableName = getBacktestsTableName();
   const client = getDocClient();
 
   const result = await client.send(
@@ -1903,7 +2185,7 @@ export async function getBacktestById(
       TableName: tableName,
       Key: {
         PK: PK_BACKTEST,
-        SK: sortKey(createdAtMs, id),
+        SK: backtestSortKey(createdAtMs, id),
       },
     }),
   );
@@ -1995,12 +2277,74 @@ export async function listRecentBacktestsByBotId(
   botId: string,
   limit?: number,
 ): Promise<BacktestRecord[]> {
-  const backtests = await listRecentBacktests(
-    Math.max(normalizeLimit(limit), MAX_LIMIT),
+  const backtests = await listRecentBacktests(Math.max(normalizeLimit(limit), MAX_LIMIT));
+  return backtests.filter((backtest) => backtest.botId === botId).slice(0, normalizeLimit(limit));
+}
+
+export async function listRecentBacktestsByDeploymentId(
+  deploymentId: string,
+  limit?: number,
+): Promise<BacktestRecord[]> {
+  return queryBacktests({
+    TableName: getBacktestsTableName(),
+    IndexName: BACKTESTS_GSI_BY_DEPLOYMENT,
+    KeyConditionExpression: "GSI1PK = :pk",
+    ExpressionAttributeValues: {
+      ":pk": `DEPLOYMENT#${deploymentId}`,
+    },
+    ScanIndexForward: false,
+    Limit: normalizeLimit(limit),
+  });
+}
+
+export async function listDeploymentRecords(
+  limit?: number,
+): Promise<DeploymentRecord[]> {
+  const deployments = await Promise.all(
+    (await listBotRecords(Math.max(normalizeLimit(limit), MAX_LIMIT))).map((bot) =>
+      getDeploymentRecordById(bot.deploymentId),
+    ),
   );
-  return backtests
-    .filter((backtest) => backtest.botId === botId)
+
+  return [
+    ...new Map(
+      deployments
+        .filter((item): item is DeploymentRecord => Boolean(item))
+        .map((item) => [item.id, item]),
+    ).values(),
+  ]
+    .sort((a, b) => b.updatedAtMs - a.updatedAtMs)
     .slice(0, normalizeLimit(limit));
+}
+
+export async function listDeploymentsByStrategyId(
+  strategyId: string,
+  limit?: number,
+): Promise<DeploymentRecord[]> {
+  return queryDeployments({
+    IndexName: DEPLOYMENTS_GSI_BY_STRATEGY,
+    KeyConditionExpression: "GSI1PK = :pk",
+    ExpressionAttributeValues: {
+      ":pk": `STRATEGY#${strategyId}`,
+    },
+    ScanIndexForward: false,
+    Limit: normalizeLimit(limit),
+  });
+}
+
+export async function listRecentDecisionsByDeploymentId(
+  deploymentId: string,
+  limit?: number,
+): Promise<DecisionRecord[]> {
+  return queryDecisions({
+    IndexName: DECISIONS_GSI_BY_SYMBOL,
+    KeyConditionExpression: "GSI1PK = :pk",
+    ExpressionAttributeValues: {
+      ":pk": `DEPLOYMENT#${deploymentId}`,
+    },
+    ScanIndexForward: false,
+    Limit: normalizeLimit(limit),
+  });
 }
 
 export async function listRecentRangeValidationsByBotId(

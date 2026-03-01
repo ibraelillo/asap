@@ -3,8 +3,8 @@ import { runtimeAccountResolver } from "./account-resolver";
 import type { OrchestratorRunInput } from "./contracts";
 import { buildFillRecords, buildOrderRecord, buildReconciliationEventRecord, reconcilePositionRecord } from "./execution-ledger";
 import { publishRunRecord } from "./monitoring/realtime";
-import { putFillRecord, putOrderRecord, putPositionRecord, putReconciliationEventRecord, putRunRecord } from "./monitoring/store";
-import type { AccountRecord, BotRecord, BotRunRecord, PositionRecord } from "./monitoring/types";
+import { putDecisionRecord, putFillRecord, putOrderRecord, putPositionRecord, putReconciliationEventRecord, putRunRecord } from "./monitoring/store";
+import type { AccountRecord, BotRecord, BotRunRecord, DecisionRecord, PositionRecord } from "./monitoring/types";
 import { getRuntimeSettings } from "./runtime-settings";
 import { strategyRegistry } from "./strategy-registry";
 
@@ -133,6 +133,7 @@ export function toRunRecord(
   return {
     id: `${bot.id}-${event.generatedAtMs}`,
     botId: bot.id,
+    deploymentId: bot.deploymentId,
     botName: bot.name,
     strategyId: bot.strategyId,
     strategyVersion: bot.strategyVersion,
@@ -168,6 +169,51 @@ export function toRunRecord(
   };
 }
 
+export function toDecisionRecord(
+  bot: BotRecord,
+  event: StrategySignalEvent,
+): DecisionRecord {
+  const manifest = strategyRegistry.getManifest(bot.strategyId);
+  const strategyAnalysis = manifest.buildAnalysis({
+    snapshot: event.snapshot,
+    decision: event.decision,
+  });
+  const primaryIntent = event.decision.intents.find(
+    (intent) =>
+      intent.kind === "enter" ||
+      intent.kind === "close" ||
+      intent.kind === "reduce" ||
+      intent.kind === "move-stop",
+  );
+
+  return {
+    id: `${bot.deploymentId}-${event.generatedAtMs}`,
+    deploymentId: bot.deploymentId,
+    strategyId: bot.strategyId,
+    strategyVersion: bot.strategyVersion,
+    botId: bot.id,
+    symbol: bot.symbol,
+    decisionTime: event.generatedAtMs,
+    generatedAtMs: event.generatedAtMs,
+    action:
+      primaryIntent?.kind === "enter"
+        ? "trade"
+        : primaryIntent?.kind === "close"
+          ? "exit"
+          : event.decision.intents.some((intent) => intent.kind !== "hold")
+            ? "trade"
+            : "hold",
+    direction:
+      primaryIntent && "side" in primaryIntent
+        ? primaryIntent.side
+        : undefined,
+    reasons: event.decision.reasons,
+    decision: event.decision as unknown as Record<string, unknown>,
+    snapshot: event.snapshot as Record<string, unknown>,
+    strategyAnalysis,
+  };
+}
+
 function toErrorMessage(error: unknown): string {
   if (error instanceof Error) {
     return error.message;
@@ -191,6 +237,7 @@ export function toFailedRunRecord(
   return {
     id: `${bot.id}-${recordedAtMs}`,
     botId: bot.id,
+    deploymentId: bot.deploymentId,
     botName: bot.name,
     strategyId: bot.strategyId,
     strategyVersion: bot.strategyVersion,
@@ -237,6 +284,7 @@ export async function persistRunOutcome(
   bot: BotRecord,
   positionBefore: PositionRecord | null,
   runRecord: BotRunRecord,
+  decisionRecord?: DecisionRecord,
 ): Promise<void> {
   const reconciledPosition = reconcilePositionRecord(
     bot,
@@ -263,7 +311,11 @@ export async function persistRunOutcome(
     runRecord.generatedAtMs,
   );
 
-  await Promise.allSettled([putRunRecord(runRecord), publishRunRecord(runRecord)]);
+  await Promise.allSettled([
+    putRunRecord(runRecord),
+    decisionRecord ? putDecisionRecord(decisionRecord) : Promise.resolve(),
+    publishRunRecord(runRecord),
+  ]);
   await Promise.allSettled([
     reconciledPosition ? putPositionRecord(reconciledPosition) : Promise.resolve(),
     orderRecord ? putOrderRecord(orderRecord) : Promise.resolve(),

@@ -30,8 +30,8 @@ export async function handler() {
 
   const { snapshot, dueMarketFeeds, dueIndicatorFeeds } =
     await buildFeedRegistrySnapshot();
-  const marketQueueUrl = getQueueUrl("RangingMarketFeedRefreshQueue");
-  const indicatorQueueUrl = getQueueUrl("RangingIndicatorRefreshQueue");
+  const marketQueueUrl = getQueueUrl("MarketFeedRefreshQueue");
+  const indicatorQueueUrl = getQueueUrl("IndicatorRefreshQueue");
 
   for (const feed of dueMarketFeeds) {
     await sqs.send(

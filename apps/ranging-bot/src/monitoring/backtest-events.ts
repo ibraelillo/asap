@@ -8,6 +8,7 @@ export interface BacktestRequestedDetail {
   backtestId: string;
   createdAtMs: number;
   botId: string;
+  deploymentId: string;
   botName: string;
   strategyId: string;
   strategyVersion: string;

@@ -39,9 +39,9 @@ function getFeedsTableName(): string {
     string,
     { name?: string } | undefined
   >;
-  const fromResource = resources.RangingFeeds?.name;
+  const fromResource = resources.Feeds?.name;
   if (fromResource) return fromResource;
-  throw new Error("Missing linked Resource.RangingFeeds");
+  throw new Error("Missing linked Resource.Feeds");
 }
 
 function marketFeedPk(exchangeId: string, symbol: string): string {

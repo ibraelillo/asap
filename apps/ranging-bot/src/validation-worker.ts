@@ -82,6 +82,8 @@ function parseRequestedDetail(
   const validationId =
     typeof detail.validationId === "string" ? detail.validationId.trim() : "";
   const botId = typeof detail.botId === "string" ? detail.botId.trim() : "";
+  const deploymentId =
+    typeof detail.deploymentId === "string" ? detail.deploymentId.trim() : "";
   const botName =
     typeof detail.botName === "string" ? detail.botName.trim() : "";
   const strategyId =
@@ -93,7 +95,7 @@ function parseRequestedDetail(
   const candlesCount = Number(detail.candlesCount);
   const timeframe = detail.timeframe;
 
-  if (!validationId || !botId || !botName || !strategyId || !symbol)
+  if (!validationId || !botId || !deploymentId || !botName || !strategyId || !symbol)
     return undefined;
   if (!Number.isFinite(createdAtMs) || createdAtMs <= 0) return undefined;
   if (!Number.isFinite(fromMs) || !Number.isFinite(toMs) || fromMs >= toMs) {
@@ -106,6 +108,7 @@ function parseRequestedDetail(
     validationId,
     createdAtMs: Math.floor(createdAtMs),
     botId,
+    deploymentId,
     botName,
     strategyId,
     symbol,
@@ -122,6 +125,7 @@ function buildCreateInput(
   const defaults = getValidationDefaults();
   return {
     botId: detail.botId,
+    deploymentId: detail.deploymentId,
     botName: detail.botName,
     strategyId: detail.strategyId,
     symbol: detail.symbol,

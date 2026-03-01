@@ -2,6 +2,7 @@ import type {
   APIGatewayProxyEventV2,
   APIGatewayProxyResultV2,
 } from "aws-lambda";
+import { createHash } from "node:crypto";
 import {
   createIndicatorParamsHash,
   type BotDefinition,
@@ -41,6 +42,7 @@ import {
   getBotRecordById,
   getBotRecordBySymbol,
   getBacktestById,
+  getDeploymentRecordById,
   deleteBacktestRecord,
   getLatestOpenPositionByBot,
   getRangeValidationById,
@@ -56,6 +58,7 @@ import {
   listRecentRangeValidationsBySymbol,
   listRecentBacktests,
   listRecentBacktestsByBotId,
+  listRecentBacktestsByDeploymentId,
   listRecentBacktestsBySymbol,
   listRecentRuns,
   listPositionsByBot,
@@ -63,6 +66,7 @@ import {
   putAccountRecord,
   putBotRecord,
   putBacktestRecord,
+  putDeploymentRecord,
   putRangeValidationRecord,
 } from "./monitoring/store";
 import {
@@ -78,6 +82,7 @@ import type {
   BacktestTradeView,
   BotRecord,
   BotStatsSummary,
+  DeploymentRecord,
   BotIndicatorPoolPayload,
   BotRunRecord,
   DashboardPayload,
@@ -171,12 +176,12 @@ function getBacktestBusName(): string {
     string,
     { name?: string } | undefined
   >;
-  const linkedName = resources.RangingBacktestBus?.name;
+  const linkedName = resources.StrategyBus?.name;
   if (linkedName && linkedName.trim().length > 0) {
     return linkedName.trim();
   }
 
-  throw new Error("Missing linked Resource.RangingBacktestBus");
+  throw new Error("Missing linked Resource.StrategyBus");
 }
 
 async function publishBacktestRequested(
@@ -306,6 +311,81 @@ function sanitizeSegment(value: string): string {
 
 function buildAccountId(exchangeId: string, name: string): string {
   return `${sanitizeSegment(exchangeId)}-${sanitizeSegment(name)}`;
+}
+
+function buildDeploymentId(input: {
+  exchangeId: string;
+  strategyId: string;
+  strategyVersion: string;
+  symbol: string;
+  executionTimeframe: OrchestratorTimeframe;
+  primaryRangeTimeframe: OrchestratorTimeframe;
+  secondaryRangeTimeframe: OrchestratorTimeframe;
+  strategyConfig: Record<string, unknown>;
+}): string {
+  const configSignature = createHash("sha256")
+    .update(
+      stableStringify({
+        executionTimeframe: input.executionTimeframe,
+        primaryRangeTimeframe: input.primaryRangeTimeframe,
+        secondaryRangeTimeframe: input.secondaryRangeTimeframe,
+        strategyConfig: input.strategyConfig,
+      }),
+    )
+    .digest("hex")
+    .slice(0, 10);
+  return [
+    input.exchangeId,
+    input.strategyId,
+    input.strategyVersion,
+    input.symbol,
+    input.executionTimeframe,
+    configSignature,
+  ]
+    .map(sanitizeSegment)
+    .join("-");
+}
+
+function buildDeploymentRecord(input: {
+  bot: BotRecord;
+  strategyConfig: Record<string, unknown>;
+}): DeploymentRecord {
+  const nowMs = Date.now();
+  return {
+    id: buildDeploymentId({
+      exchangeId: input.bot.exchangeId,
+      strategyId: input.bot.strategyId,
+      strategyVersion: input.bot.strategyVersion,
+      symbol: input.bot.symbol,
+      executionTimeframe: input.bot.runtime.executionTimeframe,
+      primaryRangeTimeframe: input.bot.runtime.primaryRangeTimeframe,
+      secondaryRangeTimeframe: input.bot.runtime.secondaryRangeTimeframe,
+      strategyConfig: input.strategyConfig,
+    }),
+    name: `${input.bot.strategyId} ${input.bot.symbol} ${input.bot.runtime.executionTimeframe}`,
+    strategyId: input.bot.strategyId,
+    strategyVersion: input.bot.strategyVersion,
+    exchangeId: input.bot.exchangeId,
+    symbolUniverse: [input.bot.symbol],
+    executionTimeframe: input.bot.runtime.executionTimeframe,
+    requiredTimeframes: [
+      input.bot.runtime.executionTimeframe,
+      input.bot.runtime.primaryRangeTimeframe,
+      input.bot.runtime.secondaryRangeTimeframe,
+    ],
+    strategyConfig: input.strategyConfig,
+    status: input.bot.status,
+    createdAtMs: nowMs,
+    updatedAtMs: nowMs,
+    metadata: {
+      botId: input.bot.id,
+      primaryRangeTimeframe: input.bot.runtime.primaryRangeTimeframe,
+      secondaryRangeTimeframe: input.bot.runtime.secondaryRangeTimeframe,
+      executionLimit: input.bot.runtime.executionLimit,
+      primaryRangeLimit: input.bot.runtime.primaryRangeLimit,
+      secondaryRangeLimit: input.bot.runtime.secondaryRangeLimit,
+    },
+  };
 }
 
 function toAccountSummary(account: AccountRecord): AccountSummary {
@@ -855,8 +935,8 @@ async function loadStrategySummaries(
       const strategyRunsInWindow = strategyRuns.filter(
         (run) => run.generatedAtMs >= windowStartMs,
       );
-      const strategyBacktests = backtests.filter((backtest) =>
-        strategyBotIds.has(backtest.botId),
+      const strategyBacktests = backtests.filter(
+        (backtest) => backtest.strategyId === manifest.id,
       );
       const strategyPositions = positions.filter((position) =>
         strategyBotIds.has(position.botId),
@@ -935,8 +1015,8 @@ async function loadStrategyDetails(
   const strategyRunsInWindow = strategyRuns.filter(
     (run) => run.generatedAtMs >= Date.now() - windowHours * 60 * 60_000,
   );
-  const strategyBacktests = backtests.filter((backtest) =>
-    botIds.has(backtest.botId),
+  const strategyBacktests = backtests.filter(
+    (backtest) => backtest.strategyId === strategyId,
   );
   const strategyPositions = positionsByBot.flat();
   const configDefaults = toStrategyConfigRecord(manifest.getDefaultConfig());
@@ -1483,6 +1563,16 @@ export async function createBotHandler(
         ...normalized,
         strategyConfig: resolvedStrategyConfig,
       }),
+      deploymentId: buildDeploymentId({
+        exchangeId,
+        strategyId: normalized.strategyId ?? strategyId,
+        strategyVersion: normalized.strategyVersion ?? "1",
+        symbol: normalized.symbol,
+        executionTimeframe: normalized.executionTimeframe,
+        primaryRangeTimeframe: normalized.primaryRangeTimeframe,
+        secondaryRangeTimeframe: normalized.secondaryRangeTimeframe,
+        strategyConfig: resolvedStrategyConfig,
+      }),
       runtime: {
         ...normalized,
         strategyConfig: resolvedStrategyConfig,
@@ -1505,10 +1595,28 @@ export async function createBotHandler(
       return json(409, { error: "bot_already_exists", bot: existing });
     }
 
+    const deployment = buildDeploymentRecord({
+      bot,
+      strategyConfig: resolvedStrategyConfig,
+    });
+
+    const existingDeployment = await getDeploymentRecordById(deployment.id);
+    if (
+      existingDeployment &&
+      stableStringify(existingDeployment.strategyConfig) !==
+        stableStringify(deployment.strategyConfig)
+    ) {
+      return json(409, { error: "deployment_config_conflict" });
+    }
+
+    if (!existingDeployment) {
+      await putDeploymentRecord(deployment);
+    }
     await putBotRecord(bot);
     return json(201, {
       generatedAt: new Date().toISOString(),
       bot,
+      deployment,
     });
   } catch (error) {
     console.error("[bot-api] create bot failed", { error });
@@ -1635,12 +1743,24 @@ export async function patchBotHandler(
 
     const { enabled: _enabled, ...normalizedRuntime } = normalized;
 
+    const nextDeploymentId = buildDeploymentId({
+      exchangeId: existing.exchangeId,
+      strategyId: existing.strategyId,
+      strategyVersion: existing.strategyVersion,
+      symbol: existing.symbol,
+      executionTimeframe: normalized.executionTimeframe,
+      primaryRangeTimeframe: normalized.primaryRangeTimeframe,
+      secondaryRangeTimeframe: normalized.secondaryRangeTimeframe,
+      strategyConfig: resolvedStrategyConfig,
+    });
+
     const updated: BotRecord = {
       ...toBotDefinition({
         ...normalized,
         strategyConfig: resolvedStrategyConfig,
       }),
       id: existing.id,
+      deploymentId: nextDeploymentId,
       name: normalizeNonEmptyString(body.name) ?? existing.name,
       status,
       createdAtMs: existing.createdAtMs,
@@ -1651,10 +1771,48 @@ export async function patchBotHandler(
       },
     };
 
+    const targetDeployment =
+      (await getDeploymentRecordById(nextDeploymentId)) ??
+      buildDeploymentRecord({
+        bot: updated,
+        strategyConfig: resolvedStrategyConfig,
+      });
+
+    if (
+      targetDeployment.id === nextDeploymentId &&
+      stableStringify(targetDeployment.strategyConfig) !==
+        stableStringify(resolvedStrategyConfig)
+    ) {
+      return json(409, { error: "deployment_config_conflict" });
+    }
+
+    const updatedDeployment: DeploymentRecord = {
+      ...targetDeployment,
+      strategyConfig: resolvedStrategyConfig,
+      executionTimeframe: updated.runtime.executionTimeframe,
+      requiredTimeframes: [
+        updated.runtime.executionTimeframe,
+        updated.runtime.primaryRangeTimeframe,
+        updated.runtime.secondaryRangeTimeframe,
+      ],
+      status,
+      updatedAtMs: Date.now(),
+      metadata: {
+        ...(targetDeployment.metadata ?? {}),
+        primaryRangeTimeframe: updated.runtime.primaryRangeTimeframe,
+        secondaryRangeTimeframe: updated.runtime.secondaryRangeTimeframe,
+        executionLimit: updated.runtime.executionLimit,
+        primaryRangeLimit: updated.runtime.primaryRangeLimit,
+        secondaryRangeLimit: updated.runtime.secondaryRangeLimit,
+      },
+    };
+
+    await putDeploymentRecord(updatedDeployment);
     await putBotRecord(updated);
     return json(200, {
       generatedAt: new Date().toISOString(),
       bot: updated,
+      deployment: updatedDeployment,
     });
   } catch (error) {
     console.error("[bot-api] patch bot failed", { error });
@@ -1756,12 +1914,13 @@ export async function botDetailsHandler(
       return json(404, { error: "bot_not_found" });
     }
 
-    const [latestRun, openPosition, recentBacktests, recentValidations] =
+    const [latestRun, openPosition, recentBacktests, recentValidations, deployment] =
       await Promise.all([
         listLatestRunsByBotIds([bot.id]).then((runs) => runs[0]),
         getLatestOpenPositionByBot(bot.id),
-        listRecentBacktestsByBotId(bot.id, 10),
+        listRecentBacktestsByDeploymentId(bot.deploymentId, 10),
         listRecentRangeValidationsByBotId(bot.id, 10),
+        getDeploymentRecordById(bot.deploymentId),
       ]);
 
     const summary = buildBotSummaries([bot], latestRun ? [latestRun] : [])[0];
@@ -1769,6 +1928,7 @@ export async function botDetailsHandler(
     return json(200, {
       generatedAt: new Date().toISOString(),
       bot,
+      deployment,
       summary,
       openPosition,
       backtests: recentBacktests,
@@ -2066,7 +2226,7 @@ export async function botDetailsStatsHandler(
       listRecentRunsBySymbol(bot.symbol, MAX_LIMIT).then((all) =>
         all.filter((run) => run.botId === botId),
       ),
-      listRecentBacktestsByBotId(botId, MAX_LIMIT),
+      listRecentBacktestsByDeploymentId(bot.deploymentId, MAX_LIMIT),
       listPositionsByBot(botId, MAX_LIMIT),
     ]);
 
@@ -2339,6 +2499,7 @@ async function enqueueBacktestForBot(
 
   const input: Omit<BacktestRequestedDetail, "backtestId" | "createdAtMs"> = {
     botId: bot.id,
+    deploymentId: bot.deploymentId,
     botName: bot.name,
     strategyId: bot.strategyId,
     strategyVersion: bot.strategyVersion,
@@ -2531,6 +2692,7 @@ async function enqueueValidationForBot(
   const validation = createPendingValidationRecord(
     {
       botId: bot.id,
+      deploymentId: bot.deploymentId,
       botName: bot.name,
       strategyId: bot.strategyId,
       symbol: bot.symbol,
@@ -2565,6 +2727,7 @@ async function enqueueValidationForBot(
     validationId: identity.validationId,
     createdAtMs: identity.createdAtMs,
     botId: bot.id,
+    deploymentId: bot.deploymentId,
     botName: bot.name,
     strategyId: bot.strategyId,
     symbol: bot.symbol,
@@ -2763,7 +2926,11 @@ export async function backtestsHandler(
     const symbol = event.queryStringParameters?.symbol?.trim();
 
     const backtests = botId
-      ? await listRecentBacktestsByBotId(botId, limit)
+      ? await resolveBotById(botId).then((bot) =>
+          bot
+            ? listRecentBacktestsByDeploymentId(bot.deploymentId, limit)
+            : [],
+        )
       : symbol
         ? await listRecentBacktestsBySymbol(symbol, limit)
         : await listRecentBacktests(limit);
@@ -2792,8 +2959,12 @@ export async function botBacktestsHandler(
 
   try {
     const limit = parseLimit(event.queryStringParameters?.limit);
-    const backtests = await listRecentBacktestsByBotId(
-      decodeURIComponent(rawBotId),
+    const bot = await resolveBotById(decodeURIComponent(rawBotId));
+    if (!bot) {
+      return json(404, { error: "bot_not_found" });
+    }
+    const backtests = await listRecentBacktestsByDeploymentId(
+      bot.deploymentId,
       limit,
     );
     const normalizedBacktests = await markStaleBacktests(backtests);

@@ -66,7 +66,7 @@ function getLinkedRuntimeConfig(): RuntimeConfigResource {
       string,
       RuntimeConfigResource | undefined
     >;
-    return resources.RangingRuntimeConfig ?? {};
+    return resources.RuntimeConfig ?? {};
   } catch {
     return {};
   }

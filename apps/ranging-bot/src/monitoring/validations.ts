@@ -8,6 +8,7 @@ export interface ValidationIdentity {
 
 export interface CreateValidationInput {
   botId: string;
+  deploymentId: string;
   botName: string;
   strategyId: string;
   symbol: string;
@@ -46,6 +47,7 @@ export function createPendingValidationRecord(
   return {
     id: identity.validationId,
     botId: input.botId,
+    deploymentId: input.deploymentId,
     botName: input.botName,
     strategyId: input.strategyId,
     createdAtMs: identity.createdAtMs,

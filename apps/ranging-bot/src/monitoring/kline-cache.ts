@@ -43,7 +43,7 @@ function getBucketName(): string | undefined {
     string,
     { name?: string } | undefined
   >;
-  const fromResource = resources.RangingKlineCache?.name;
+  const fromResource = resources.MarketData?.name;
   if (fromResource && fromResource.trim().length > 0) {
     return fromResource.trim();
   }

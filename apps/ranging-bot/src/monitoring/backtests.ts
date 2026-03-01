@@ -56,6 +56,7 @@ const TIMEFRAME_SET = new Set<OrchestratorTimeframe>([
 
 export interface CreateBacktestInput {
   botId: string;
+  deploymentId: string;
   botName: string;
   strategyId: string;
   strategyVersion: string;
@@ -1007,6 +1008,7 @@ function runComputation(
 function toInputFromRecord(record: BacktestRecord): CreateBacktestInput {
   return {
     botId: record.botId,
+    deploymentId: record.deploymentId,
     botName: record.botName,
     strategyId: record.strategyId,
     strategyVersion: record.strategyVersion,
@@ -1053,6 +1055,7 @@ export function createRunningBacktestRecord(
     createdAtMs: identity.createdAtMs,
     status: "running",
     botId: input.botId,
+    deploymentId: input.deploymentId,
     botName: input.botName,
     strategyId: input.strategyId,
     strategyVersion: input.strategyVersion,
@@ -1151,6 +1154,7 @@ export async function runBacktestJob(
       createdAtMs: identity.createdAtMs,
       status: "completed",
       botId: input.botId,
+      deploymentId: input.deploymentId,
       botName: input.botName,
       strategyId: input.strategyId,
       strategyVersion: input.strategyVersion,

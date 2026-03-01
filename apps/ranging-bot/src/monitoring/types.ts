@@ -21,6 +21,7 @@ import type {
 } from "../contracts";
 
 export interface BotRecord extends BotDefinition {
+  deploymentId: string;
   runtime: {
     executionTimeframe: OrchestratorTimeframe;
     executionLimit: number;
@@ -33,6 +34,22 @@ export interface BotRecord extends BotDefinition {
     marginMode?: "CROSS" | "ISOLATED";
     valueQty?: string;
   };
+}
+
+export interface DeploymentRecord {
+  id: string;
+  name: string;
+  strategyId: string;
+  strategyVersion: string;
+  exchangeId: string;
+  symbolUniverse: string[];
+  executionTimeframe: OrchestratorTimeframe;
+  requiredTimeframes: OrchestratorTimeframe[];
+  strategyConfig: Record<string, unknown>;
+  status: "active" | "paused" | "archived";
+  createdAtMs: number;
+  updatedAtMs: number;
+  metadata?: Record<string, unknown>;
 }
 
 export interface AccountAuthRecord {
@@ -147,6 +164,7 @@ export interface BotIndicatorPoolPayload {
 export interface BotRunRecord {
   id: string;
   botId: string;
+  deploymentId: string;
   botName: string;
   strategyId: string;
   strategyVersion: string;
@@ -233,6 +251,7 @@ export interface BacktestStats {
 
 export interface BotAnalysisSummary {
   botId: string;
+  deploymentId?: string;
   botName: string;
   strategyId: string;
   strategyVersion: string;
@@ -327,6 +346,7 @@ export interface BacktestRecord {
   status: BacktestStatus;
 
   botId: string;
+  deploymentId: string;
   botName: string;
   strategyId: string;
   strategyVersion: string;
@@ -471,6 +491,7 @@ export interface RangeValidationResult {
 export interface RangeValidationRecord {
   id: string;
   botId: string;
+  deploymentId: string;
   botName: string;
   strategyId: string;
   symbol: string;
@@ -561,6 +582,23 @@ export interface ReconciliationEventRecord {
   status: "ok" | "drift" | "error";
   message: string;
   createdAtMs: number;
+}
+
+export interface DecisionRecord {
+  id: string;
+  deploymentId: string;
+  strategyId: string;
+  strategyVersion: string;
+  botId?: string;
+  symbol: string;
+  decisionTime: number;
+  generatedAtMs: number;
+  action: "trade" | "hold" | "avoid" | "exit";
+  direction?: Side;
+  reasons: string[];
+  decision: Record<string, unknown>;
+  snapshot?: Record<string, unknown>;
+  strategyAnalysis?: Record<string, unknown>;
 }
 
 export interface ProcessingCursorRecord {

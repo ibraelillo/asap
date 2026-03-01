@@ -34,12 +34,12 @@ function getBucketName(): string {
     string,
     { name?: string } | undefined
   >;
-  const fromResource = resources.RangingKlineCache?.name;
+  const fromResource = resources.MarketData?.name;
   if (fromResource && fromResource.trim().length > 0) {
     return fromResource.trim();
   }
 
-  throw new Error("Missing linked Resource.RangingKlineCache");
+  throw new Error("Missing linked Resource.MarketData");
 }
 
 function keyPart(input: string): string {
