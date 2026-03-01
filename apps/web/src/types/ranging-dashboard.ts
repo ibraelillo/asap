@@ -510,3 +510,42 @@ export interface BotPositionsPayload {
   fills: FillRecord[];
   reconciliations: ReconciliationEventRecord[];
 }
+
+export interface BotIndicatorPoolMarketFeedView {
+  role: string;
+  timeframe: string;
+  lookbackBars: number;
+  status: "ready" | "stale" | "refreshing" | "error";
+  requiredByCount: number;
+  maxLookbackBars: number;
+  lastClosedCandleTime?: number;
+  lastRefreshedAt?: number;
+  candleCount?: number;
+  errorMessage?: string;
+}
+
+export interface BotIndicatorPoolIndicatorFeedView {
+  role: string;
+  timeframe: string;
+  indicatorId: string;
+  paramsHash: string;
+  params: Record<string, unknown>;
+  lookbackBars: number;
+  status: "pending" | "ready" | "stale" | "error";
+  requiredByCount: number;
+  maxLookbackBars: number;
+  lastComputedCandleTime?: number;
+  lastComputedAt?: number;
+  latestValues?: Record<string, number>;
+  errorMessage?: string;
+}
+
+export interface BotIndicatorPoolPayload {
+  generatedAt: string;
+  botId: string;
+  strategyId: string;
+  exchangeId: string;
+  symbol: string;
+  marketFeeds: BotIndicatorPoolMarketFeedView[];
+  indicatorFeeds: BotIndicatorPoolIndicatorFeedView[];
+}

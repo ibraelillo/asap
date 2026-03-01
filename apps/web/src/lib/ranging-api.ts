@@ -1,6 +1,7 @@
 import type {
   BacktestRecord,
   BotPositionsPayload,
+  BotIndicatorPoolPayload,
   BacktestDetailsPayload,
   KlineCacheReference,
   KlineCandle,
@@ -631,5 +632,13 @@ export async function fetchBotPositions(
 ): Promise<BotPositionsPayload> {
   return getJson<BotPositionsPayload>(
     `/v1/bots/${encodeURIComponent(botId)}/positions`,
+  );
+}
+
+export async function fetchBotIndicatorPool(
+  botId: string,
+): Promise<BotIndicatorPoolPayload> {
+  return getJson<BotIndicatorPoolPayload>(
+    `/v1/bots/${encodeURIComponent(botId)}/indicator-pool`,
   );
 }

@@ -832,6 +832,80 @@ const tradeAnalysis = {
   klines: analysisCandles,
 };
 
+const indicatorPool = {
+  generatedAt: iso(NOW),
+  botId: BOT_ID,
+  strategyId: STRATEGY_ID,
+  exchangeId: "kucoin",
+  symbol: "SUIUSDTM",
+  marketFeeds: [
+    {
+      role: "execution",
+      timeframe: "1h",
+      lookbackBars: 240,
+      status: "ready",
+      requiredByCount: 1,
+      maxLookbackBars: 240,
+      lastClosedCandleTime: NOW - HOUR_MS,
+      lastRefreshedAt: NOW - HOUR_MS + 5_000,
+      candleCount: 240,
+    },
+    {
+      role: "primaryRange",
+      timeframe: "1d",
+      lookbackBars: 90,
+      status: "ready",
+      requiredByCount: 1,
+      maxLookbackBars: 90,
+      lastClosedCandleTime: NOW - 24 * HOUR_MS,
+      lastRefreshedAt: NOW - 24 * HOUR_MS + 5_000,
+      candleCount: 90,
+    },
+  ],
+  indicatorFeeds: [
+    {
+      role: "wavetrend",
+      timeframe: "1h",
+      indicatorId: "wavetrend",
+      paramsHash: "wt-hash",
+      params: {
+        channelLength: 10,
+        averageLength: 21,
+        signalLength: 4,
+      },
+      lookbackBars: 240,
+      status: "ready",
+      requiredByCount: 1,
+      maxLookbackBars: 240,
+      lastComputedCandleTime: NOW - HOUR_MS,
+      lastComputedAt: NOW - HOUR_MS + 8_000,
+      latestValues: {
+        wt1: 24.18,
+        wt2: 18.44,
+      },
+    },
+    {
+      role: "moneyflow",
+      timeframe: "1h",
+      indicatorId: "moneyflow",
+      paramsHash: "mf-hash",
+      params: {
+        period: 14,
+        slopeBars: 3,
+      },
+      lookbackBars: 240,
+      status: "ready",
+      requiredByCount: 1,
+      maxLookbackBars: 240,
+      lastComputedCandleTime: NOW - HOUR_MS,
+      lastComputedAt: NOW - HOUR_MS + 8_000,
+      latestValues: {
+        value: 0.1842,
+      },
+    },
+  ],
+};
+
 export async function mockRangingApi(page: Page) {
   let accounts = [{ ...initialAccount }];
   let bot = { ...botRecord };
@@ -1005,6 +1079,10 @@ export async function mockRangingApi(page: Page) {
         fills,
         reconciliations,
       });
+    }
+
+    if (method === "GET" && pathname === `/v1/bots/${BOT_ID}/indicator-pool`) {
+      return json(route, indicatorPool);
     }
 
     if (method === "GET" && pathname === `/v1/bots/${BOT_ID}/backtests`) {

@@ -8,6 +8,7 @@ import {
   saveIndicatorFeedSnapshot,
   loadLatestIndicatorFeedSnapshot,
 } from "./shared-indicator-snapshots";
+import { publishFeedUpdate } from "./monitoring/realtime";
 
 interface IndicatorRefreshMessage {
   exchangeId: string;
@@ -113,6 +114,16 @@ export async function handler(event: SQSEvent) {
         lastComputedCandleTime: snapshot.lastComputedCandleTime,
         errorMessage: undefined,
       });
+      await publishFeedUpdate({
+        kind: "indicator",
+        exchangeId: existing.exchangeId,
+        symbol: existing.symbol,
+        timeframe: existing.timeframe,
+        indicatorId: existing.indicatorId,
+        paramsHash: existing.paramsHash,
+        status: "ready",
+        updatedAt: Date.now(),
+      });
       processed += 1;
 
       console.log("[indicator-refresh-worker] refreshed", {
@@ -140,6 +151,17 @@ export async function handler(event: SQSEvent) {
         lastComputedCandleTime:
           maybeSnapshot?.lastComputedCandleTime ??
           existing.lastComputedCandleTime,
+        errorMessage: error instanceof Error ? error.message : String(error),
+      });
+      await publishFeedUpdate({
+        kind: "indicator",
+        exchangeId: existing.exchangeId,
+        symbol: existing.symbol,
+        timeframe: existing.timeframe,
+        indicatorId: existing.indicatorId,
+        paramsHash: existing.paramsHash,
+        status: "error",
+        updatedAt: Date.now(),
         errorMessage: error instanceof Error ? error.message : String(error),
       });
       failed += 1;

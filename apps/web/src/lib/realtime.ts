@@ -19,7 +19,25 @@ export interface SummaryRealtimeMessage {
   summary: Record<string, unknown>;
 }
 
-export type RealtimeMessage = RunRealtimeMessage | SummaryRealtimeMessage;
+export interface FeedRealtimeMessage {
+  type: "feed";
+  update: {
+    kind: "market" | "indicator";
+    exchangeId: string;
+    symbol: string;
+    timeframe: string;
+    indicatorId?: string;
+    paramsHash?: string;
+    status: string;
+    updatedAt: number;
+    errorMessage?: string;
+  };
+}
+
+export type RealtimeMessage =
+  | RunRealtimeMessage
+  | SummaryRealtimeMessage
+  | FeedRealtimeMessage;
 
 interface ConnectOptions {
   onMessage: (message: RealtimeMessage) => void;
@@ -41,7 +59,11 @@ function decodePayload(payload: Uint8Array): RealtimeMessage | null {
       return null;
     }
 
-    if (parsed.type !== "run" && parsed.type !== "summary") {
+    if (
+      parsed.type !== "run" &&
+      parsed.type !== "summary" &&
+      parsed.type !== "feed"
+    ) {
       return null;
     }
 
@@ -110,6 +132,7 @@ export function connectRealtime(options: ConnectOptions): () => void {
 
   const runTopic = `${config.topicPrefix}/runs`;
   const summaryTopic = `${config.topicPrefix}/summary`;
+  const feedTopic = `${config.topicPrefix}/feeds`;
   let didConnect = false;
   let isClosing = false;
 
@@ -126,9 +149,11 @@ export function connectRealtime(options: ConnectOptions): () => void {
   client.on("connect", () => {
     didConnect = true;
     options.onStateChange?.("connected");
-    options.onDebug?.(`Connected. Subscribing to ${runTopic}, ${summaryTopic}`);
+    options.onDebug?.(
+      `Connected. Subscribing to ${runTopic}, ${summaryTopic}, ${feedTopic}`,
+    );
 
-    client.subscribe([runTopic, summaryTopic], (error) => {
+    client.subscribe([runTopic, summaryTopic, feedTopic], (error) => {
       if (error) {
         emitError("subscribe", error.message);
         return;

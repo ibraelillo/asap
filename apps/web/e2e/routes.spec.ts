@@ -113,6 +113,8 @@ test("bot overview and positions pages render cleanly", async ({ page }) => {
   await page.goto(`/bots/${BOT_ID}`);
   await expect(page.getByRole("heading", { name: "SUIUSDTM" })).toBeVisible();
   await expect(page.getByText(`ID: ${BOT_ID}`)).toBeVisible();
+  await expect(page.getByText("Shared Feed Pool")).toBeVisible();
+  await expect(page.getByText("wavetrend / 1h")).toBeVisible();
   const runtimeSwitch = page.locator('[role="switch"]').first();
   await expect(runtimeSwitch).toHaveAttribute("aria-checked", "true");
   await runtimeSwitch.click();

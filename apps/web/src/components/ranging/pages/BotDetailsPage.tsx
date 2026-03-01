@@ -14,6 +14,7 @@ import { MetricCard } from "../../trade-results/MetricCard";
 import {
   fetchStrategyDetails,
   fetchBotDetails,
+  fetchBotIndicatorPool,
   fetchBotPositions,
   fetchBotStats,
   fetchRuns,
@@ -31,6 +32,26 @@ import {
 } from "../StrategyConfigEditor";
 import { StrategyAnalysisSnapshot } from "../StrategyConfigSnapshot";
 import { asRecord, cloneRecord, mergeConfigDefaults } from "../config-utils";
+
+function formatIndicatorParams(params: Record<string, unknown>): string {
+  const entries = Object.entries(params);
+  if (entries.length === 0) return "-";
+
+  return entries
+    .map(([key, value]) =>
+      typeof value === "number" || typeof value === "string"
+        ? `${key}=${value}`
+        : `${key}=${JSON.stringify(value)}`,
+    )
+    .join(" · ");
+}
+
+function formatLatestValues(values?: Record<string, number>): string {
+  if (!values || Object.keys(values).length === 0) return "-";
+  return Object.entries(values)
+    .map(([key, value]) => `${key}=${value.toFixed(4).replace(/0+$/, "").replace(/\.$/, "")}`)
+    .join(" · ");
+}
 
 export function BotDetailsPage() {
   const { botId } = useParams<{ botId: string }>();
@@ -73,6 +94,11 @@ export function BotDetailsPage() {
   const { data: positions } = useSWR(
     botId ? ["bot-positions", botId] : null,
     ([, id]) => fetchBotPositions(String(id)),
+    { refreshInterval: 20_000, revalidateOnFocus: false },
+  );
+  const { data: indicatorPool } = useSWR(
+    botId ? ["bot-indicator-pool", botId] : null,
+    ([, id]) => fetchBotIndicatorPool(String(id)),
     { refreshInterval: 20_000, revalidateOnFocus: false },
   );
   const { data: strategyDetails } = useSWR(
@@ -474,6 +500,137 @@ export function BotDetailsPage() {
             No open position recorded for this bot.
           </p>
         )}
+      </section>
+
+      <section className="panel p-5">
+        <SectionHeader
+          title="Shared Feed Pool"
+          description="Shared candle and indicator feeds this bot currently consumes from the exchange-scoped pool."
+        />
+        <div className="grid grid-cols-1 gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)]">
+          <div className="space-y-3">
+            <p className="text-xs uppercase tracking-[0.16em] text-slate-400">
+              Candle Feeds
+            </p>
+            <div className="overflow-x-auto rounded-xl border border-white/10 bg-slate-950/40">
+              <table className="min-w-full text-left text-sm">
+                <thead>
+                  <tr className="text-xs uppercase tracking-wide text-slate-400">
+                    <th className="px-4 py-3">Role</th>
+                    <th className="px-4 py-3">TF</th>
+                    <th className="px-4 py-3">Status</th>
+                    <th className="px-4 py-3">Last Closed</th>
+                    <th className="px-4 py-3">Bars</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {(indicatorPool?.marketFeeds ?? []).map((feed) => (
+                    <tr
+                      key={`${feed.role}-${feed.timeframe}`}
+                      className="border-t border-white/5 text-slate-200"
+                    >
+                      <td className="px-4 py-3">
+                        <p className="font-medium text-slate-100">{feed.role}</p>
+                        <p className="mt-1 text-xs text-slate-500">
+                          lookback {feed.lookbackBars}
+                        </p>
+                      </td>
+                      <td className="px-4 py-3">{feed.timeframe}</td>
+                      <td className="px-4 py-3">
+                        <span className="rounded-full border border-white/10 bg-white/5 px-2 py-1 text-xs">
+                          {feed.status}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 text-xs text-slate-300">
+                        {formatDateTime(feed.lastClosedCandleTime)}
+                      </td>
+                      <td className="px-4 py-3 text-xs text-slate-300">
+                        {feed.candleCount ?? "-"} / max {feed.maxLookbackBars}
+                      </td>
+                    </tr>
+                  ))}
+                  {(indicatorPool?.marketFeeds ?? []).length === 0 ? (
+                    <tr>
+                      <td
+                        colSpan={5}
+                        className="px-4 py-4 text-sm text-slate-400"
+                      >
+                        No shared candle feeds registered for this bot yet.
+                      </td>
+                    </tr>
+                  ) : null}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <div className="space-y-3">
+            <p className="text-xs uppercase tracking-[0.16em] text-slate-400">
+              Indicator Feeds
+            </p>
+            <div className="overflow-x-auto rounded-xl border border-white/10 bg-slate-950/40">
+              <table className="min-w-full text-left text-sm">
+                <thead>
+                  <tr className="text-xs uppercase tracking-wide text-slate-400">
+                    <th className="px-4 py-3">Feed</th>
+                    <th className="px-4 py-3">Status</th>
+                    <th className="px-4 py-3">Latest</th>
+                    <th className="px-4 py-3">Updated</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {(indicatorPool?.indicatorFeeds ?? []).map((feed) => (
+                    <tr
+                      key={`${feed.role}-${feed.timeframe}-${feed.paramsHash}`}
+                      className="border-t border-white/5 align-top text-slate-200"
+                    >
+                      <td className="px-4 py-3">
+                        <p className="font-medium text-slate-100">
+                          {feed.role}
+                        </p>
+                        <p className="mt-1 text-xs text-slate-400">
+                          {feed.indicatorId} / {feed.timeframe}
+                        </p>
+                        <p className="mt-1 text-xs text-slate-500">
+                          {formatIndicatorParams(feed.params)}
+                        </p>
+                      </td>
+                      <td className="px-4 py-3">
+                        <span className="rounded-full border border-white/10 bg-white/5 px-2 py-1 text-xs">
+                          {feed.status}
+                        </span>
+                        {feed.errorMessage ? (
+                          <p className="mt-2 max-w-xs text-xs text-rose-300">
+                            {feed.errorMessage}
+                          </p>
+                        ) : null}
+                      </td>
+                      <td className="px-4 py-3 text-xs text-cyan-100">
+                        {formatLatestValues(feed.latestValues)}
+                      </td>
+                      <td className="px-4 py-3 text-xs text-slate-300">
+                        <p>{formatDateTime(feed.lastComputedAt)}</p>
+                        <p className="mt-1 text-slate-500">
+                          candle {formatDateTime(feed.lastComputedCandleTime)}
+                        </p>
+                      </td>
+                    </tr>
+                  ))}
+                  {(indicatorPool?.indicatorFeeds ?? []).length === 0 ? (
+                    <tr>
+                      <td
+                        colSpan={4}
+                        className="px-4 py-4 text-sm text-slate-400"
+                      >
+                        No shared indicator feeds registered for this bot yet.
+                      </td>
+                    </tr>
+                  ) : null}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
       </section>
 
       <section className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,2fr)_minmax(320px,1fr)]">

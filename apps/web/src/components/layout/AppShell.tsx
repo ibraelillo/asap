@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import useSWR from "swr";
+import useSWR, { useSWRConfig } from "swr";
 import { BarChart3, Bot, CandlestickChart, KeyRound, Layers3 } from "lucide-react";
 import { NavLink, Outlet, useOutletContext } from "react-router-dom";
 import {
@@ -47,11 +47,17 @@ export function AppShell() {
     import.meta.env.VITE_RANGING_REALTIME_DEBUG === "true";
 
   const { data, error, isLoading, mutate } = useDashboardData();
+  const { mutate: globalMutate } = useSWRConfig();
   const mutateRef = useRef(mutate);
+  const globalMutateRef = useRef(globalMutate);
 
   useEffect(() => {
     mutateRef.current = mutate;
   }, [mutate]);
+
+  useEffect(() => {
+    globalMutateRef.current = globalMutate;
+  }, [globalMutate]);
 
   useEffect(() => {
     if (import.meta.env.DEV && !didRunDevStrictEffect.current) {
@@ -69,7 +75,16 @@ export function AppShell() {
           console.debug(`[realtime] ${state}: ${details}`);
         }
       },
-      onMessage: () => {
+      onMessage: (message) => {
+        if (message.type === "feed") {
+          void globalMutateRef.current(
+            (key) => Array.isArray(key) && key[0] === "bot-indicator-pool",
+            undefined,
+            { revalidate: true },
+          );
+          return;
+        }
+
         if (timeoutId) return;
 
         timeoutId = setTimeout(() => {

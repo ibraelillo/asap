@@ -255,6 +255,9 @@ export default $config({
     api.route("GET /v1/bots/{botId}/positions", {
       handler: "apps/ranging-bot/src/results-api.botPositionsHandler",
     });
+    api.route("GET /v1/bots/{botId}/indicator-pool", {
+      handler: "apps/ranging-bot/src/results-api.botIndicatorPoolHandler",
+    });
     api.route("GET /v1/ranging/backtests", {
       handler: "apps/ranging-bot/src/results-api.backtestsHandler",
     });
@@ -376,6 +379,7 @@ export default $config({
       link: [
         feedsTable,
         klineCacheBucket,
+        realtime,
         runtimeConfig,
         indicatorRefreshQueue,
       ],
@@ -384,7 +388,7 @@ export default $config({
     indicatorRefreshQueue.subscribe({
       handler: "apps/ranging-bot/src/indicator-refresh-worker.handler",
       timeout: "2 minutes",
-      link: [feedsTable, klineCacheBucket, runtimeConfig],
+      link: [feedsTable, klineCacheBucket, realtime, runtimeConfig],
     });
 
     botExecutionQueue.subscribe({

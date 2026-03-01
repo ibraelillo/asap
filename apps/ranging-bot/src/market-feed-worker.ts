@@ -11,6 +11,7 @@ import { getRuntimeSettings } from "./runtime-settings";
 import { saveMarketFeedSnapshot } from "./shared-market-snapshots";
 import { getTimeframeDurationMs } from "./runtime-config";
 import type { MarketFeedState } from "./monitoring/types";
+import { publishFeedUpdate } from "./monitoring/realtime";
 
 const sqs = new SQSClient({});
 
@@ -157,6 +158,14 @@ export async function handler(event: SQSEvent) {
           lookbackBars: message.lookbackBars,
         },
       });
+      await publishFeedUpdate({
+        kind: "market",
+        exchangeId: message.exchangeId,
+        symbol: message.symbol,
+        timeframe: message.timeframe,
+        status: "ready",
+        updatedAt: Date.now(),
+      });
       const indicatorQueueUrl = getQueueUrl("RangingIndicatorRefreshQueue");
       const dependentIndicators = await listIndicatorFeedStatesForTimeframe({
         exchangeId: message.exchangeId,
@@ -214,6 +223,15 @@ export async function handler(event: SQSEvent) {
           timeframe: message.timeframe,
           lookbackBars: message.lookbackBars,
         },
+      });
+      await publishFeedUpdate({
+        kind: "market",
+        exchangeId: message.exchangeId,
+        symbol: message.symbol,
+        timeframe: message.timeframe,
+        status: "error",
+        updatedAt: Date.now(),
+        errorMessage: error instanceof Error ? error.message : String(error),
       });
       console.error("[market-feed-worker] refresh failed", {
         exchangeId: message.exchangeId,

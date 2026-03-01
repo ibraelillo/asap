@@ -105,6 +105,45 @@ export interface FeedRegistrySnapshot {
   indicatorFeeds: IndicatorFeedState[];
 }
 
+export interface BotIndicatorPoolMarketFeedView {
+  role: string;
+  timeframe: OrchestratorTimeframe;
+  lookbackBars: number;
+  status: MarketFeedState["status"];
+  requiredByCount: number;
+  maxLookbackBars: number;
+  lastClosedCandleTime?: number;
+  lastRefreshedAt?: number;
+  candleCount?: number;
+  errorMessage?: string;
+}
+
+export interface BotIndicatorPoolIndicatorFeedView {
+  role: string;
+  timeframe: OrchestratorTimeframe;
+  indicatorId: string;
+  paramsHash: string;
+  params: Record<string, unknown>;
+  lookbackBars: number;
+  status: IndicatorFeedState["status"];
+  requiredByCount: number;
+  maxLookbackBars: number;
+  lastComputedCandleTime?: number;
+  lastComputedAt?: number;
+  latestValues?: Record<string, number>;
+  errorMessage?: string;
+}
+
+export interface BotIndicatorPoolPayload {
+  generatedAt: string;
+  botId: string;
+  strategyId: string;
+  exchangeId: string;
+  symbol: string;
+  marketFeeds: BotIndicatorPoolMarketFeedView[];
+  indicatorFeeds: BotIndicatorPoolIndicatorFeedView[];
+}
+
 export interface BotRunRecord {
   id: string;
   botId: string;

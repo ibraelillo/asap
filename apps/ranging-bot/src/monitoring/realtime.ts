@@ -99,3 +99,30 @@ export async function publishTickSummary(
     summary,
   });
 }
+
+export async function publishFeedUpdate(update: {
+  kind: "market" | "indicator";
+  exchangeId: string;
+  symbol: string;
+  timeframe: string;
+  indicatorId?: string;
+  paramsHash?: string;
+  status: string;
+  updatedAt: number;
+  errorMessage?: string;
+}): Promise<void> {
+  const config = getRealtimeConfig();
+  if (!config) return;
+
+  const payload = {
+    type: "feed",
+    update,
+  };
+
+  const topics = [
+    `${config.topicPrefix}/feeds`,
+    `${config.topicPrefix}/symbols/${update.symbol}/feeds`,
+  ];
+
+  await Promise.allSettled(topics.map((topic) => publish(topic, payload)));
+}

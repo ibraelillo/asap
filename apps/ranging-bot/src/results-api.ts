@@ -2,7 +2,11 @@ import type {
   APIGatewayProxyEventV2,
   APIGatewayProxyResultV2,
 } from "aws-lambda";
-import type { BotDefinition, ExecutionContext } from "@repo/trading-engine";
+import {
+  createIndicatorParamsHash,
+  type BotDefinition,
+  type ExecutionContext,
+} from "@repo/trading-engine";
 import { Resource } from "sst";
 import {
   EventBridgeClient,
@@ -61,6 +65,10 @@ import {
   putBacktestRecord,
   putRangeValidationRecord,
 } from "./monitoring/store";
+import {
+  getIndicatorFeedState,
+  getMarketFeedState,
+} from "./feed-store";
 import type {
   AccountRecord,
   AccountSummary,
@@ -70,6 +78,7 @@ import type {
   BacktestTradeView,
   BotRecord,
   BotStatsSummary,
+  BotIndicatorPoolPayload,
   BotRunRecord,
   DashboardPayload,
   KlineCacheReference,
@@ -98,6 +107,7 @@ import {
   createPendingValidationRecord,
   createValidationIdentity,
 } from "./monitoring/validations";
+import { loadLatestIndicatorFeedSnapshot } from "./shared-indicator-snapshots";
 
 const DEFAULT_LIMIT = 200;
 const MAX_LIMIT = 500;
@@ -1797,6 +1807,129 @@ export async function botPositionsHandler(
   } catch (error) {
     console.error("[bot-api] bot positions failed", { error });
     return json(500, { error: "failed_to_load_positions" });
+  }
+}
+
+function latestIndicatorValues(
+  outputs: Record<string, number[]>,
+): Record<string, number> | undefined {
+  const entries = Object.entries(outputs)
+    .map(([key, values]) => {
+      const latest = [...values].reverse().find((value) => Number.isFinite(value));
+      return typeof latest === "number" ? ([key, latest] as const) : null;
+    })
+    .filter((entry): entry is readonly [string, number] => Boolean(entry));
+
+  if (entries.length === 0) {
+    return undefined;
+  }
+
+  return Object.fromEntries(entries);
+}
+
+export async function botIndicatorPoolHandler(
+  event: APIGatewayProxyEventV2,
+): Promise<APIGatewayProxyResultV2> {
+  const rawBotId = event.pathParameters?.botId?.trim();
+  if (!rawBotId) {
+    return json(400, { error: "missing_bot_id" });
+  }
+
+  try {
+    const botId = decodeURIComponent(rawBotId);
+    const bot = await resolveBotById(botId);
+    if (!bot) {
+      return json(404, { error: "bot_not_found" });
+    }
+
+    const resolved = strategyRegistry.get(bot);
+    const requiredFeeds = resolved.manifest.requiredFeeds({
+      bot,
+      config: resolved.config,
+    });
+
+    const marketFeeds = await Promise.all(
+      requiredFeeds.candles.map(async (requirement) => {
+        const state = await getMarketFeedState({
+          exchangeId: bot.exchangeId,
+          symbol: bot.symbol,
+          timeframe: requirement.timeframe,
+        });
+
+        return {
+          role: requirement.role,
+          timeframe: requirement.timeframe,
+          lookbackBars: requirement.lookbackBars,
+          status: state?.status ?? "stale",
+          requiredByCount: state?.requiredByCount ?? 0,
+          maxLookbackBars: state?.maxLookbackBars ?? requirement.lookbackBars,
+          lastClosedCandleTime: state?.lastClosedCandleTime,
+          lastRefreshedAt: state?.lastRefreshedAt,
+          candleCount: state?.candleCount,
+          errorMessage: state?.errorMessage,
+        };
+      }),
+    );
+
+    const indicatorFeeds = await Promise.all(
+      requiredFeeds.indicators.map(async (requirement) => {
+        const paramsHash = createIndicatorParamsHash({
+          indicatorId: requirement.indicatorId,
+          source: requirement.source,
+          params: requirement.params,
+        });
+        const state = await getIndicatorFeedState({
+          exchangeId: bot.exchangeId,
+          symbol: bot.symbol,
+          timeframe: requirement.timeframe,
+          indicatorId: requirement.indicatorId,
+          paramsHash,
+        });
+        const snapshot = state
+          ? await loadLatestIndicatorFeedSnapshot({
+              exchangeId: state.exchangeId,
+              symbol: state.symbol,
+              timeframe: state.timeframe,
+              indicatorId: state.indicatorId,
+              paramsHash: state.paramsHash,
+            })
+          : null;
+
+        return {
+          role: requirement.role,
+          timeframe: requirement.timeframe,
+          indicatorId: requirement.indicatorId,
+          paramsHash,
+          params: requirement.params,
+          lookbackBars: requirement.lookbackBars,
+          status: state?.status ?? "pending",
+          requiredByCount: state?.requiredByCount ?? 0,
+          maxLookbackBars: state?.maxLookbackBars ?? requirement.lookbackBars,
+          lastComputedCandleTime:
+            snapshot?.lastComputedCandleTime ?? state?.lastComputedCandleTime,
+          lastComputedAt: state?.lastComputedAt,
+          latestValues: snapshot
+            ? latestIndicatorValues(snapshot.outputs)
+            : undefined,
+          errorMessage: state?.errorMessage,
+        };
+      }),
+    );
+
+    const payload: BotIndicatorPoolPayload = {
+      generatedAt: new Date().toISOString(),
+      botId: bot.id,
+      strategyId: bot.strategyId,
+      exchangeId: bot.exchangeId,
+      symbol: bot.symbol,
+      marketFeeds,
+      indicatorFeeds,
+    };
+
+    return json(200, payload);
+  } catch (error) {
+    console.error("[bot-api] bot indicator pool failed", { error });
+    return json(500, { error: "failed_to_load_indicator_pool" });
   }
 }
 
