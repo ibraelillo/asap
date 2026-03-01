@@ -115,14 +115,22 @@ export class TaapiClient {
     request: TaapiManualIndicatorRequest,
   ): Promise<TaapiScalarLatestResponse> {
     const body = TaapiManualIndicatorRequestSchema.parse(request);
-    const response = await this.fetchJson(`${this.baseUrl}/${indicator}`, {
-      method: "POST",
-      body: JSON.stringify({ secret: this.secret, ...body }),
-      headers: {
-        "content-type": "application/json",
-      },
-    });
+    const response = await this.postManual(indicator, body);
     return TaapiScalarLatestResponseSchema.parse(response);
+  }
+
+  /**
+   * Executes the manual POST flow for structured indicators such as Fibonacci
+   * retracement. The TAAPI manual docs describe the same payload pattern for
+   * all indicator endpoints.
+   */
+  async postManualStructuredIndicator(
+    indicator: TaapiSupportedStructuredIndicator,
+    request: TaapiManualIndicatorRequest,
+  ): Promise<TaapiFibonacciLatestResponse> {
+    const body = TaapiManualIndicatorRequestSchema.parse(request);
+    const response = await this.postManual(indicator, body);
+    return TaapiFibonacciLatestResponseSchema.parse(response);
   }
 
   /**
@@ -138,6 +146,19 @@ export class TaapiClient {
       },
     });
     return TaapiBulkResponseSchema.parse(response);
+  }
+
+  private async postManual(
+    indicator: string,
+    body: TaapiManualIndicatorRequest,
+  ): Promise<unknown> {
+    return this.fetchJson(`${this.baseUrl}/${indicator}`, {
+      method: "POST",
+      body: JSON.stringify({ secret: this.secret, ...body }),
+      headers: {
+        "content-type": "application/json",
+      },
+    });
   }
 
   private buildDirectParams(request: TaapiDirectRequestBase): URLSearchParams {
