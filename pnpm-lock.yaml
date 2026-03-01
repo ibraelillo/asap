@@ -405,6 +405,19 @@ importers:
         specifier: ^4.1.12
         version: 4.3.6
 
+  packages/taapi-client:
+    dependencies:
+      zod:
+        specifier: ^4.1.12
+        version: 4.3.6
+    devDependencies:
+      '@repo/eslint-config':
+        specifier: workspace:*
+        version: link:../eslint-config
+      '@repo/typescript-config':
+        specifier: workspace:*
+        version: link:../typescript-config
+
   packages/trading-core:
     dependencies:
       zod:
