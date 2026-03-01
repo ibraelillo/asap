@@ -84,6 +84,32 @@ function waveTrend(candles: Candle[], channelLength: number, averageLength: numb
   return { wt1, wt2 };
 }
 
+function detectOscillatorDivergence(input: {
+  candles: Candle[];
+  lookbackBars: number;
+  oscillatorAt: (candles: Candle[]) => number;
+}): { bullish: boolean; bearish: boolean } {
+  const { candles, lookbackBars, oscillatorAt } = input;
+  if (candles.length < lookbackBars + 2) {
+    return { bullish: false, bearish: false };
+  }
+
+  const latestCandle = candles.at(-1);
+  const referenceIndex = candles.length - lookbackBars;
+  const referenceCandle = candles[referenceIndex];
+  if (!latestCandle || !referenceCandle) {
+    return { bullish: false, bearish: false };
+  }
+
+  const currentOscillator = oscillatorAt(candles);
+  const referenceOscillator = oscillatorAt(candles.slice(0, referenceIndex + 1));
+
+  return {
+    bullish: latestCandle.low < referenceCandle.low && currentOscillator > referenceOscillator,
+    bearish: latestCandle.high > referenceCandle.high && currentOscillator < referenceOscillator,
+  };
+}
+
 function fibonacciRetracement(candles: Candle[]): Record<string, number> {
   const highest = candles.reduce((acc, candle) => Math.max(acc, candle.high), Number.NEGATIVE_INFINITY);
   const lowest = candles.reduce((acc, candle) => Math.min(acc, candle.low), Number.POSITIVE_INFINITY);
@@ -97,9 +123,10 @@ function fibonacciRetracement(candles: Candle[]): Record<string, number> {
 }
 
 export class LocalIndicatorProvider implements IndicatorProvider {
-  computeLatest(input: { candles: Candle[]; request: IndicatorRequest }): Record<string, number> {
+  computeLatest(input: { candles: Candle[]; request: IndicatorRequest }): Record<string, unknown> {
     const values = input.candles.map(getSourceValue);
     const length = Number(input.request.params.length ?? 14);
+    const lookbackBars = Number(input.request.params.lookbackBars ?? 5);
 
     switch (input.request.indicatorId) {
       case "ema":
@@ -119,6 +146,28 @@ export class LocalIndicatorProvider implements IndicatorProvider {
       }
       case "fibonacciretracement":
         return fibonacciRetracement(input.candles);
+      case "rsidivergence":
+        return detectOscillatorDivergence({
+          candles: input.candles,
+          lookbackBars,
+          oscillatorAt: (candles) => rsi(candles, length),
+        });
+      case "mfidivergence":
+        return detectOscillatorDivergence({
+          candles: input.candles,
+          lookbackBars,
+          oscillatorAt: (candles) => mfi(candles, length),
+        });
+      case "wavetrenddivergence": {
+        const channelLength = Number(input.request.params.channelLength ?? 10);
+        const averageLength = Number(input.request.params.averageLength ?? 21);
+        return detectOscillatorDivergence({
+          candles: input.candles,
+          lookbackBars,
+          oscillatorAt: (candles) =>
+            Number(waveTrend(candles, channelLength, averageLength).wt1 ?? 0),
+        });
+      }
       default:
         return { value: 0 };
     }

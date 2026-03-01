@@ -9,6 +9,9 @@ export const IndicatorIdSchema = z.enum([
   "ema",
   "sma",
   "fibonacciretracement",
+  "rsidivergence",
+  "mfidivergence",
+  "wavetrenddivergence",
 ]);
 export type IndicatorId = z.infer<typeof IndicatorIdSchema>;
 
@@ -22,7 +25,7 @@ export interface IndicatorProvider {
   computeLatest(input: {
     candles: Candle[];
     request: IndicatorRequest;
-  }): Record<string, number>;
+  }): Record<string, unknown>;
 }
 
 export const TimeframeContextSchema = z.object({

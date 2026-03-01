@@ -26,20 +26,6 @@ function detectMorningStar(candles: Candle[]): boolean {
   return firstBearish && secondSmallBody && thirdBullishRecovery;
 }
 
-function detectBullishDivergence(candles: Candle[], indicatorValue: number): boolean {
-  const last = candles.at(-1);
-  const previous = candles.at(-5);
-  if (!last || !previous) return false;
-  return last.low < previous.low && indicatorValue > 50;
-}
-
-function detectBearishDivergence(candles: Candle[], indicatorValue: number): boolean {
-  const last = candles.at(-1);
-  const previous = candles.at(-5);
-  if (!last || !previous) return false;
-  return last.high > previous.high && indicatorValue < 50;
-}
-
 export function buildTimeframeContext(input: BuildTimeframeContextInput): TimeframeContext {
   const lastCandle = input.candles.at(-1);
   if (!lastCandle) {
@@ -55,6 +41,15 @@ export function buildTimeframeContext(input: BuildTimeframeContextInput): Timefr
 
   const rsiValue = Number((indicators.rsi as { value?: number } | undefined)?.value ?? 50);
   const mfiValue = Number((indicators.mfi as { value?: number } | undefined)?.value ?? 50);
+  const rsiDivergence = indicators.rsidivergence as
+    | { bullish?: boolean; bearish?: boolean }
+    | undefined;
+  const mfiDivergence = indicators.mfidivergence as
+    | { bullish?: boolean; bearish?: boolean }
+    | undefined;
+  const wtDivergence = indicators.wavetrenddivergence as
+    | { bullish?: boolean; bearish?: boolean }
+    | undefined;
 
   return TimeframeContextSchema.parse({
     symbol: input.symbol,
@@ -64,10 +59,12 @@ export function buildTimeframeContext(input: BuildTimeframeContextInput): Timefr
     candles: input.candles.slice(-20),
     indicators,
     divergences: {
-      rsiBullish: detectBullishDivergence(input.candles, rsiValue),
-      rsiBearish: detectBearishDivergence(input.candles, rsiValue),
-      mfiBullish: detectBullishDivergence(input.candles, mfiValue),
-      mfiBearish: detectBearishDivergence(input.candles, mfiValue),
+      rsiBullish: rsiDivergence?.bullish ?? rsiValue > 50,
+      rsiBearish: rsiDivergence?.bearish ?? rsiValue < 50,
+      mfiBullish: mfiDivergence?.bullish ?? mfiValue > 50,
+      mfiBearish: mfiDivergence?.bearish ?? mfiValue < 50,
+      wtBullish: wtDivergence?.bullish ?? false,
+      wtBearish: wtDivergence?.bearish ?? false,
     },
     patterns: {
       hammer: detectHammer(lastCandle),

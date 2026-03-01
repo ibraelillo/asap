@@ -34,6 +34,12 @@ describe("market context", () => {
         { indicatorId: "rsi", params: { length: 14 } },
         { indicatorId: "mfi", params: { length: 14 } },
         { indicatorId: "wavetrend", params: { channelLength: 10, averageLength: 21 } },
+        { indicatorId: "rsidivergence", params: { length: 14, lookbackBars: 5 } },
+        { indicatorId: "mfidivergence", params: { length: 14, lookbackBars: 5 } },
+        {
+          indicatorId: "wavetrenddivergence",
+          params: { channelLength: 10, averageLength: 21, lookbackBars: 5 },
+        },
         { indicatorId: "ema", params: { length: 20 } },
         { indicatorId: "sma", params: { length: 20 } },
         { indicatorId: "fibonacciretracement", params: {} },
@@ -43,6 +49,7 @@ describe("market context", () => {
     expect(context.indicators.rsi).toBeTruthy();
     expect(context.patterns.hammer).toBeTypeOf("boolean");
     expect(context.divergences.rsiBullish).toBeTypeOf("boolean");
+    expect(context.divergences.wtBullish).toBeTypeOf("boolean");
     expect(context.levels.fibonacciretracement).toBeTruthy();
     expect(JSON.parse(JSON.stringify(context)).symbol).toBe("BTCUSDTM");
   });
