@@ -354,11 +354,59 @@ importers:
         specifier: workspace:*
         version: link:../typescript-config
 
+  packages/market-context:
+    dependencies:
+      '@repo/trading-core':
+        specifier: workspace:*
+        version: link:../trading-core
+      zod:
+        specifier: ^4.1.12
+        version: 4.3.6
+    devDependencies:
+      '@repo/eslint-config':
+        specifier: workspace:*
+        version: link:../eslint-config
+      '@repo/typescript-config':
+        specifier: workspace:*
+        version: link:../typescript-config
+
   packages/ranging-core:
     dependencies:
       '@repo/trading-engine':
         specifier: workspace:*
         version: link:../trading-engine
+      zod:
+        specifier: ^4.1.12
+        version: 4.3.6
+    devDependencies:
+      '@repo/eslint-config':
+        specifier: workspace:*
+        version: link:../eslint-config
+      '@repo/typescript-config':
+        specifier: workspace:*
+        version: link:../typescript-config
+
+  packages/strategy-runtime:
+    dependencies:
+      '@repo/market-context':
+        specifier: workspace:*
+        version: link:../market-context
+      '@repo/trading-core':
+        specifier: workspace:*
+        version: link:../trading-core
+    devDependencies:
+      '@repo/eslint-config':
+        specifier: workspace:*
+        version: link:../eslint-config
+      '@repo/typescript-config':
+        specifier: workspace:*
+        version: link:../typescript-config
+      zod:
+        specifier: ^4.1.12
+        version: 4.3.6
+
+  packages/trading-core:
+    dependencies:
       zod:
         specifier: ^4.1.12
         version: 4.3.6
